@@ -1,0 +1,32 @@
+{
+    "name": "armageddon-core",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Armageddon Level 7 Certification Engine - Adversarial AI Testing Microservice",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsx watch src/worker.ts",
+        "worker": "tsx src/worker.ts",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint src --ext .ts"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.39.0",
+        "@temporalio/activity": "^1.10.0",
+        "@temporalio/client": "^1.10.0",
+        "@temporalio/worker": "^1.10.0",
+        "@temporalio/workflow": "^1.10.0",
+        "next": "14.1.0",
+        "uuid": "^9.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "@types/uuid": "^9.0.0",
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.0"
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    }
+}

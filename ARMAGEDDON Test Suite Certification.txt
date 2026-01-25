@@ -1,0 +1,213 @@
+Playbook 2 (Detailed): Armageddon Test Suite Certification (ATSC)
+
+Product name: Armageddon Test Suite Certification
+Purpose: A destructive-by-design (sandboxed) certification harness that runs all batteries concurrently and produces an evidence bundle + certificate.
+
+1) Scope and outcomes
+Outcomes (definition of certified)
+
+One command produces:
+
+report.md, report.json, certificate.txt, junit.xml
+
+evidence logs and artifacts
+
+All batteries start concurrently (proved by timestamps).
+
+Destructive sims refuse to run without sandbox signals.
+
+Results are deterministic and repeatable (seeded chaos).
+
+Non-goals
+
+Not a compliance certification unless explicitly mapped.
+
+Not a replacement for human pen testing—this is a repeatable systems test.
+
+2) Safety model (the novelty)
+2.1 Sandbox-only destruction
+
+Hard requirements:
+
+Must have SIM_MODE=true AND SANDBOX_TENANT set
+
+Must refuse if production URL heuristics trigger
+
+Battery 6 is PASS when blocking unsafe runs
+
+2.2 Containment
+
+Isolate each battery:
+
+temp directories
+
+ports
+
+DB schema/tenant routing (sandbox tenant)
+
+Cap concurrency inside runners to avoid self-induced flake
+
+3) Concurrency model (mandatory)
+3.1 “All tests concurrent” meaning
+
+Each battery is launched as a separate OS process at the start of the run.
+
+Additional internal concurrency is allowed but bounded:
+
+Vitest workers capped
+
+Playwright workers capped
+
+Chaos sim threads capped
+
+3.2 Resource isolation rules
+
+Port allocator provides unique ports per battery.
+
+TMPDIR set per battery.
+
+Shared preview server may run once; Playwright/assets run against it concurrently.
+
+3.3 Determinism
+
+Default seed (e.g., CHAOS_SEED=42)
+
+Reruns produce identical outcomes unless code changed.
+
+4) Battery catalog (standard)
+Battery 1: Chaos Stress
+
+Timeouts, connection resets, retries, auth churn
+
+Measures: retry success rate, p95 latency (if instrumented)
+
+Battery 2: Chaos Engine Unit
+
+Idempotency, dedupe receipts, guardrails
+
+Measures: dedupe hit rate, replay correctness
+
+Battery 3: Prompt Injection Defense
+
+Direct + obfuscated injection patterns
+
+Tool-output injection variants
+
+Multilingual variants (EN + JP)
+
+Battery 4: Security & Auth E2E
+
+CSRF, suspicious activity tracking, auth failure thresholds
+
+Battery 5: Full Unit / Module battery
+
+Core libs, storage, guardians, web3 tests
+
+Battery 6: Unsafe Destruction Gate
+
+PASS when blocked without sandbox flags
+
+Battery 7: Playwright E2E (infra-dependent)
+
+Requires server up; smoke critical UI flows
+
+Battery 8: Asset Smoke (infra-dependent)
+
+Checks bundle validity and asset availability
+
+5) Evidence bundle standard (sellable)
+Required artifacts
+
+armageddon-report.json (structured)
+
+armageddon-report.md (executive + engineering)
+
+certificate.txt (verdict + grade + timestamp + run id)
+
+junit.xml (aggregate)
+
+evidence/*.log per battery (with timestamps)
+
+optional: screenshots/videos
+
+Required report sections
+
+Executive summary (grade, verdict)
+
+Battery table (status + duration + notes)
+
+Top findings (risk-ranked)
+
+Remediation plan (smallest shippable steps)
+
+Rerun command + seed + env contract
+
+Artifact index
+
+6) Integration-wide certification harness (all integrations)
+Manifest contract
+
+For each integration:
+
+id, displayName, category, authType
+
+sandboxRequirements
+
+supportedActions
+
+riskClass
+
+requiredScopes
+
+Contract tests (DRY by default)
+
+handshake, auth, health
+
+read/write with idempotency key
+
+webhook signature verify (if applicable)
+
+audit event present with correlation id
+
+injection attempt cannot escalate
+
+Sandbox mode (gated)
+
+Runs provider calls only if sandbox creds exist and SIM_MODE/SANDBOX_TENANT set.
+
+7) CI & quality gates
+CI workflow
+
+Battery-level matrix jobs run in parallel
+
+Upload evidence bundle as artifact
+
+Enforce no cancellation of required jobs (careful concurrency groups)
+
+SonarQube A-grade discipline
+
+No new blockers/criticals
+
+Limit complexity (small functions)
+
+Unit tests for new orchestrator/report logic
+
+No duplication in helpers
+
+No secrets
+
+8) Remediation and recertification
+
+Every FAIL must produce a reproduction command (same seed)
+
+Fixes must include regression tests
+
+Re-run ATSC and issue updated certificate
+
+9) Rollback / disable plan
+
+Feature flag for destructive sims
+
+Disable armageddon scripts in production builds
+
+Remove CI workflow if it destabilizes pipeline
