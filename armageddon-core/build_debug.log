@@ -1,0 +1,17 @@
+
+> armageddon-core@1.0.0 build
+> next build
+
+   ▲ Next.js 14.1.0
+
+   Creating an optimized production build ...
+
+> Build error occurred
+Error: The packages specified in the 'transpilePackages' conflict with the 'serverComponentsExternalPackages': @temporalio/client
+    at getBaseWebpackConfig (C:\Users\sinyo\Armageddon-Core\armageddon-core\node_modules\next\dist\build\webpack-config.js:614:19)
+    at C:\Users\sinyo\Armageddon-Core\armageddon-core\node_modules\next\dist\build\webpack-build\impl.js:148:40
+    at async Span.traceAsyncFn (C:\Users\sinyo\Armageddon-Core\armageddon-core\node_modules\next\dist\trace\trace.js:151:20)
+    at async webpackBuildImpl (C:\Users\sinyo\Armageddon-Core\armageddon-core\node_modules\next\dist\build\webpack-build\impl.js:133:21)
+    at async Object.workerMain (C:\Users\sinyo\Armageddon-Core\armageddon-core\node_modules\next\dist\build\webpack-build\impl.js:313:20) {
+  type: 'Error'
+}
