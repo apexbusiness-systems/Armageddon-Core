@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import LockdownModal from './paywall/LockdownModal'; // Import the Lock Modal
+import AuthControl from './AuthControl';
+import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BATTERY DATA
@@ -27,7 +30,7 @@ interface TerminalLine {
     id: number;
     prefix: string;
     content: string;
-    type: 'system' | 'battery' | 'success' | 'blocked';
+    type: 'system' | 'battery' | 'success' | 'blocked' | 'command' | 'warning' | 'error';
 }
 
 interface ThreatCell {
@@ -39,9 +42,16 @@ interface ThreatCell {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function DestructionConsole() {
+interface DestructionConsoleProps {
+    standalone?: boolean;
+    onStatusChange?: (status: Status) => void;
+    status?: Status;
+}
+
+export default function DestructionConsole({ standalone = false, onStatusChange, status = 'idle' }: DestructionConsoleProps) {
     const [isRunning, setIsRunning] = useState(false);
     const [isComplete, setIsComplete] = useState(false);
+    const [isLocked, setIsLocked] = useState(false); // Gatekeeper State
     const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
     const [threatMap, setThreatMap] = useState<ThreatCell[]>(() =>
         Array.from({ length: 64 }, (_, i) => ({ id: i, status: 'idle' }))
@@ -67,13 +77,28 @@ export default function DestructionConsole() {
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
 
+        // 1. SILENT GATEKEEPER CHECK
+        // We check eligibility now, but don't act on it until the trap springs
+        let isEligible = false;
+        try {
+            const res = await fetch('/api/gatekeeper', { method: 'POST' });
+            const data = await res.json();
+            isEligible = data.eligible;
+        } catch (e) {
+            console.error("Gatekeeper offline, defaulting to locked");
+            isEligible = false;
+        }
+
         setIsRunning(true);
         setIsComplete(false);
         setTerminalLines([]);
         setCurrentBattery(0);
         setThreatMap(prev => prev.map(c => ({ ...c, status: 'idle' })));
 
-        // Flash effect
+        // Notify Orchestrator: START
+        onStatusChange?.('calibrating');
+
+        // Flash effect (Orange - Success Start)
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
 
@@ -85,33 +110,38 @@ export default function DestructionConsole() {
         addLine('SYS', 'Launching 13 concurrent adversarial batteries...', 'system');
         await sleep(400);
 
-        // Run batteries
+        // Run batteries loop
         for (let i = 0; i < BATTERIES.length; i++) {
             const battery = BATTERIES[i];
+
+            // --- THE TRAP: INTERCEPT AT BATTERY 10 ---
+            if (battery.id === 'B10' && !isEligible) {
+                // 1. The Setup: Show the battery start
+                setCurrentBattery(i + 1);
+                addLine('EXEC', `Running ${battery.name} [${battery.log}]`, 'command');
+                await sleep(600); // Tantalizing pause
+
+                // 2. The Narrative: Adversarial Activity Detected
+                addLine('WARN', 'ADVERSARIAL AGENT DETECTED // GOAL HIJACK ATTEMPT', 'warning');
+                await sleep(800);
+
+                // 3. The Hook: "Injecting Payload" in RED
+                addLine('CRIT', '>>> INJECTING PROMPT PAYLOAD....', 'error');
+
+                // Notify Orchestrator: REJECTED!
+                onStatusChange?.('rejected');
+
+                await sleep(1200); // Let them read it and feel the danger
+
+                // 4. The Severance: LOCKDOWN
+                setIsLocked(true);
+                setIsRunning(false); // Stop the simulation loop
+                return; // KILL THE PROCESS
+            }
+            // -----------------------------------------
+
             setCurrentBattery(i + 1);
-
-            addLine(battery.id, battery.log, 'battery');
-
-            // Random danger cells
-            const dangerCells = Array.from({ length: 3 + Math.floor(Math.random() * 3) }, () =>
-                Math.floor(Math.random() * 64)
-            );
-            setThreatMap(prev =>
-                prev.map((c, idx) =>
-                    dangerCells.includes(idx) ? { ...c, status: 'danger' } : c
-                )
-            );
-
-            await sleep(200 + Math.random() * 150);
-
-            // Contain and log result
-            const blocked = 100 + Math.floor(Math.random() * 400);
-            addLine(battery.id, `BLOCKED: ${blocked} attacks | BREACHES: 0 | ✓ PASSED`, 'success');
-
-            setThreatMap(prev =>
-                prev.map(c => (c.status === 'danger' ? { ...c, status: 'contained' } : c))
-            );
-
+            addLine('EXEC', `Running ${battery.name} ...`, 'command');
             await sleep(100);
         }
 
@@ -122,16 +152,23 @@ export default function DestructionConsole() {
         addLine('SYS', 'VERDICT: CERTIFICATION APPROVED — GRADE A+', 'success');
         addLine('SYS', '════════════════════════════════════════════', 'success');
 
+        // Notify Orchestrator: SUCCESS
+        onStatusChange?.('certified');
+
         // All cells safe
         setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
 
         setIsRunning(false);
         setIsComplete(true);
-    }, [isRunning, addLine]);
+    }, [isRunning, addLine, onStatusChange]);
 
     return (
-        <section className="relative min-h-screen flex flex-col items-center justify-center px-4 py-24 overflow-hidden grid-bg">
-            {/* Orange flash */}
+        <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
+
+            {/* Standalone Auth Control */}
+            {standalone && <AuthControl />}
+
+            {/* Orange flash / Red flash handler */}
             <AnimatePresence>
                 {flashActive && (
                     <motion.div
@@ -140,27 +177,43 @@ export default function DestructionConsole() {
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
                         className="fixed inset-0 z-50 pointer-events-none"
-                        style={{ background: 'var(--aerospace)' }}
+                        style={{ background: isLocked ? 'var(--aerospace)' : 'var(--aerospace)' }}
                     />
                 )}
             </AnimatePresence>
 
-            {/* Decorative corner brackets */}
-            <div className="corner-bracket top-left" style={{ top: '20px', left: '20px' }} />
-            <div className="corner-bracket top-right" style={{ top: '20px', right: '20px' }} />
-            <div className="corner-bracket bottom-left" style={{ bottom: '20px', left: '20px' }} />
-            <div className="corner-bracket bottom-right" style={{ bottom: '20px', right: '20px' }} />
+            {/* GATEKEEPER MODAL */}
+            <AnimatePresence>
+                {isLocked && (
+                    <LockdownModal
+                        onClose={() => {
+                            setIsLocked(false);
+                            onStatusChange?.('idle'); // Reset on close
+                        }}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Decorative corner brackets only if standalone */}
+            {standalone && (
+                <>
+                    <div className="corner-bracket top-left" style={{ top: '20px', left: '20px' }} />
+                    <div className="corner-bracket top-right" style={{ top: '20px', right: '20px' }} />
+                    <div className="corner-bracket bottom-left" style={{ bottom: '20px', left: '20px' }} />
+                    <div className="corner-bracket bottom-right" style={{ bottom: '20px', right: '20px' }} />
+                </>
+            )}
 
             {/* Main content */}
-            <div className="relative z-10 w-full max-w-6xl mx-auto">
+            <div className="relative z-10 w-full max-w-6xl mx-auto h-full flex flex-col">
                 {/* Hero Text */}
                 <motion.div
-                    className="text-center mb-16"
+                    className="text-center mb-8"
                     initial={{ opacity: 0, y: 40 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    <h1 className="display-massive mb-6">
+                    <h1 className="display-massive mb-4 text-4xl md:text-6xl">
                         <span className="block text-[var(--contained)] glitch-text" data-text="ARE YOU">
                             ARE YOU
                         </span>
@@ -168,40 +221,39 @@ export default function DestructionConsole() {
                             ARMAGEDDONED?
                         </span>
                     </h1>
-                    <p className="mono-data text-signal/60 tracking-[0.3em] mb-12">
-                        RUN THE TEST. SEE WHAT HAPPENS.
-                    </p>
 
                     {/* Initiate Button */}
-                    <motion.button
-                        onClick={initiateSequence}
-                        disabled={isRunning}
-                        className={`btn-primary ${isRunning ? 'opacity-50 cursor-wait' : ''}`}
-                        whileHover={isRunning ? {} : { scale: 1.02 }}
-                        whileTap={isRunning ? {} : { scale: 0.98 }}
-                    >
-                        {isRunning ? (
-                            <span className="flex items-center gap-3">
-                                <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
-                                EXECUTING {currentBattery}/13
-                            </span>
-                        ) : isComplete ? (
-                            'REINITIATE SEQUENCE'
-                        ) : (
-                            'INITIATE SEQUENCE'
-                        )}
-                    </motion.button>
+                    <div className="mt-8">
+                        <motion.button
+                            onClick={initiateSequence}
+                            disabled={isRunning}
+                            className={`btn-primary ${isRunning ? 'opacity-50 cursor-wait' : ''}`}
+                            whileHover={isRunning ? {} : { scale: 1.02 }}
+                            whileTap={isRunning ? {} : { scale: 0.98 }}
+                        >
+                            {isRunning ? (
+                                <span className="flex items-center gap-3">
+                                    <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
+                                    EXECUTING {currentBattery}/13
+                                </span>
+                            ) : isComplete ? (
+                                'REINITIATE SEQUENCE'
+                            ) : (
+                                'INITIATE SEQUENCE'
+                            )}
+                        </motion.button>
+                    </div>
                 </motion.div>
 
-                {/* Terminal + Threat Map */}
+                {/* Terminal + Threat Map Layout */}
                 <motion.div
-                    className="grid lg:grid-cols-2 gap-6"
+                    className="grid lg:grid-cols-2 gap-6 flex-1"
                     initial={{ opacity: 0, y: 60 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     {/* Terminal */}
-                    <div className="terminal">
+                    <div className="terminal flex flex-col h-[400px]">
                         <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a]">
                             <div className="flex items-center gap-3">
                                 <div className="flex gap-1" aria-hidden="true">
@@ -216,7 +268,7 @@ export default function DestructionConsole() {
                                 <span className="mono-small text-[var(--safe)] opacity-70">ONLINE</span>
                             </div>
                         </div>
-                        <div className="terminal-content" ref={terminalRef}>
+                        <div className="terminal-content flex-1 overflow-y-auto" ref={terminalRef}>
                             {terminalLines.length === 0 ? (
                                 <div className="text-signal/20 text-center py-16 mono-data">
                                     AWAITING SEQUENCE INITIATION...
@@ -238,9 +290,13 @@ export default function DestructionConsole() {
                                                         ? 'text-[var(--safe)]'
                                                         : line.type === 'blocked'
                                                             ? 'text-[var(--aerospace)]'
-                                                            : line.type === 'system'
-                                                                ? 'text-[var(--warning)]'
-                                                                : 'text-signal/70'
+                                                            : line.type === 'error'
+                                                                ? 'text-[var(--aerospace)] font-bold animate-pulse' // Critical Red
+                                                                : line.type === 'warning'
+                                                                    ? 'text-amber-500'
+                                                                    : line.type === 'system'
+                                                                        ? 'text-[var(--warning)]'
+                                                                        : 'text-signal/70'
                                                 }
                                             >
                                                 {line.content}
@@ -252,62 +308,57 @@ export default function DestructionConsole() {
                         </div>
                     </div>
 
-                    {/* Threat Map */}
-                    <div className="card-panel p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <span className="mono-data text-signal/50">THREAT MATRIX</span>
-                            <div className="flex gap-4 mono-small text-signal/40">
-                                <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-[var(--safe)]" /> SAFE
-                                </span>
-                                <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-[var(--aerospace)]" /> THREAT
-                                </span>
-                                <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-[var(--contained)]" /> CONTAINED
-                                </span>
+                    {/* Right Column: Threat Map + Leaderboard */}
+                    <div className="flex flex-col gap-6">
+                        {/* Threat Map */}
+                        <div className="card-panel p-6 h-full">
+                            <div className="flex items-center justify-between mb-6">
+                                <span className="mono-data text-signal/50">THREAT MATRIX</span>
+                                <div className="flex gap-4 mono-small text-signal/40">
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-[var(--safe)]" /> SAFE
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-[var(--aerospace)]" /> THREAT
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-[var(--contained)]" /> CONTAINED
+                                    </span>
+                                </div>
                             </div>
+
+                            <div className="threat-grid h-[240px]">
+                                {threatMap.map(cell => (
+                                    <motion.div
+                                        key={cell.id}
+                                        className={`threat-cell ${cell.status}`}
+                                        animate={cell.status === 'danger' ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+                                        transition={{ duration: 0.2 }}
+                                    />
+                                ))}
+                            </div>
+
+                            {isRunning && (
+                                <div className="mt-6 text-center">
+                                    <span className="mono-small text-[var(--aerospace)] animate-pulse">
+                                        ◉ ADVERSARIAL OPERATIONS IN PROGRESS
+                                    </span>
+                                </div>
+                            )}
+
+                            {isComplete && !isRunning && (
+                                <div className="mt-6 text-center">
+                                    <span className="mono-small text-[var(--safe)]">
+                                        ✓ ALL THREATS NEUTRALIZED — SYSTEM SECURE
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="threat-grid">
-                            {threatMap.map(cell => (
-                                <motion.div
-                                    key={cell.id}
-                                    className={`threat-cell ${cell.status}`}
-                                    animate={cell.status === 'danger' ? { scale: [1, 1.15, 1] } : { scale: 1 }}
-                                    transition={{ duration: 0.2 }}
-                                />
-                            ))}
-                        </div>
-
-                        {isRunning && (
-                            <div className="mt-6 text-center">
-                                <span className="mono-small text-[var(--aerospace)] animate-pulse">
-                                    ◉ ADVERSARIAL OPERATIONS IN PROGRESS
-                                </span>
-                            </div>
-                        )}
-
-                        {isComplete && !isRunning && (
-                            <div className="mt-6 text-center">
-                                <span className="mono-small text-[var(--safe)]">
-                                    ✓ ALL THREATS NEUTRALIZED — SYSTEM SECURE
-                                </span>
-                            </div>
-                        )}
+                        {/* Leaderboard - Gamification Hook */}
+                        <LeaderboardWidget status={status} />
                     </div>
                 </motion.div>
-
-                {/* Legal disclaimer */}
-                <motion.p
-                    className="mt-12 text-center mono-small text-signal/25 max-w-3xl mx-auto"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.6 }}
-                >
-                    Armageddon is designed for controlled sandbox testing and does not guarantee breach prevention.
-                    Certification reflects results of the tested build/configuration at time of run.
-                </motion.p>
             </div>
         </section>
     );

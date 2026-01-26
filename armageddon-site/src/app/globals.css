@@ -993,36 +993,37 @@ body {
 }
 
 /* THE BRIMSTONE TEXTURE */
+/* THE BRIMSTONE TEXTURE (Restored Image-Based) */
 .text-brimstone {
-  background: linear-gradient(180deg,
-      #FF3300 10%,
-      #FF8C00 50%,
-      #330000 90%);
+  position: relative;
+  color: transparent;
+  background-image: url('/magma-texture.png');
+  background-size: cover;
+  background-position: center;
   -webkit-background-clip: text;
   background-clip: text;
-  color: transparent;
-  text-shadow:
-    0px 2px 10px rgba(255, 51, 0, 0.4),
-    0px 0px 20px rgba(255, 51, 0, 0.2);
-  position: relative;
+
+  /* Reinforced outline */
+  -webkit-text-stroke: 1px rgba(255, 60, 0, 0.5);
+
+  /* Deep glow */
+  filter: drop-shadow(0 0 15px rgba(255, 40, 0, 0.5));
 }
 
 /* THE CRACKED LAVA ANIMATION (Optional Intensity) */
-@keyframes magma-flow {
+/* MAGMA BREATHE ANIMATION */
+@keyframes magmaBreathe {
   0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
+    filter: drop-shadow(0 0 15px rgba(255, 40, 0, 0.5)) brightness(1);
+    background-size: 110%;
   }
 
   100% {
-    background-position: 0% 50%;
+    filter: drop-shadow(0 0 30px rgba(255, 60, 0, 0.8)) brightness(1.2);
+    background-size: 120%;
   }
 }
 
 .text-brimstone-live {
-  background-size: 200% auto;
-  animation: magma-flow 3s linear infinite;
+  animation: magmaBreathe 6s ease-in-out infinite alternate;
 }
