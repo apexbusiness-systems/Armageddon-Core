@@ -44,6 +44,8 @@ graph TD
     *   Framework: **Next.js 14** (App Router)
     *   Styling: **Tailwind CSS** + Industrial Brutalist Design System
     *   Features: Realtime WebSocket (Supabase), WebGL visualizers (Three.js/Framer)
+    *   **Psychology**: "Status Injury Loop" (Social Pressure + Rejection Mechanics)
+    *   **Social**: Global Leaderboard with "God Mode" Verification Status
 
 *   **Adversarial Engine (`armageddon-core`)**:
     *   Orchestration: **Temporal.io** (TypeScript SDK)
