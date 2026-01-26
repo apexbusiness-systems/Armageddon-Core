@@ -213,11 +213,11 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    <h1 className="display-massive mb-4 text-4xl md:text-6xl">
-                        <span className="block text-[var(--contained)] glitch-text" data-text="ARE YOU">
+                    <h1 className="display-massive mb-6 tracking-tighter w-full">
+                        <span className="block text-[var(--contained)] glitch-text leading-[0.85]" data-text="ARE YOU">
                             ARE YOU
                         </span>
-                        <span className="block text-brimstone text-brimstone-live tracking-tighter" data-text="ARMAGEDDONED?">
+                        <span className="block text-brimstone text-brimstone-live tracking-tighter leading-[0.85]" data-text="ARMAGEDDONED?">
                             ARMAGEDDONED?
                         </span>
                     </h1>

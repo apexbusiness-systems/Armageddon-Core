@@ -134,6 +134,6 @@ graph TD
 
 ## 📜 LICENSE
 
-**CONFIDENTIAL**. Source code and testing methodologies are proprietary to **APEX Business Systems**. Unauthorized reproduction or reverse engineering of the adversarial batteries is strictly prohibited.
+**CONFIDENTIAL**. Source code and testing methodologies are proprietary to **APEX Business Systems Ltd.**. Unauthorized reproduction or reverse engineering of the adversarial batteries is strictly prohibited.
 
-*Copyright © 2026 APEX Business Systems. All rights reserved.*
+*Copyright © 2026 APEX Business Systems Ltd. All rights reserved.*

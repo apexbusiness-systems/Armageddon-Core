@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: 'ARMAGEDDON | Adversarial AI Certification',
     description: 'Sandboxed adversarial certification for AI & software systems. Destruction-grade testing, evidence-based certification. Are you Armageddoned?',
     keywords: ['AI security', 'adversarial testing', 'prompt injection', 'LLM security', 'certification', 'sandbox testing', 'OWASP', 'AI red team'],
-    authors: [{ name: 'APEX Business Systems' }],
+    authors: [{ name: 'APEX Business Systems Ltd.' }],
     openGraph: {
         title: 'ARMAGEDDON Test Suite Certification',
         description: 'Run the test. See what happens. Sandboxed adversarial certification with receipts.',
