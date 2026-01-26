@@ -132,17 +132,20 @@ body {
   pointer-events: none;
   z-index: 1;
   background:
-    /* Bottom fire - rising from below */
-    radial-gradient(ellipse 150% 60% at 50% 110%, rgba(255, 60, 0, 0.35) 0%, rgba(255, 30, 0, 0.15) 40%, transparent 70%),
-    /* Left fire pillar */
-    radial-gradient(ellipse 40% 80% at 10% 80%, rgba(255, 80, 0, 0.25) 0%, transparent 60%),
-    /* Right fire pillar */
-    radial-gradient(ellipse 40% 80% at 90% 80%, rgba(255, 60, 0, 0.25) 0%, transparent 60%),
-    /* Center ambient */
-    radial-gradient(ellipse 100% 100% at 50% 50%, rgba(255, 40, 0, 0.08) 0%, transparent 60%),
-    /* Top subtle glow */
-    radial-gradient(ellipse 80% 30% at 50% -10%, rgba(255, 50, 0, 0.15) 0%, transparent 60%);
-  animation: fireFlicker 4s ease-in-out infinite;
+    /* Bottom fire - rising from below (INTENSIFIED) */
+    radial-gradient(ellipse 180% 70% at 50% 115%, rgba(255, 70, 0, 0.55) 0%, rgba(255, 40, 0, 0.35) 30%, rgba(255, 20, 0, 0.15) 50%, transparent 75%),
+    /* Left fire pillar (STRONGER) */
+    radial-gradient(ellipse 50% 90% at 8% 85%, rgba(255, 90, 0, 0.45) 0%, rgba(255, 60, 0, 0.25) 40%, transparent 70%),
+    /* Right fire pillar (STRONGER) */
+    radial-gradient(ellipse 50% 90% at 92% 85%, rgba(255, 70, 0, 0.45) 0%, rgba(255, 50, 0, 0.25) 40%, transparent 70%),
+    /* Center ambient glow (ENHANCED) */
+    radial-gradient(ellipse 120% 120% at 50% 50%, rgba(255, 50, 0, 0.15) 0%, rgba(255, 30, 0, 0.08) 40%, transparent 70%),
+    /* Top subtle glow (BRIGHTER) */
+    radial-gradient(ellipse 90% 35% at 50% -15%, rgba(255, 60, 0, 0.25) 0%, rgba(255, 40, 0, 0.12) 50%, transparent 70%),
+    /* Additional ember layer */
+    radial-gradient(ellipse 60% 40% at 30% 95%, rgba(255, 100, 20, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 70% 95%, rgba(255, 80, 10, 0.3) 0%, transparent 60%);
+  animation: fireFlicker 3.5s ease-in-out infinite, fireWave 8s ease-in-out infinite alternate;
 }
 
 @keyframes fireFlicker {
@@ -150,22 +153,46 @@ body {
   0%,
   100% {
     opacity: 1;
-    filter: blur(0px);
+    filter: blur(0px) brightness(1);
   }
 
-  25% {
-    opacity: 0.85;
-    filter: blur(1px);
+  15% {
+    opacity: 0.75;
+    filter: blur(2px) brightness(1.1);
+  }
+
+  30% {
+    opacity: 0.95;
+    filter: blur(0.5px) brightness(0.95);
   }
 
   50% {
     opacity: 1;
-    filter: blur(0px);
+    filter: blur(0px) brightness(1.05);
   }
 
-  75% {
-    opacity: 0.9;
-    filter: blur(0.5px);
+  65% {
+    opacity: 0.8;
+    filter: blur(1.5px) brightness(1.08);
+  }
+
+  85% {
+    opacity: 0.92;
+    filter: blur(0.8px) brightness(0.98);
+  }
+}
+
+@keyframes fireWave {
+  0% {
+    transform: scale(1) translateY(0);
+  }
+
+  50% {
+    transform: scale(1.02) translateY(-2px);
+  }
+
+  100% {
+    transform: scale(0.98) translateY(1px);
   }
 }
 
@@ -191,7 +218,8 @@ body {
 
 .display-medium {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  font-size: clamp(2rem, 4vw, 3rem);
+  /* Increased from 1.5rem, 3vw, 2.5rem */
   line-height: 1.1;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -199,16 +227,21 @@ body {
 
 .mono-data {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.95rem;
+  /* Increased from 0.75rem */
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  font-weight: 500;
+  /* Added weight for legibility */
 }
 
 .mono-small {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.8rem;
+  /* Increased from 0.625rem */
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  font-weight: 500;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -303,6 +336,87 @@ body {
 .glitch-text:hover::after {
   animation-duration: 0.2s;
 }
+
+/* Fire glow text effect - for hero "ARMAGEDDONED?" */
+.fire-glow-text {
+  text-shadow:
+    /* Core glow */
+    0 0 20px rgba(255, 60, 0, 0.8),
+    0 0 40px rgba(255, 40, 0, 0.6),
+    0 0 60px rgba(255, 30, 0, 0.4),
+    0 0 80px rgba(255, 20, 0, 0.3),
+    /* Extended glow */
+    0 0 100px rgba(255, 50, 0, 0.2),
+    0 0 140px rgba(255, 40, 0, 0.15),
+    /* Bottom emphasis (fire rising) */
+    0 10px 60px rgba(255, 70, 0, 0.5),
+    0 20px 80px rgba(255, 50, 0, 0.3),
+    /* Ember sparkles */
+    -5px -5px 30px rgba(255, 100, 20, 0.4),
+    5px -5px 30px rgba(255, 90, 10, 0.4);
+  animation: fireGlowPulse 4s ease-in-out infinite;
+}
+
+@keyframes fireGlowPulse {
+
+  0%,
+  100% {
+    text-shadow:
+      0 0 20px rgba(255, 60, 0, 0.8),
+      0 0 40px rgba(255, 40, 0, 0.6),
+      0 0 60px rgba(255, 30, 0, 0.4),
+      0 0 80px rgba(255, 20, 0, 0.3),
+      0 0 100px rgba(255, 50, 0, 0.2),
+      0 0 140px rgba(255, 40, 0, 0.15),
+      0 10px 60px rgba(255, 70, 0, 0.5),
+      0 20px 80px rgba(255, 50, 0, 0.3),
+      -5px -5px 30px rgba(255, 100, 20, 0.4),
+      5px -5px 30px rgba(255, 90, 10, 0.4);
+  }
+
+  25% {
+    text-shadow:
+      0 0 25px rgba(255, 70, 0, 0.9),
+      0 0 50px rgba(255, 50, 0, 0.7),
+      0 0 70px rgba(255, 40, 0, 0.5),
+      0 0 90px rgba(255, 30, 0, 0.4),
+      0 0 110px rgba(255, 60, 0, 0.25),
+      0 0 150px rgba(255, 50, 0, 0.2),
+      0 12px 70px rgba(255, 80, 0, 0.6),
+      0 25px 90px rgba(255, 60, 0, 0.4),
+      -6px -6px 35px rgba(255, 110, 30, 0.5),
+      6px -6px 35px rgba(255, 100, 20, 0.5);
+  }
+
+  50% {
+    text-shadow:
+      0 0 18px rgba(255, 50, 0, 0.75),
+      0 0 35px rgba(255, 35, 0, 0.55),
+      0 0 55px rgba(255, 25, 0, 0.35),
+      0 0 75px rgba(255, 15, 0, 0.25),
+      0 0 95px rgba(255, 45, 0, 0.18),
+      0 0 130px rgba(255, 35, 0, 0.12),
+      0 8px 55px rgba(255, 65, 0, 0.45),
+      0 18px 75px rgba(255, 45, 0, 0.25),
+      -4px -4px 28px rgba(255, 95, 15, 0.35),
+      4px -4px 28px rgba(255, 85, 8, 0.35);
+  }
+
+  75% {
+    text-shadow:
+      0 0 22px rgba(255, 65, 0, 0.85),
+      0 0 45px rgba(255, 45, 0, 0.65),
+      0 0 65px rgba(255, 35, 0, 0.45),
+      0 0 85px rgba(255, 25, 0, 0.35),
+      0 0 105px rgba(255, 55, 0, 0.22),
+      0 0 145px rgba(255, 45, 0, 0.17),
+      0 11px 65px rgba(255, 75, 0, 0.55),
+      0 22px 85px rgba(255, 55, 0, 0.35),
+      -5px -5px 32px rgba(255, 105, 25, 0.45),
+      5px -5px 32px rgba(255, 95, 15, 0.45);
+  }
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    BUTTONS — Industrial Physical Controls
@@ -876,4 +990,39 @@ body {
 
 .delay-5 {
   animation-delay: 0.5s;
+}
+
+/* THE BRIMSTONE TEXTURE */
+.text-brimstone {
+  background: linear-gradient(180deg,
+      #FF3300 10%,
+      #FF8C00 50%,
+      #330000 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    0px 2px 10px rgba(255, 51, 0, 0.4),
+    0px 0px 20px rgba(255, 51, 0, 0.2);
+  position: relative;
+}
+
+/* THE CRACKED LAVA ANIMATION (Optional Intensity) */
+@keyframes magma-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.text-brimstone-live {
+  background-size: 200% auto;
+  animation: magma-flow 3s linear infinite;
 }

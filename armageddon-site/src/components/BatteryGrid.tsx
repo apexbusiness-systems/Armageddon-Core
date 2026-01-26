@@ -134,8 +134,8 @@ export default function BatteryGrid() {
                     <span className="mono-small text-[var(--aerospace)] tracking-[0.4em] block mb-4">
                         ADVERSARIAL BATTERY MANIFEST
                     </span>
-                    <h2 className="display-large text-signal mb-6">THE 13 BATTERIES</h2>
-                    <p className="mono-data text-signal/50 max-w-2xl mx-auto leading-relaxed">
+                    <h2 className="display-large text-signal mb-8">THE 13 BATTERIES</h2>
+                    <p className="mono-data text-signal/60 max-w-3xl mx-auto leading-relaxed"> {/* Just improved opacity/contrast */}
                         Concurrent adversarial operations. Batteries 10 & 13 execute 10,000 iterations
                         with escape threshold &lt;0.01%. Sandboxed destruction only.
                     </p>
@@ -178,10 +178,10 @@ export default function BatteryGrid() {
 
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="display-medium text-signal text-lg tracking-wider">
+                                    <h3 className="display-medium text-signal tracking-wider mb-2">
                                         {battery.name}
                                     </h3>
-                                    <p className="mono-small text-signal/40 mt-1 truncate">
+                                    <p className="mono-small text-signal/50 truncate"> {/* Improved opacity from /40 to /50 */}
                                         {battery.description}
                                     </p>
                                 </div>

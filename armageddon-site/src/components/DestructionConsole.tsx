@@ -164,7 +164,7 @@ export default function DestructionConsole() {
                         <span className="block text-[var(--contained)] glitch-text" data-text="ARE YOU">
                             ARE YOU
                         </span>
-                        <span className="block text-[var(--aerospace)] glitch-text" data-text="ARMAGEDDONED?">
+                        <span className="block text-brimstone text-brimstone-live tracking-tighter" data-text="ARMAGEDDONED?">
                             ARMAGEDDONED?
                         </span>
                     </h1>
@@ -202,11 +202,19 @@ export default function DestructionConsole() {
                 >
                     {/* Terminal */}
                     <div className="terminal">
-                        <div className="terminal-header">
-                            <div className="terminal-dot red" />
-                            <div className="terminal-dot yellow" />
-                            <div className="terminal-dot green" />
-                            <span className="ml-4 mono-small text-signal/40">ARMAGEDDON_CONSOLE</span>
+                        <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a]">
+                            <div className="flex items-center gap-3">
+                                <div className="flex gap-1" aria-hidden="true">
+                                    <span className="w-1 h-3 bg-[var(--aerospace)] opacity-70"></span>
+                                    <span className="w-1 h-3 bg-[var(--aerospace)] opacity-50"></span>
+                                    <span className="w-1 h-3 bg-[var(--aerospace)] opacity-30"></span>
+                                </div>
+                                <span className="mono-small text-signal/60 tracking-widest">DESTRUCTION_CONSOLE</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--safe)] animate-pulse"></span>
+                                <span className="mono-small text-[var(--safe)] opacity-70">ONLINE</span>
+                            </div>
                         </div>
                         <div className="terminal-content" ref={terminalRef}>
                             {terminalLines.length === 0 ? (
