@@ -1,0 +1,3 @@
+limit.maxConcurrentWorkflowTaskExecutionSize:
+  - value: 1000
+    constraints: {}
