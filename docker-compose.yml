@@ -1,0 +1,91 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# ARMAGEDDON LEVEL 7 — TEMPORAL INFRASTRUCTURE
+# Standalone cluster (Refactored for Persistence & Stability)
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────
+  # POSTGRESQL — Temporal Persistence
+  # ─────────────────────────────────────────────────────────────────────────
+  postgresql:
+    image: postgres:15-alpine
+    container_name: armageddon-postgres
+    command: postgres -c 'listen_addresses=*'
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - armageddon_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U temporal" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # TEMPORAL SERVER — Workflow Orchestration
+  # ─────────────────────────────────────────────────────────────────────────
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: armageddon-temporal
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development.yaml
+      - SKIP_DB_CREATE=true
+      - SKIP_SCHEMA_SETUP=true
+      - LOG_LEVEL=debug
+    volumes:
+      - ./config/dynamicconfig:/etc/temporal/config/dynamicconfig
+    ports:
+      - "127.0.0.1:7233:7233" # gRPC - Worker connection
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # TEMPORAL UI — Monitoring Dashboard
+  # ─────────────────────────────────────────────────────────────────────────
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    container_name: armageddon-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # ARMAGEDDON WORKER — Adversarial Test Execution
+  # ─────────────────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./armageddon-core
+      dockerfile: Dockerfile
+    container_name: armageddon-worker
+    depends_on:
+      - temporal
+    environment:
+      - SIM_MODE=true
+      - SANDBOX_TENANT=armageddon-test
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=default
+      - TEMPORAL_TASK_QUEUE=armageddon-level-7
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    restart: unless-stopped
+
+volumes:
+  armageddon_postgres_data:
+    name: armageddon_postgres_data

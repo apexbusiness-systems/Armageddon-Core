@@ -268,14 +268,13 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    <h1 className="display-massive mb-6 tracking-tighter w-full">
-                        <span className="block text-[var(--contained)] glitch-text leading-[0.85]" data-text="ARE YOU">
-                            ARE YOU
-                        </span>
-                        <span className="block text-brimstone text-brimstone-live tracking-tighter leading-[0.85]" data-text="ARMAGEDDONED?">
-                            ARMAGEDDONED?
-                        </span>
-                    </h1>
+                    <div className="flex justify-center mb-8 relative z-20">
+                        <img
+                            src="/wordmark.png"
+                            alt="ARMAGEDDON TEST SUITE"
+                            className="w-full max-w-[700px] h-auto drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow"
+                        />
+                    </div>
 
                     {/* Battery Configuration Section */}
                     <div className="mt-8 mb-6 relative">

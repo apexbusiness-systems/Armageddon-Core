@@ -5,7 +5,7 @@
     "description": "Armageddon Level 7 Certification Engine - Adversarial AI Testing Microservice",
     "main": "dist/index.js",
     "scripts": {
-        "build": "next build",
+        "build": "tsc src/worker.ts src/temporal/workflows.ts --outDir dist --noEmit false --module commonjs --moduleResolution node --target es2020 --esModuleInterop",
         "dev": "tsx watch src/worker.ts",
         "worker": "tsx src/worker.ts",
         "typecheck": "tsc --noEmit",
@@ -17,9 +17,6 @@
         "@temporalio/client": "^1.10.0",
         "@temporalio/worker": "^1.10.0",
         "@temporalio/workflow": "^1.10.0",
-        "next": "^16.1.4",
-        "react": "^19.2.3",
-        "react-dom": "^19.2.3",
         "uuid": "^9.0.0"
     },
     "devDependencies": {
