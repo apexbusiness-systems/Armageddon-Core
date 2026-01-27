@@ -116,7 +116,7 @@ export async function ArmageddonLevel7Workflow(
 
     try {
         // ─────────────────────────────────────────────────────────────────────
-        // PHASE 1: Run ALL batteries concurrently
+        // PHASE 1: Run ALL batteries concurrently with resilience
         // ─────────────────────────────────────────────────────────────────────
 
         const batteryPromises = [
@@ -138,8 +138,38 @@ export async function ArmageddonLevel7Workflow(
             activities.runBattery13_SupplyChain(config),
         ];
 
-        // Execute all concurrently
-        state.results = await Promise.all(batteryPromises);
+        // Execute all concurrently with resilience - single failure won't crash the run
+        const settledResults = await Promise.allSettled(batteryPromises);
+
+        // Map settled results to BatteryResult format
+        const batteryIds = [
+            'B1_CHAOS_STRESS', 'B2_CHAOS_ENGINE', 'B3_PROMPT_INJECTION',
+            'B4_SECURITY_AUTH', 'B5_FULL_UNIT', 'B6_UNSAFE_GATE',
+            'B7_PLAYWRIGHT_E2E', 'B8_ASSET_SMOKE', 'B9_INTEGRATION_HANDSHAKE',
+            'B10_GOAL_HIJACK', 'B11_TOOL_MISUSE', 'B12_MEMORY_POISON', 'B13_SUPPLY_CHAIN'
+        ];
+
+        state.results = settledResults.map((result, index) => {
+            if (result.status === 'fulfilled') {
+                return result.value;
+            } else {
+                // Handle rejected promise - create a FAILED battery result
+                const errorMessage = result.reason instanceof Error
+                    ? result.reason.message
+                    : String(result.reason);
+
+                return {
+                    batteryId: batteryIds[index],
+                    status: 'FAILED' as const,
+                    iterations: 0,
+                    blockedCount: 0,
+                    breachCount: 1,
+                    driftScore: 1.0,
+                    duration: 0,
+                    details: { error: errorMessage, failureType: 'EXECUTION_ERROR' },
+                };
+            }
+        });
 
         // Check if stop was requested during execution
         if (state.stopRequested) {
