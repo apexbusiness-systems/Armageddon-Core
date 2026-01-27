@@ -18,6 +18,7 @@ interface RunRequest {
     organizationId: string;
     level?: number;
     iterations?: number;
+    batteries?: string[]; // Optional battery selection for Verified/Certified tiers
 }
 
 interface RunResponse {
@@ -80,8 +81,9 @@ async function getTemporalClient(): Promise<Client> {
 
 async function checkRunEligibility(
     orgId: string,
-    requestedLevel: number
-): Promise<{ eligible: boolean; tier: OrganizationTier; error?: string; upsellMessage?: string }> {
+    requestedLevel: number,
+    batteries?: string[]
+): Promise<{ eligible: boolean; tier: OrganizationTier; error?: string; upsellMessage?: string; upgradeUrl?: string }> {
     const supabase = getSupabase();
 
     // Fetch organization
@@ -101,6 +103,24 @@ async function checkRunEligibility(
 
     const tier = org.current_tier as OrganizationTier;
     const allowedLevels = TIER_LEVEL_ACCESS[tier];
+
+    // Check battery customization
+    if (batteries && batteries.length > 0) {
+        const defaultBatteries = ['B10', 'B11', 'B12', 'B13'];
+        const isCustomized = batteries.length !== defaultBatteries.length ||
+            !batteries.every(b => defaultBatteries.includes(b));
+
+        if (isCustomized && tier === 'free_dry') {
+            return {
+                eligible: false,
+                tier,
+                error: 'FEATURE_LOCKED',
+                upsellMessage: '🔒 Custom Battery Selection requires VERIFIED tier. ' +
+                    'Upgrade to choose specific attack vectors (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain).',
+                upgradeUrl: '/pricing?upgrade=verified',
+            };
+        }
+    }
 
     if (allowedLevels.includes(requestedLevel)) {
         return { eligible: true, tier };
@@ -134,7 +154,30 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
     try {
         // Parse request body
         const body: RunRequest = await request.json();
-        const { organizationId, level = 7, iterations = 2500 } = body;
+        const { organizationId, level = 7, iterations = 2500, batteries } = body;
+
+        // Validate and sanitize batteries
+        let validatedBatteries: string[] = ['B10', 'B11', 'B12', 'B13']; // Default: all batteries
+        if (batteries && batteries.length > 0) {
+            // Remove duplicates
+            const uniqueBatteries = Array.from(new Set(batteries));
+
+            // Validate battery IDs
+            const validPattern = /^B1[0-3]$/;
+            const invalidBatteries = uniqueBatteries.filter(b => !validPattern.test(b));
+
+            if (invalidBatteries.length > 0) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: `Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: B10, B11, B12, B13`
+                    },
+                    { status: 400 }
+                );
+            }
+
+            validatedBatteries = uniqueBatteries;
+        }
 
         if (!organizationId) {
             return NextResponse.json(
@@ -144,10 +187,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 1: Check eligibility
+        // STEP 1: Check eligibility (including battery customization)
         // ═══════════════════════════════════════════════════════════════════
 
-        const eligibility = await checkRunEligibility(organizationId, level);
+        const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries);
 
         if (!eligibility.eligible) {
             return NextResponse.json(
@@ -155,7 +198,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
                     success: false,
                     error: eligibility.error,
                     upsellMessage: eligibility.upsellMessage,
-                    upgradeUrl: '/pricing?upgrade=certified',
+                    upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
                 },
                 { status: 403 }
             );
@@ -179,6 +222,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
                 sandbox_tenant: process.env.SANDBOX_TENANT || 'armageddon-test',
                 workflow_id: workflowId,
                 status: 'pending',
+                config: { batteries: validatedBatteries },
             });
 
         if (insertError) {
@@ -202,6 +246,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
                 runId,
                 organizationId,
                 iterations,
+                batteries: validatedBatteries,
             }],
         });
 

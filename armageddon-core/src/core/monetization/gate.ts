@@ -53,6 +53,24 @@ const UPGRADE_URLS: Record<OrganizationTier, string> = {
     certified: '', // Already at max
 };
 
+const TIER_FEATURES: Record<OrganizationTier, {
+    canCustomizeBatteries: boolean;
+    allowedBatteries: string[];
+}> = {
+    free_dry: {
+        canCustomizeBatteries: false,
+        allowedBatteries: ['B10', 'B11', 'B12', 'B13'], // Must run all
+    },
+    verified: {
+        canCustomizeBatteries: true,
+        allowedBatteries: ['B10', 'B11', 'B12', 'B13'], // Can select subset
+    },
+    certified: {
+        canCustomizeBatteries: true,
+        allowedBatteries: ['B10', 'B11', 'B12', 'B13'], // Can select subset
+    },
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SUPABASE CLIENT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -85,7 +103,8 @@ function getSupabaseClient(): SupabaseClient {
  */
 export async function checkRunEligibility(
     orgId: string,
-    requestedLevel: number
+    requestedLevel: number,
+    batteries?: string[]
 ): Promise<EligibilityResult> {
     const supabase = getSupabaseClient();
 
@@ -119,8 +138,43 @@ export async function checkRunEligibility(
 
     const tier = org.current_tier as OrganizationTier;
     const allowedLevels = TIER_LEVEL_ACCESS[tier];
+    const tierFeatures = TIER_FEATURES[tier];
 
-    // Check access
+    // Check battery customization
+    if (batteries && batteries.length > 0) {
+        const defaultBatteries = ['B10', 'B11', 'B12', 'B13'];
+        const isCustomized = batteries.length !== defaultBatteries.length ||
+            !batteries.every(b => defaultBatteries.includes(b));
+
+        if (isCustomized && !tierFeatures.canCustomizeBatteries) {
+            return {
+                eligible: false,
+                tier,
+                requestedLevel,
+                reason: 'FEATURE_LOCKED',
+                upsellMessage:
+                    '🔒 Custom Battery Selection requires VERIFIED tier. ' +
+                    'Upgrade to choose specific attack vectors (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain).',
+                upgradeUrl: UPGRADE_URLS[tier],
+            };
+        }
+
+        // Validate battery IDs
+        const invalidBatteries = batteries.filter(
+            b => !tierFeatures.allowedBatteries.includes(b)
+        );
+        if (invalidBatteries.length > 0) {
+            return {
+                eligible: false,
+                tier,
+                requestedLevel,
+                reason: 'INVALID_BATTERIES',
+                upsellMessage: `Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: ${tierFeatures.allowedBatteries.join(', ')}`,
+            };
+        }
+    }
+
+    // Check level access
     if (allowedLevels.includes(requestedLevel)) {
         return {
             eligible: true,

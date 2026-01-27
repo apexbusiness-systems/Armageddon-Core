@@ -60,6 +60,28 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
 
+    // Battery Selection State
+    const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
+    const [userTier, setUserTier] = useState<'free_dry' | 'verified' | 'certified'>('free_dry');
+    const [canCustomize, setCanCustomize] = useState(false);
+
+    // Detect user tier on mount
+    useEffect(() => {
+        const checkTier = async () => {
+            try {
+                const res = await fetch('/api/gatekeeper', { method: 'POST' });
+                const data = await res.json();
+                if (data.tier) {
+                    setUserTier(data.tier);
+                    setCanCustomize(data.tier !== 'free_dry');
+                }
+            } catch (e) {
+                console.error('Failed to fetch tier', e);
+            }
+        };
+        checkTier();
+    }, []);
+
     // Auto-scroll terminal
     useEffect(() => {
         if (terminalRef.current) {
@@ -77,15 +99,34 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
 
-        // 1. SILENT GATEKEEPER CHECK
-        // We check eligibility now, but don't act on it until the trap springs
+        // 1. ACTUAL API CALL WITH BATTERY SELECTION
         let isEligible = false;
+        let orgId = 'demo-org-id'; // TODO: Get from auth context
+
         try {
-            const res = await fetch('/api/gatekeeper', { method: 'POST' });
+            const res = await fetch('/api/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    organizationId: orgId,
+                    level: 7,
+                    batteries: selectedBatteries,
+                }),
+            });
             const data = await res.json();
-            isEligible = data.eligible;
+
+            if (!res.ok) {
+                // Free tier attempting customization
+                if (res.status === 403 && data.error === 'FEATURE_LOCKED') {
+                    isEligible = false;
+                } else {
+                    throw new Error(data.error || 'Run failed');
+                }
+            } else {
+                isEligible = true;
+            }
         } catch (e) {
-            console.error("Gatekeeper offline, defaulting to locked");
+            console.error("API call failed", e);
             isEligible = false;
         }
 
@@ -160,7 +201,21 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
 
         setIsRunning(false);
         setIsComplete(true);
-    }, [isRunning, addLine, onStatusChange]);
+    }, [isRunning, addLine, onStatusChange, selectedBatteries]);
+
+    const toggleBattery = (batteryId: string) => {
+        if (!canCustomize || isRunning) return;
+
+        setSelectedBatteries(prev => {
+            if (prev.includes(batteryId)) {
+                // Prevent deselecting all batteries
+                if (prev.length === 1) return prev;
+                return prev.filter(b => b !== batteryId);
+            } else {
+                return [...prev, batteryId].sort();
+            }
+        });
+    };
 
     return (
         <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
@@ -221,6 +276,55 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                             ARMAGEDDONED?
                         </span>
                     </h1>
+
+                    {/* Battery Configuration Section */}
+                    <div className="mt-8 mb-6 relative">
+                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">BATTERY CONFIGURATION</h3>
+
+                        {/* Lock Overlay for Free Tier */}
+                        {!canCustomize && (
+                            <div className="absolute inset-0 z-10 bg-void/80 backdrop-blur-sm border border-zinc-800 flex items-center justify-center cursor-not-allowed">
+                                <div className="text-center p-4">
+                                    <div className="text-4xl mb-2">🔒</div>
+                                    <p className="mono-small text-signal/70">Custom Battery Selection</p>
+                                    <p className="mono-small text-aerospace mt-1">requires VERIFIED tier</p>
+                                    <a href="/pricing?upgrade=verified" className="text-xs text-zinc-400 hover:text-zinc-200 underline mt-2 inline-block">
+                                        Upgrade Now
+                                    </a>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Battery Toggles */}
+                        <div className="grid grid-cols-2 gap-3 relative">
+                            {[
+                                { id: 'B10', name: 'Goal Hijack' },
+                                { id: 'B11', name: 'Tool Misuse' },
+                                { id: 'B12', name: 'Memory Poison' },
+                                { id: 'B13', name: 'Supply Chain' },
+                            ].map(battery => (
+                                <button
+                                    key={battery.id}
+                                    onClick={() => toggleBattery(battery.id)}
+                                    disabled={!canCustomize || isRunning}
+                                    className={
+                                        `px-4 py-3 border transition-all duration-200 ${selectedBatteries.includes(battery.id)
+                                            ? 'border-aerospace bg-aerospace/10 text-aerospace'
+                                            : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
+                                        } ${canCustomize && !isRunning
+                                            ? 'hover:border-zinc-600 cursor-pointer'
+                                            : 'cursor-not-allowed opacity-50'
+                                        }`
+                                    }
+                                >
+                                    <span className="mono-small block text-left">
+                                        <span className="text-xs opacity-60">{battery.id}</span>
+                                        <span className="block mt-0.5">{battery.name}</span>
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
                     {/* Initiate Button */}
                     <div className="mt-8">
