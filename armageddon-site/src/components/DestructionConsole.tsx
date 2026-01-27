@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import LockdownModal from './paywall/LockdownModal'; // Import the Lock Modal
 import AuthControl from './AuthControl';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
@@ -73,6 +73,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     const [currentBattery, setCurrentBattery] = useState(0);
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
+    const [user, setUser] = useState<User | null>(null);
 
     // Battery Selection State
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
@@ -96,6 +97,22 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         checkTier();
     }, []);
 
+    // Check Auth Session on mount
+    useEffect(() => {
+        const sb = getSupabase();
+        if (!sb) return;
+
+        sb.auth.getUser().then(({ data }) => {
+            setUser(data.user);
+        });
+
+        const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
     // Auto-scroll terminal
     useEffect(() => {
         if (terminalRef.current) {
@@ -110,6 +127,20 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         ]);
     }, []);
 
+    const handleLogin = async () => {
+        const sb = getSupabase();
+        if (!sb) {
+            console.warn('Supabase not configured');
+            return;
+        }
+        await sb.auth.signInWithOAuth({ provider: 'github' });
+    };
+
+    const handleLogout = async () => {
+        const sb = getSupabase();
+        if (!sb) return;
+        await sb.auth.signOut();
+    };
 
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
@@ -134,7 +165,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
 
         // 1. ACTUAL API CALL TO START WORKFLOW
         let runId: string | null = null;
-        const orgId = 'demo-org-id'; // TODO: Get from auth context
+        const orgId = user?.id || 'demo-org-id';
 
         try {
             const res = await fetch('/api/run', {
@@ -288,7 +319,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
             )
             .subscribe();
 
-    }, [isRunning, addLine, onStatusChange, selectedBatteries]);
+    }, [isRunning, addLine, onStatusChange, selectedBatteries, user]);
 
     const toggleBattery = (batteryId: string) => {
         if (!canCustomize || isRunning) return;
@@ -435,16 +466,16 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     </div>
                 </motion.div>
 
-                {/* Terminal + Threat Map Layout */}
+                {/* SYMMETRICAL GRID LAYOUT - Terminal & Threat Matrix */}
                 <motion.div
-                    className="grid lg:grid-cols-2 gap-6 flex-1"
+                    className="grid lg:grid-cols-2 gap-6 mb-8"
                     initial={{ opacity: 0, y: 60 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    {/* Terminal */}
-                    <div className="terminal flex flex-col h-[400px]">
-                        <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a]">
+                    {/* LEFT COLUMN: TERMINAL (Fixed Height) */}
+                    <div className="terminal flex flex-col h-[500px] border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm">
+                        <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
                             <div className="flex items-center gap-3">
                                 <div className="flex gap-1" aria-hidden="true">
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-70"></span>
@@ -453,107 +484,130 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                 </div>
                                 <span className="mono-small text-signal/60 tracking-widest">DESTRUCTION_CONSOLE</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--safe)] animate-pulse"></span>
-                                <span className="mono-small text-[var(--safe)] opacity-70">ONLINE</span>
+
+                            <div className="flex items-center gap-4">
+                                {/* AUTH CONTROLS - Header Check */}
+                                {user ? (
+                                    <div className="flex items-center gap-3">
+                                        <span className="mono-small text-zinc-400 text-[10px] hidden sm:inline-block">
+                                            {user.email?.split('@')[0]}
+                                        </span>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="text-[10px] text-[var(--destructive)] hover:text-red-400 hover:underline mono-small tracking-wider"
+                                        >
+                                            [LOGOUT]
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={handleLogin}
+                                        className="text-[10px] text-[var(--aerospace)] hover:text-cyan-300 hover:underline mono-small animate-pulse tracking-wider"
+                                    >
+                                        [LOGIN]
+                                    </button>
+                                )}
+
+                                {/* STATUS INDICATOR */}
+                                <div className="flex items-center gap-2 border-l border-white/10 pl-4">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-[var(--safe)] animate-pulse' : 'bg-zinc-700'}`}></span>
+                                    <span className={`mono-small ${isRunning ? 'text-[var(--safe)]' : 'text-zinc-500'} opacity-70`}>
+                                        {isRunning ? 'ONLINE' : 'STANDBY'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        <div className="terminal-content flex-1 overflow-y-auto" ref={terminalRef}>
+
+                        <div className="terminal-content flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar" ref={terminalRef}>
                             {terminalLines.length === 0 ? (
-                                <div className="text-signal/20 text-center py-16 mono-data">
-                                    AWAITING SEQUENCE INITIATION...
-                                    <span className="animate-pulse">_</span>
+                                <div className="h-full flex flex-col items-center justify-center text-signal/20 mono-data">
+                                    <p>AWAITING SEQUENCE INITIATION...</p>
+                                    <span className="animate-pulse mt-2 text-2xl">_</span>
                                 </div>
                             ) : (
                                 <AnimatePresence mode="popLayout">
                                     {terminalLines.map(line => (
                                         <motion.div
                                             key={line.id}
-                                            initial={{ opacity: 0, x: -20 }}
+                                            initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            className="terminal-line"
+                                            className="mb-1 break-words leading-relaxed"
                                         >
-                                            <span className="terminal-prefix">[{line.prefix}]</span>
+                                            <span className="text-zinc-600 mr-2 select-none">[{line.prefix}]</span>
                                             <span
                                                 className={
-                                                    line.type === 'success'
-                                                        ? 'text-[var(--safe)]'
-                                                        : line.type === 'blocked'
-                                                            ? 'text-[var(--aerospace)]'
-                                                            : line.type === 'error'
-                                                                ? 'text-[var(--aerospace)] font-bold animate-pulse' // Critical Red
-                                                                : line.type === 'warning'
-                                                                    ? 'text-amber-500'
-                                                                    : line.type === 'system'
-                                                                        ? 'text-[var(--warning)]'
-                                                                        : 'text-signal/70'
+                                                    line.type === 'success' ? 'text-[var(--safe)]' :
+                                                        line.type === 'error' ? 'text-[var(--destructive)] font-bold' :
+                                                            line.type === 'warning' ? 'text-amber-500' :
+                                                                line.type === 'command' ? 'text-[var(--aerospace)]' :
+                                                                    line.type === 'blocked' ? 'text-zinc-500 line-through' :
+                                                                        'text-zinc-300'
                                                 }
                                             >
                                                 {line.content}
                                             </span>
                                         </motion.div>
                                     ))}
+                                    <div ref={terminalRef} />
                                 </AnimatePresence>
                             )}
                         </div>
                     </div>
 
-                    {/* Right Column: Threat Map + Leaderboard */}
-                    <div className="flex flex-col gap-6">
-                        {/* Threat Map */}
-                        <div className="card-panel p-6 h-full">
-                            <div className="flex items-center justify-between mb-6">
-                                <span className="mono-data text-signal/50">THREAT MATRIX</span>
-                                <div className="flex gap-4 mono-small text-signal/40">
-                                    <span className="flex items-center gap-2">
-                                        <span className="w-2 h-2 bg-[var(--safe)]" /> SAFE
-                                    </span>
-                                    <span className="flex items-center gap-2">
-                                        <span className="w-2 h-2 bg-[var(--aerospace)]" /> THREAT
-                                    </span>
-                                    <span className="flex items-center gap-2">
-                                        <span className="w-2 h-2 bg-[var(--contained)]" /> CONTAINED
-                                    </span>
+                    {/* RIGHT COLUMN: THREAT MATRIX (Fixed Height Match) */}
+                    <div className="flex flex-col h-[500px]">
+                        <div className="card-panel h-full border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm overflow-hidden flex flex-col">
+                            <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
+                                <div className="flex items-center gap-3">
+                                    <div className="grid grid-cols-2 gap-0.5" aria-hidden="true">
+                                        <span className="w-1 h-1 bg-[var(--destructive)] opacity-70"></span>
+                                        <span className="w-1 h-1 bg-[var(--destructive)] opacity-50"></span>
+                                        <span className="w-1 h-1 bg-[var(--destructive)] opacity-50"></span>
+                                        <span className="w-1 h-1 bg-[var(--destructive)] opacity-30"></span>
+                                    </div>
+                                    <span className="mono-small text-signal/60 tracking-widest">THREAT_MATRIX</span>
+                                </div>
+                                <div className="mono-small text-zinc-500">
+                                    SECURE_SECTORS: {threatMap.filter(t => t.status === 'safe').length}/64
                                 </div>
                             </div>
 
-                            <div className="threat-grid h-[240px]">
-                                {threatMap.map(cell => (
-                                    <motion.div
-                                        key={cell.id}
-                                        className={`threat-cell ${cell.status}`}
-                                        animate={cell.status === 'danger' ? { scale: [1, 1.15, 1] } : { scale: 1 }}
-                                        transition={{ duration: 0.2 }}
-                                    />
-                                ))}
+                            <div className="p-6 flex-1 flex items-center justify-center bg-[url('/grid-pattern.png')] bg-repeat opacity-80">
+                                <div className="grid grid-cols-8 gap-2 w-full max-w-[400px] aspect-square">
+                                    {threatMap.map(cell => (
+                                        <motion.div
+                                            key={cell.id}
+                                            className={`
+                                                w-full h-full rounded-sm transition-colors duration-500
+                                                ${cell.status === 'idle' ? 'bg-white/5 border border-white/5' : ''}
+                                                ${cell.status === 'danger' ? 'bg-[var(--destructive)] shadow-[0_0_10px_var(--destructive)]' : ''}
+                                                ${cell.status === 'safe' ? 'bg-[var(--safe)]/20 border border-[var(--safe)]/50 shadow-[0_0_8px_rgba(0,255,100,0.2)]' : ''}
+                                                ${cell.status === 'contained' ? 'bg-amber-500/20 border border-amber-500/50' : ''}
+                                            `}
+                                            initial={false}
+                                            animate={cell.status === 'danger' ? { scale: [1, 1.1, 1] } : {}}
+                                            transition={{ duration: 0.2 }}
+                                        />
+                                    ))}
+                                </div>
                             </div>
-
-                            {isRunning && (
-                                <div className="mt-6 text-center">
-                                    <span className="mono-small text-[var(--aerospace)] animate-pulse">
-                                        ◉ ADVERSARIAL OPERATIONS IN PROGRESS
-                                    </span>
-                                </div>
-                            )}
-
-                            {isComplete && !isRunning && (
-                                <div className="mt-6 text-center">
-                                    <span className="mono-small text-[var(--safe)]">
-                                        ✓ ALL THREATS NEUTRALIZED — SYSTEM SECURE
-                                    </span>
-                                </div>
-                            )}
                         </div>
+                    </div>
+                </motion.div>
 
-                        {/* Leaderboard - Gamification Hook */}
+                {/* BOTTOM ROW: CENTERED LEADERBOARD */}
+                <motion.div
+                    className="flex justify-center w-full"
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.4 }}
+                >
+                    <div className="w-full max-w-3xl">
                         <LeaderboardWidget status={status} />
                     </div>
                 </motion.div>
+
             </div>
         </section>
     );
-}
-
-function sleep(ms: number) {
-    return new Promise(r => setTimeout(r, ms));
 }
