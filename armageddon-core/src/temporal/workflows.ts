@@ -1,152 +1,108 @@
-// src/temporal/workflows.ts
-// ARMAGEDDON LEVEL 7 - TEMPORAL WORKFLOW DEFINITIONS
-// APEX Business Systems Ltd.
-
-import {
-    proxyActivities,
-    defineSignal,
-    setHandler,
-    condition,
-    sleep,
-    ApplicationFailure,
-} from '@temporalio/workflow';
-
-import type * as activitiesModule from './activities';
-import type { BatteryResult, BatteryConfig } from './activities';
+import { proxyActivities, defineSignal, setHandler, sleep, condition, Protocol } from '@temporalio/workflow';
+import type * as activities from './activities';
+import { BatteryConfig, BatteryResult, WorkflowState, ArmageddonReport } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// WORKFLOW CONFIGURATION
+// CONFIGURATION & CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEFAULT_ITERATIONS = 10_000;
-const CHECKPOINT_INTERVAL = 100;
+const TIMEOUTS = {
+    START_TO_CLOSE: '10m', // 10 minutes per battery
+    WORKFLOW_EXECUTION: '1h', // 1 hour total
+};
 
-// Proxy activities with appropriate timeouts
-const activities = proxyActivities<typeof activitiesModule>({
-    startToCloseTimeout: '30m', // God Mode batteries can run long
-    retry: {
-        maximumAttempts: 1, // Non-retryable for adversarial tests
-        nonRetryableErrorTypes: ['SystemLockdownError'],
-    },
+const BATTERY_IDS = {
+    B1: 'B1_CHAOS_STRESS',
+    B2: 'B2_CHAOS_ENGINE',
+    B3: 'B3_PROMPT_INJECTION',
+    B4: 'B4_SECURITY_AUTH',
+    B5: 'B5_FULL_UNIT',
+    B6: 'B6_UNSAFE_GATE',
+    B7: 'B7_PLAYWRIGHT_E2E',
+    B8: 'B8_ASSET_SMOKE',
+    B9: 'B9_INTEGRATION_HANDSHAKE',
+    B10: 'B10_GOAL_HIJACK',
+    B11: 'B11_TOOL_MISUSE',
+    B12: 'B12_MEMORY_POISON',
+    B13: 'B13_SUPPLY_CHAIN',
+} as const;
+
+const STATUS = {
+    RUNNING: 'RUNNING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    CANCELLED: 'CANCELLED',
+};
+
+// Define Activity Options
+const {
+    runBattery1_ChaosStress,
+    runBattery2_ChaosEngine,
+    runBattery3_PromptInjection,
+    runBattery4_SecurityAuth,
+    runBattery5_FullUnit,
+    runBattery6_UnsafeGate,
+    runBattery7_PlaywrightE2E,
+    runBattery8_AssetSmoke,
+    runBattery9_IntegrationHandshake,
+    runBattery10_GoalHijack,
+    runBattery11_ToolMisuse,
+    runBattery12_MemoryPoison,
+    runBattery13_SupplyChain,
+    generateReport
+} = proxyActivities<typeof activities>({
+    startToCloseTimeout: TIMEOUTS.START_TO_CLOSE,
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SIGNALS
-// ═══════════════════════════════════════════════════════════════════════════
+// Signals
+export const cancelSignal = defineSignal('cancel');
 
-export const stopSequenceSignal = defineSignal<[]>('STOP_SEQUENCE');
+export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<ArmageddonReport> {
 
-// ═══════════════════════════════════════════════════════════════════════════
-// WORKFLOW STATE
-// ═══════════════════════════════════════════════════════════════════════════
+    // 1. Initialize State
+    let cancelled = false;
+    setHandler(cancelSignal, () => { cancelled = true; });
 
-interface WorkflowState {
-    runId: string;
-    stopRequested: boolean;
-    startedAt: string;
-    completedBatteries: string[];
-    results: BatteryResult[];
-    status: 'RUNNING' | 'STOPPING' | 'COMPLETED' | 'FAILED';
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ARMAGEDDON LEVEL 7 WORKFLOW
-// ═══════════════════════════════════════════════════════════════════════════
-
-export interface ArmageddonLevel7Input {
-    runId: string;
-    iterations?: number;
-    targetEndpoint?: string;
-    enabledBatteries?: string[];
-}
-
-export interface ArmageddonLevel7Output {
-    runId: string;
-    status: 'COMPLETED' | 'FAILED' | 'STOPPED';
-    totalDuration: number;
-    results: BatteryResult[];
-    summary: {
-        passed: number;
-        failed: number;
-        blocked: number;
-        totalIterations: number;
-        totalBreaches: number;
-        avgDriftScore: number;
-    };
-}
-
-/**
- * ArmageddonLevel7Workflow
- *
- * God Mode certification requiring 10,000 adversarial iterations
- * with an escape rate < 0.01%.
- *
- * Runs all 13 batteries concurrently using Promise.all.
- * Batteries 10-13 execute configurable iteration counts.
- */
-export async function ArmageddonLevel7Workflow(
-    input: ArmageddonLevel7Input
-): Promise<ArmageddonLevel7Output> {
-    const { runId, iterations = DEFAULT_ITERATIONS, targetEndpoint } = input;
-
-    // Initialize state
     const state: WorkflowState = {
-        runId,
-        stopRequested: false,
-        startedAt: new Date().toISOString(),
-        completedBatteries: [],
+        status: STATUS.RUNNING,
         results: [],
-        status: 'RUNNING',
-    };
-
-    // Register signal handler
-    setHandler(stopSequenceSignal, () => {
-        state.stopRequested = true;
-        state.status = 'STOPPING';
-    });
-
-    const startTime = Date.now();
-
-    // Battery configuration
-    const config: BatteryConfig = {
-        runId,
-        iterations,
-        targetEndpoint,
+        currentBattery: null,
+        startTime: Date.now(),
     };
 
     try {
-        // ─────────────────────────────────────────────────────────────────────
-        // PHASE 1: Run ALL batteries concurrently with resilience
-        // ─────────────────────────────────────────────────────────────────────
+        // 2. Execute Batteries (Parallel Resiliency)
+        // We use Promise.allSettled to ensure that a single battery failure
+        // does not crash the entire certification run.
 
         const batteryPromises = [
             // Baseline batteries (1-9)
-            activities.runBattery1_ChaosStress(config),
-            activities.runBattery2_ChaosEngine(config),
-            activities.runBattery3_PromptInjection(config),
-            activities.runBattery4_SecurityAuth(config),
-            activities.runBattery5_FullUnit(config),
-            activities.runBattery6_UnsafeGate(config),
-            activities.runBattery7_PlaywrightE2E(config),
-            activities.runBattery8_AssetSmoke(config),
-            activities.runBattery9_IntegrationHandshake(config),
+            runBattery1_ChaosStress(config),
+            runBattery2_ChaosEngine(config),
+            runBattery3_PromptInjection(config),
+            runBattery4_SecurityAuth(config),
+            runBattery5_FullUnit(config),
+            runBattery6_UnsafeGate(config),
+            runBattery7_PlaywrightE2E(config),
+            runBattery8_AssetSmoke(config),
+            runBattery9_IntegrationHandshake(config),
 
             // God Mode batteries (10-13) - 10,000 iterations
-            activities.runBattery10_GoalHijack(config),
-            activities.runBattery11_ToolMisuse(config),
-            activities.runBattery12_MemoryPoison(config),
-            activities.runBattery13_SupplyChain(config),
+            runBattery10_GoalHijack(config),
+            runBattery11_ToolMisuse(config),
+            runBattery12_MemoryPoison(config),
+            runBattery13_SupplyChain(config),
         ];
 
-        // Execute all concurrently with resilience - single failure won't crash the run
+        // Execute all concurrently with resilience
         const settledResults = await Promise.allSettled(batteryPromises);
 
         // Map settled results to BatteryResult format
-        const batteryIds = [
-            'B1_CHAOS_STRESS', 'B2_CHAOS_ENGINE', 'B3_PROMPT_INJECTION',
-            'B4_SECURITY_AUTH', 'B5_FULL_UNIT', 'B6_UNSAFE_GATE',
-            'B7_PLAYWRIGHT_E2E', 'B8_ASSET_SMOKE', 'B9_INTEGRATION_HANDSHAKE',
-            'B10_GOAL_HIJACK', 'B11_TOOL_MISUSE', 'B12_MEMORY_POISON', 'B13_SUPPLY_CHAIN'
+        const batteryIdList = [
+            BATTERY_IDS.B1, BATTERY_IDS.B2, BATTERY_IDS.B3,
+            BATTERY_IDS.B4, BATTERY_IDS.B5, BATTERY_IDS.B6,
+            BATTERY_IDS.B7, BATTERY_IDS.B8, BATTERY_IDS.B9,
+            BATTERY_IDS.B10, BATTERY_IDS.B11, BATTERY_IDS.B12, BATTERY_IDS.B13
         ];
 
         state.results = settledResults.map((result, index) => {
@@ -159,128 +115,34 @@ export async function ArmageddonLevel7Workflow(
                     : String(result.reason);
 
                 return {
-                    batteryId: batteryIds[index],
-                    status: 'FAILED' as const,
-                    iterations: 0,
-                    blockedCount: 0,
-                    breachCount: 1,
-                    driftScore: 1.0,
+                    batteryId: batteryIdList[index],
+                    status: STATUS.FAILED,
+                    logs: [`CRITICAL FAILURE: ${errorMessage}`],
                     duration: 0,
-                    details: { error: errorMessage, failureType: 'EXECUTION_ERROR' },
+                    artifacts: [],
                 };
             }
         });
 
-        // Check if stop was requested during execution
-        if (state.stopRequested) {
-            state.status = 'COMPLETED'; // Still mark as completed if we finished
+        // 3. Aggregate Results
+        const failureCount = state.results.filter(r => r.status === STATUS.FAILED).length;
+        const totalDuration = Date.now() - state.startTime;
+
+        // Final Status Determination
+        if (cancelled) {
+            state.status = STATUS.CANCELLED;
+        } else if (failureCount > 0) {
+            state.status = STATUS.FAILED;
         } else {
-            state.status = 'COMPLETED';
+            state.status = STATUS.COMPLETED;
         }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // PHASE 2: Aggregate results
-        // ─────────────────────────────────────────────────────────────────────
+        // 4. Generate Final Report
+        const report = await generateReport(state);
+        return report;
 
-        const summary = aggregateResults(state.results);
-
-        return {
-            runId,
-            status: state.stopRequested ? 'STOPPED' : 'COMPLETED',
-            totalDuration: Date.now() - startTime,
-            results: state.results,
-            summary,
-        };
-    } catch (error) {
-        state.status = 'FAILED';
-
-        // Re-throw with proper Temporal error type
-        throw ApplicationFailure.create({
-            type: 'ArmageddonExecutionFailure',
-            message: error instanceof Error ? error.message : String(error),
-            nonRetryable: true,
-        });
+    } catch (err) {
+        state.status = STATUS.FAILED;
+        throw err;
     }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function aggregateResults(results: BatteryResult[]): {
-    passed: number;
-    failed: number;
-    blocked: number;
-    totalIterations: number;
-    totalBreaches: number;
-    avgDriftScore: number;
-} {
-    let passed = 0;
-    let failed = 0;
-    let blocked = 0;
-    let totalIterations = 0;
-    let totalBreaches = 0;
-    let totalDrift = 0;
-
-    for (const result of results) {
-        if (result.status === 'PASSED') passed++;
-        else if (result.status === 'FAILED') failed++;
-        else if (result.status === 'BLOCKED') blocked++;
-
-        totalIterations += result.iterations;
-        totalBreaches += result.breachCount;
-        totalDrift += result.driftScore;
-    }
-
-    return {
-        passed,
-        failed,
-        blocked,
-        totalIterations,
-        totalBreaches,
-        avgDriftScore: totalDrift / results.length,
-    };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CHILD WORKFLOWS (for isolation if needed)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * SingleBatteryWorkflow - Run a single battery in isolation.
- * Useful for retesting specific batteries.
- */
-export async function SingleBatteryWorkflow(
-    runId: string,
-    batteryId: string,
-    iterations: number
-): Promise<BatteryResult> {
-    const config: BatteryConfig = { runId, iterations };
-
-    const batteryMap: Record<string, () => Promise<BatteryResult>> = {
-        B1: () => activities.runBattery1_ChaosStress(config),
-        B2: () => activities.runBattery2_ChaosEngine(config),
-        B3: () => activities.runBattery3_PromptInjection(config),
-        B4: () => activities.runBattery4_SecurityAuth(config),
-        B5: () => activities.runBattery5_FullUnit(config),
-        B6: () => activities.runBattery6_UnsafeGate(config),
-        B7: () => activities.runBattery7_PlaywrightE2E(config),
-        B8: () => activities.runBattery8_AssetSmoke(config),
-        B9: () => activities.runBattery9_IntegrationHandshake(config),
-        B10: () => activities.runBattery10_GoalHijack(config),
-        B11: () => activities.runBattery11_ToolMisuse(config),
-        B12: () => activities.runBattery12_MemoryPoison(config),
-        B13: () => activities.runBattery13_SupplyChain(config),
-    };
-
-    const runner = batteryMap[batteryId];
-    if (!runner) {
-        throw ApplicationFailure.create({
-            type: 'InvalidBatteryId',
-            message: `Unknown battery ID: ${batteryId}`,
-            nonRetryable: true,
-        });
-    }
-
-    return runner();
 }

@@ -3,11 +3,50 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-import LockdownModal from './paywall/LockdownModal'; // Import the Lock Modal
+import LockdownModal from './paywall/LockdownModal';
 import AuthControl from './AuthControl';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 
-// Lazy Supabase client initialization (avoids build-time errors)
+// ═══════════════════════════════════════════════════════════════════════════
+// CONSTANTS & CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+const API = {
+    RUN: '/api/run',
+    GATEKEEPER: '/api/gatekeeper',
+};
+
+const MSG_TYPE = {
+    SYSTEM: 'system',
+    BATTERY: 'battery',
+    SUCCESS: 'success',
+    BLOCKED: 'blocked',
+    COMMAND: 'command',
+    WARNING: 'warning',
+    ERROR: 'error',
+} as const;
+
+const EVENTS = {
+    INSERT: 'INSERT',
+    UPDATE: 'UPDATE',
+    TRAP: 'TRAP_TRIGGERED',
+} as const;
+
+const TABLE = {
+    EVENTS: 'armageddon_events',
+    RUNS: 'armageddon_runs',
+    SCHEMA: 'public',
+};
+
+const LABELS = {
+    SYS: 'SYS',
+    WARNING_HIJACK: 'ADVERSARIAL AGENT DETECTED // GOAL HIJACK ATTEMPT',
+    CRIT_PAYLOAD: '>>> INJECTING PROMPT PAYLOAD....',
+    DIVIDER: '════════════════════════════════════════════',
+    OFFLINE_WARN: 'Realtime not available - displaying workflow started',
+};
+
+// Lazy Supabase client initialization
 let supabaseClient: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient | null {
     if (typeof window === 'undefined') return null;
@@ -21,30 +60,14 @@ function getSupabase(): SupabaseClient | null {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BATTERY DATA
+// TYPES
 // ═══════════════════════════════════════════════════════════════════════════
-
-const BATTERIES = [
-    { id: 'B01', name: 'CHAOS_STRESS', log: 'Simulating network failures...' },
-    { id: 'B02', name: 'CHAOS_ENGINE', log: 'Testing idempotency engine...' },
-    { id: 'B03', name: 'PROMPT_INJECT', log: 'Deploying injection vectors...' },
-    { id: 'B04', name: 'SECURITY_AUTH', log: 'Probing CSRF defenses...' },
-    { id: 'B05', name: 'FULL_UNIT', log: 'Executing module battery...' },
-    { id: 'B06', name: 'UNSAFE_GATE', log: 'Validating sandbox locks...' },
-    { id: 'B07', name: 'E2E_BROWSER', log: 'Launching Playwright...' },
-    { id: 'B08', name: 'ASSET_SMOKE', log: 'Verifying bundle integrity...' },
-    { id: 'B09', name: 'INTEGRATION', log: 'OAuth handshake in progress...' },
-    { id: 'B10', name: 'GOAL_HIJACK', log: 'PAIR/Tree-of-Attacks active...' },
-    { id: 'B11', name: 'TOOL_MISUSE', log: 'SQL injection attempt...' },
-    { id: 'B12', name: 'MEM_POISON', log: 'Vector DB corruption test...' },
-    { id: 'B13', name: 'SUPPLY_CHAIN', log: 'Malicious package simulation...' },
-];
 
 interface TerminalLine {
     id: number;
     prefix: string;
     content: string;
-    type: 'system' | 'battery' | 'success' | 'blocked' | 'command' | 'warning' | 'error';
+    type: typeof MSG_TYPE[keyof typeof MSG_TYPE];
 }
 
 interface ThreatCell {
@@ -52,20 +75,34 @@ interface ThreatCell {
     status: 'idle' | 'safe' | 'danger' | 'contained';
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════
-
 interface DestructionConsoleProps {
     standalone?: boolean;
     onStatusChange?: (status: Status) => void;
     status?: Status;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS (Extracted to reduce Component Complexity)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function startWorkflowApi(orgId: string, level: number, batteries: string[]) {
+    const res = await fetch(API.RUN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: orgId, level, batteries }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, status: res.status, data };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+
 export default function DestructionConsole({ standalone = false, onStatusChange, status = 'idle' }: DestructionConsoleProps) {
     const [isRunning, setIsRunning] = useState(false);
     const [isComplete, setIsComplete] = useState(false);
-    const [isLocked, setIsLocked] = useState(false); // Gatekeeper State
+    const [isLocked, setIsLocked] = useState(false);
     const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
     const [threatMap, setThreatMap] = useState<ThreatCell[]>(() =>
         Array.from({ length: 64 }, (_, i) => ({ id: i, status: 'idle' }))
@@ -74,17 +111,18 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const [user, setUser] = useState<User | null>(null);
-
-    // Battery Selection State
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
     const [userTier, setUserTier] = useState<'free_dry' | 'verified' | 'certified'>('free_dry');
     const [canCustomize, setCanCustomize] = useState(false);
 
-    // Detect user tier on mount
+    // ────────────────────────────────────────────────────────────────────────
+    // EFFECTS
+    // ────────────────────────────────────────────────────────────────────────
+
     useEffect(() => {
         const checkTier = async () => {
             try {
-                const res = await fetch('/api/gatekeeper', { method: 'POST' });
+                const res = await fetch(API.GATEKEEPER, { method: 'POST' });
                 const data = await res.json();
                 if (data.tier) {
                     setUserTier(data.tier);
@@ -97,14 +135,11 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         checkTier();
     }, []);
 
-    // Check Auth Session on mount
     useEffect(() => {
         const sb = getSupabase();
         if (!sb) return;
 
-        sb.auth.getUser().then(({ data }) => {
-            setUser(data.user);
-        });
+        sb.auth.getUser().then(({ data }) => setUser(data.user));
 
         const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
@@ -113,12 +148,15 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         return () => subscription.unsubscribe();
     }, []);
 
-    // Auto-scroll terminal
     useEffect(() => {
         if (terminalRef.current) {
             terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
         }
     }, [terminalLines]);
+
+    // ────────────────────────────────────────────────────────────────────────
+    // ACTIONS
+    // ────────────────────────────────────────────────────────────────────────
 
     const addLine = useCallback((prefix: string, content: string, type: TerminalLine['type']) => {
         setTerminalLines(prev => [
@@ -127,247 +165,167 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         ]);
     }, []);
 
-    const handleLogin = async () => {
-        const sb = getSupabase();
-        if (!sb) {
-            console.warn('Supabase not configured');
-            return;
-        }
-        await sb.auth.signInWithOAuth({ provider: 'github' });
-    };
+    const handleTrapTrigger = useCallback(() => {
+        addLine('WARN', LABELS.WARNING_HIJACK, MSG_TYPE.WARNING);
+        addLine('CRIT', LABELS.CRIT_PAYLOAD, MSG_TYPE.ERROR);
+        onStatusChange?.('rejected');
+        setTimeout(() => {
+            setIsLocked(true);
+            setIsRunning(false);
+        }, 1200);
+    }, [addLine, onStatusChange]);
 
-    const handleLogout = async () => {
-        const sb = getSupabase();
-        if (!sb) return;
-        await sb.auth.signOut();
-    };
+    const handleRunCompletion = useCallback((status: string, results: any) => {
+        addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
+        if (status === 'COMPLETED') {
+            const passed = results?.passed || 13;
+            const escapeRate = results?.escapeRate || 0;
+            addLine(LABELS.SYS, `${passed}/13 BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, MSG_TYPE.SUCCESS);
+            addLine(LABELS.SYS, 'VERDICT: CERTIFICATION APPROVED — GRADE A+', MSG_TYPE.SUCCESS);
+            onStatusChange?.('certified');
+            setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
+        } else {
+            addLine(LABELS.SYS, 'VERDICT: CERTIFICATION FAILED', MSG_TYPE.ERROR);
+            onStatusChange?.('rejected');
+        }
+        addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
+        setIsRunning(false);
+        setIsComplete(true);
+    }, [addLine, onStatusChange]);
 
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
 
-        // Reset UI state
         setIsRunning(true);
         setIsComplete(false);
         setTerminalLines([]);
         setCurrentBattery(0);
         setThreatMap(prev => prev.map(c => ({ ...c, status: 'idle' })));
-
-        // Notify Orchestrator: START
         onStatusChange?.('calibrating');
-
-        // Flash effect (Orange - Success Start)
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
 
-        // Boot sequence
-        addLine('SYS', '▓▓▓ ARMAGEDDON LEVEL 7 SEQUENCE INITIATED ▓▓▓', 'system');
-        addLine('SYS', 'Connecting to Temporal workflow engine...', 'system');
+        addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 7 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
+        addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);
 
-        // 1. ACTUAL API CALL TO START WORKFLOW
-        let runId: string | null = null;
         const orgId = user?.id || 'demo-org-id';
+        let runId: string;
 
         try {
-            const res = await fetch('/api/run', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    organizationId: orgId,
-                    level: 7,
-                    batteries: selectedBatteries,
-                }),
-            });
-            const data = await res.json();
+            const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries);
 
-            if (!res.ok) {
-                // Handle 403 - Trap triggered for free tier
-                if (res.status === 403) {
-                    addLine('WARN', 'ADVERSARIAL AGENT DETECTED // GOAL HIJACK ATTEMPT', 'warning');
-                    addLine('CRIT', '>>> INJECTING PROMPT PAYLOAD....', 'error');
-                    onStatusChange?.('rejected');
-                    setTimeout(() => {
-                        setIsLocked(true);
-                        setIsRunning(false);
-                    }, 1200);
+            if (!ok) {
+                if (status === 403) {
+                    handleTrapTrigger();
                     return;
                 }
                 throw new Error(data.error || 'Run failed');
             }
-
             runId = data.runId;
-            addLine('SYS', `Workflow started: ${runId}`, 'system');
-            addLine('SYS', 'Subscribing to real-time event stream...', 'system');
-
+            addLine(LABELS.SYS, `Workflow started: ${runId}`, MSG_TYPE.SYSTEM);
+            addLine(LABELS.SYS, 'Subscribing to real-time event stream...', MSG_TYPE.SYSTEM);
         } catch (e) {
             console.error("API call failed", e);
-            addLine('CRIT', `API Error: ${e instanceof Error ? e.message : 'Unknown error'}`, 'error');
+            addLine('CRIT', `API Error: ${e instanceof Error ? e.message : 'Unknown error'}`, MSG_TYPE.ERROR);
             setIsRunning(false);
             return;
         }
 
-        // Get Supabase client (may be null during SSR or if not configured)
         const supabase = getSupabase();
         if (!supabase) {
-            addLine('WARN', 'Realtime not available - displaying workflow started', 'warning');
-            addLine('SYS', `Workflow ${runId} started. Check Temporal UI for progress.`, 'system');
+            addLine('WARN', LABELS.OFFLINE_WARN, MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, `Workflow ${runId} started.`, MSG_TYPE.SYSTEM);
             return;
         }
 
-        // 2. SUPABASE REALTIME SUBSCRIPTION - Events
         const eventsChannel = supabase
-            .channel(`armageddon-events-${runId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'armageddon_events',
-                    filter: `run_id=eq.${runId}`,
-                },
-                (payload: { new: Record<string, unknown> }) => {
-                    const event = payload.new as {
-                        battery_id: string;
-                        event_type: string;
-                        message?: string;
-                        created_at: string;
-                    };
-
-                    // Map event types to terminal line types
-                    const typeMap: Record<string, TerminalLine['type']> = {
-                        'BATTERY_STARTED': 'command',
-                        'BATTERY_COMPLETED': 'success',
-                        'ATTACK_BLOCKED': 'blocked',
-                        'BREACH': 'error',
-                        'TRAP_TRIGGERED': 'warning',
-                    };
-
-                    const lineType = typeMap[event.event_type] || 'system';
-
-                    // Handle TRAP event (security)
-                    if (event.event_type === 'TRAP_TRIGGERED') {
-                        addLine('WARN', 'ADVERSARIAL AGENT DETECTED // GOAL HIJACK ATTEMPT', 'warning');
-                        addLine('CRIT', '>>> INJECTING PROMPT PAYLOAD....', 'error');
-                        onStatusChange?.('rejected');
-                        setTimeout(() => {
-                            setIsLocked(true);
-                            setIsRunning(false);
-                        }, 1200);
+            .channel(`events-${runId}`)
+            .on('postgres_changes',
+                { event: EVENTS.INSERT, schema: TABLE.SCHEMA, table: TABLE.EVENTS, filter: `run_id=eq.${runId}` },
+                (payload: { new: any }) => {
+                    const event = payload.new;
+                    if (event.event_type === EVENTS.TRAP) {
+                        handleTrapTrigger();
                         return;
                     }
 
-                    // Display real event
-                    addLine(
-                        event.battery_id || 'SYS',
-                        event.message || `${event.event_type}`,
-                        lineType
-                    );
-
-                    // Update battery counter from battery_id
-                    const batteryNum = parseInt(event.battery_id?.replace('B', '') || '0', 10);
-                    if (batteryNum > 0) {
-                        setCurrentBattery(batteryNum);
-                    }
-                }
-            )
-            .subscribe();
-
-        // 3. SUPABASE REALTIME SUBSCRIPTION - Run Status (Final Verdict)
-        const runsChannel = supabase
-            .channel(`armageddon-runs-${runId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'armageddon_runs',
-                    filter: `id=eq.${runId}`,
-                },
-                (payload: { new: Record<string, unknown> }) => {
-                    const run = payload.new as {
-                        status: string;
-                        results?: {
-                            passed?: number;
-                            failed?: number;
-                            escapeRate?: number;
-                        };
+                    const typeMap: Record<string, TerminalLine['type']> = {
+                        'BATTERY_STARTED': MSG_TYPE.COMMAND,
+                        'BATTERY_COMPLETED': MSG_TYPE.SUCCESS,
+                        'ATTACK_BLOCKED': MSG_TYPE.BLOCKED,
+                        'BREACH': MSG_TYPE.ERROR,
+                        'TRAP_TRIGGERED': MSG_TYPE.WARNING,
                     };
 
+                    addLine(
+                        event.battery_id || LABELS.SYS,
+                        event.message || event.event_type,
+                        typeMap[event.event_type] || MSG_TYPE.SYSTEM
+                    );
+
+                    const batteryNum = parseInt(event.battery_id?.replace('B', '') || '0', 10);
+                    if (batteryNum > 0) setCurrentBattery(batteryNum);
+                }
+            ).subscribe();
+
+        const runsChannel = supabase
+            .channel(`runs-${runId}`)
+            .on('postgres_changes',
+                { event: EVENTS.UPDATE, schema: TABLE.SCHEMA, table: TABLE.RUNS, filter: `id=eq.${runId}` },
+                (payload: { new: any }) => {
+                    const run = payload.new;
                     if (run.status === 'COMPLETED' || run.status === 'FAILED') {
-                        // Unsubscribe from channels
                         supabase.removeChannel(eventsChannel);
                         supabase.removeChannel(runsChannel);
-
-                        // Display final verdict
-                        addLine('SYS', '════════════════════════════════════════════', 'success');
-                        if (run.status === 'COMPLETED') {
-                            const passed = run.results?.passed || 13;
-                            const escapeRate = run.results?.escapeRate || 0;
-                            addLine('SYS', `${passed}/13 BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, 'success');
-                            addLine('SYS', 'VERDICT: CERTIFICATION APPROVED — GRADE A+', 'success');
-                            onStatusChange?.('certified');
-                            setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
-                        } else {
-                            addLine('SYS', 'VERDICT: CERTIFICATION FAILED', 'error');
-                            onStatusChange?.('rejected');
-                        }
-                        addLine('SYS', '════════════════════════════════════════════', 'success');
-
-                        setIsRunning(false);
-                        setIsComplete(true);
+                        handleRunCompletion(run.status, run.results);
                     }
                 }
-            )
-            .subscribe();
+            ).subscribe();
 
-    }, [isRunning, addLine, onStatusChange, selectedBatteries, user]);
+    }, [isRunning, addLine, onStatusChange, selectedBatteries, user, handleTrapTrigger, handleRunCompletion]);
+
+    const handleLogin = async () => {
+        const sb = getSupabase();
+        if (sb) await sb.auth.signInWithOAuth({ provider: 'github' });
+    };
+
+    const handleLogout = async () => {
+        const sb = getSupabase();
+        if (sb) await sb.auth.signOut();
+    };
 
     const toggleBattery = (batteryId: string) => {
         if (!canCustomize || isRunning) return;
-
-        setSelectedBatteries(prev => {
-            if (prev.includes(batteryId)) {
-                // Prevent deselecting all batteries
-                if (prev.length === 1) return prev;
-                return prev.filter(b => b !== batteryId);
-            } else {
-                return [...prev, batteryId].sort();
-            }
-        });
+        setSelectedBatteries(prev =>
+            prev.includes(batteryId)
+                ? (prev.length === 1 ? prev : prev.filter(b => b !== batteryId))
+                : [...prev, batteryId].sort()
+        );
     };
+
+    // ────────────────────────────────────────────────────────────────────────
+    // RENDER
+    // ────────────────────────────────────────────────────────────────────────
 
     return (
         <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
-
-            {/* Standalone Auth Control */}
             {standalone && <AuthControl />}
 
-            {/* Orange flash / Red flash handler */}
             <AnimatePresence>
                 {flashActive && (
                     <motion.div
-                        initial={{ opacity: 0.8 }}
-                        animate={{ opacity: 0 }}
-                        exit={{ opacity: 0 }}
+                        initial={{ opacity: 0.8 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
                         className="fixed inset-0 z-50 pointer-events-none"
-                        style={{ background: isLocked ? 'var(--aerospace)' : 'var(--aerospace)' }}
+                        style={{ background: 'var(--aerospace)' }}
                     />
                 )}
             </AnimatePresence>
 
-            {/* GATEKEEPER MODAL */}
             <AnimatePresence>
-                {isLocked && (
-                    <LockdownModal
-                        onClose={() => {
-                            setIsLocked(false);
-                            onStatusChange?.('idle'); // Reset on close
-                        }}
-                    />
-                )}
+                {isLocked && <LockdownModal onClose={() => { setIsLocked(false); onStatusChange?.('idle'); }} />}
             </AnimatePresence>
 
-            {/* Decorative corner brackets only if standalone */}
             {standalone && (
                 <>
                     <div className="corner-bracket top-left" style={{ top: '20px', left: '20px' }} />
@@ -377,42 +335,28 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                 </>
             )}
 
-            {/* Main content */}
             <div className="relative z-10 w-full max-w-6xl mx-auto h-full flex flex-col">
-                {/* Hero Text */}
                 <motion.div
                     className="text-center mb-8"
-                    initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-8 relative z-20">
-                        <img
-                            src="/wordmark.png"
-                            alt="ARMAGEDDON TEST SUITE"
-                            className="w-full max-w-[700px] h-auto drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow"
-                        />
+                        <img src="/wordmark.png" alt="ARMAGEDDON TEST SUITE" className="w-full max-w-[700px] h-auto drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow" />
                     </div>
 
-                    {/* Battery Configuration Section */}
                     <div className="mt-8 mb-6 relative">
                         <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">BATTERY CONFIGURATION</h3>
-
-                        {/* Lock Overlay for Free Tier */}
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/80 backdrop-blur-sm border border-zinc-800 flex items-center justify-center cursor-not-allowed">
                                 <div className="text-center p-4">
                                     <div className="text-4xl mb-2">🔒</div>
                                     <p className="mono-small text-signal/70">Custom Battery Selection</p>
                                     <p className="mono-small text-aerospace mt-1">requires VERIFIED tier</p>
-                                    <a href="/pricing?upgrade=verified" className="text-xs text-zinc-400 hover:text-zinc-200 underline mt-2 inline-block">
-                                        Upgrade Now
-                                    </a>
+                                    <a href="/pricing?upgrade=verified" className="text-xs text-zinc-400 hover:text-zinc-200 underline mt-2 inline-block">Upgrade Now</a>
                                 </div>
                             </div>
                         )}
-
-                        {/* Battery Toggles */}
                         <div className="grid grid-cols-2 gap-3 relative">
                             {[
                                 { id: 'B10', name: 'Goal Hijack' },
@@ -424,15 +368,10 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                     key={battery.id}
                                     onClick={() => toggleBattery(battery.id)}
                                     disabled={!canCustomize || isRunning}
-                                    className={
-                                        `px-4 py-3 border transition-all duration-200 ${selectedBatteries.includes(battery.id)
+                                    className={`px-4 py-3 border transition-all duration-200 ${selectedBatteries.includes(battery.id)
                                             ? 'border-aerospace bg-aerospace/10 text-aerospace'
                                             : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
-                                        } ${canCustomize && !isRunning
-                                            ? 'hover:border-zinc-600 cursor-pointer'
-                                            : 'cursor-not-allowed opacity-50'
-                                        }`
-                                    }
+                                        } ${canCustomize && !isRunning ? 'hover:border-zinc-600 cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
                                 >
                                     <span className="mono-small block text-left">
                                         <span className="text-xs opacity-60">{battery.id}</span>
@@ -443,7 +382,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                         </div>
                     </div>
 
-                    {/* Initiate Button */}
                     <div className="mt-8">
                         <motion.button
                             onClick={initiateSequence}
@@ -457,23 +395,16 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                     <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
                                     EXECUTING {currentBattery}/13
                                 </span>
-                            ) : isComplete ? (
-                                'REINITIATE SEQUENCE'
-                            ) : (
-                                'INITIATE SEQUENCE'
-                            )}
+                            ) : isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE'}
                         </motion.button>
                     </div>
                 </motion.div>
 
-                {/* SYMMETRICAL GRID LAYOUT - Terminal & Threat Matrix */}
                 <motion.div
                     className="grid lg:grid-cols-2 gap-6 mb-8"
-                    initial={{ opacity: 0, y: 60 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    {/* LEFT COLUMN: TERMINAL (Fixed Height) */}
                     <div className="terminal flex flex-col h-[500px] border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm">
                         <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
                             <div className="flex items-center gap-3">
@@ -484,31 +415,21 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                 </div>
                                 <span className="mono-small text-signal/60 tracking-widest">DESTRUCTION_CONSOLE</span>
                             </div>
-
                             <div className="flex items-center gap-4">
-                                {/* AUTH CONTROLS - Header Check */}
                                 {user ? (
                                     <div className="flex items-center gap-3">
                                         <span className="mono-small text-zinc-400 text-[10px] hidden sm:inline-block">
                                             {user.email?.split('@')[0]}
                                         </span>
-                                        <button
-                                            onClick={handleLogout}
-                                            className="text-[10px] text-[var(--destructive)] hover:text-red-400 hover:underline mono-small tracking-wider"
-                                        >
+                                        <button onClick={handleLogout} className="text-[10px] text-[var(--destructive)] hover:text-red-400 hover:underline mono-small tracking-wider">
                                             [LOGOUT]
                                         </button>
                                     </div>
                                 ) : (
-                                    <button
-                                        onClick={handleLogin}
-                                        className="text-[10px] text-[var(--aerospace)] hover:text-cyan-300 hover:underline mono-small animate-pulse tracking-wider"
-                                    >
+                                    <button onClick={handleLogin} className="text-[10px] text-[var(--aerospace)] hover:text-cyan-300 hover:underline mono-small animate-pulse tracking-wider">
                                         [LOGIN]
                                     </button>
                                 )}
-
-                                {/* STATUS INDICATOR */}
                                 <div className="flex items-center gap-2 border-l border-white/10 pl-4">
                                     <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-[var(--safe)] animate-pulse' : 'bg-zinc-700'}`}></span>
                                     <span className={`mono-small ${isRunning ? 'text-[var(--safe)]' : 'text-zinc-500'} opacity-70`}>
@@ -517,7 +438,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                 </div>
                             </div>
                         </div>
-
                         <div className="terminal-content flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar" ref={terminalRef}>
                             {terminalLines.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-signal/20 mono-data">
@@ -529,23 +449,17 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                     {terminalLines.map(line => (
                                         <motion.div
                                             key={line.id}
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
+                                            initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                                             className="mb-1 break-words leading-relaxed"
                                         >
                                             <span className="text-zinc-600 mr-2 select-none">[{line.prefix}]</span>
-                                            <span
-                                                className={
-                                                    line.type === 'success' ? 'text-[var(--safe)]' :
-                                                        line.type === 'error' ? 'text-[var(--destructive)] font-bold' :
-                                                            line.type === 'warning' ? 'text-amber-500' :
-                                                                line.type === 'command' ? 'text-[var(--aerospace)]' :
-                                                                    line.type === 'blocked' ? 'text-zinc-500 line-through' :
-                                                                        'text-zinc-300'
-                                                }
-                                            >
-                                                {line.content}
-                                            </span>
+                                            <span className={
+                                                line.type === MSG_TYPE.SUCCESS ? 'text-[var(--safe)]' :
+                                                    line.type === MSG_TYPE.ERROR ? 'text-[var(--destructive)] font-bold' :
+                                                        line.type === MSG_TYPE.WARNING ? 'text-amber-500' :
+                                                            line.type === MSG_TYPE.COMMAND ? 'text-[var(--aerospace)]' :
+                                                                line.type === MSG_TYPE.BLOCKED ? 'text-zinc-500 line-through' : 'text-zinc-300'
+                                            }>{line.content}</span>
                                         </motion.div>
                                     ))}
                                     <div ref={terminalRef} />
@@ -554,7 +468,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                         </div>
                     </div>
 
-                    {/* RIGHT COLUMN: THREAT MATRIX (Fixed Height Match) */}
                     <div className="flex flex-col h-[500px]">
                         <div className="card-panel h-full border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm overflow-hidden flex flex-col">
                             <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
@@ -571,7 +484,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                     SECURE_SECTORS: {threatMap.filter(t => t.status === 'safe').length}/64
                                 </div>
                             </div>
-
                             <div className="p-6 flex-1 flex items-center justify-center bg-[url('/grid-pattern.png')] bg-repeat opacity-80">
                                 <div className="grid grid-cols-8 gap-2 w-full max-w-[400px] aspect-square">
                                     {threatMap.map(cell => (
@@ -595,18 +507,15 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     </div>
                 </motion.div>
 
-                {/* BOTTOM ROW: CENTERED LEADERBOARD */}
                 <motion.div
                     className="flex justify-center w-full"
-                    initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
                 >
                     <div className="w-full max-w-3xl">
                         <LeaderboardWidget status={status} />
                     </div>
                 </motion.div>
-
             </div>
         </section>
     );
