@@ -49,6 +49,12 @@ services:
       - ./config/dynamicconfig:/etc/temporal/config/dynamicconfig
     ports:
       - "127.0.0.1:7233:7233" # gRPC - Worker connection
+    healthcheck:
+      test: [ "CMD", "tctl", "--address", "localhost:7233", "cluster", "health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
 
   # ─────────────────────────────────────────────────────────────────────────
@@ -75,7 +81,8 @@ services:
       dockerfile: Dockerfile
     container_name: armageddon-worker
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - SIM_MODE=true
       - SANDBOX_TENANT=armageddon-test

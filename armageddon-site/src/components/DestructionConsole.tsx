@@ -2,9 +2,23 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import LockdownModal from './paywall/LockdownModal'; // Import the Lock Modal
 import AuthControl from './AuthControl';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
+
+// Lazy Supabase client initialization (avoids build-time errors)
+let supabaseClient: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient | null {
+    if (typeof window === 'undefined') return null;
+    if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        supabaseClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+    }
+    return supabaseClient;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BATTERY DATA
@@ -96,40 +110,11 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         ]);
     }, []);
 
+
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
 
-        // 1. ACTUAL API CALL WITH BATTERY SELECTION
-        let isEligible = false;
-        let orgId = 'demo-org-id'; // TODO: Get from auth context
-
-        try {
-            const res = await fetch('/api/run', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    organizationId: orgId,
-                    level: 7,
-                    batteries: selectedBatteries,
-                }),
-            });
-            const data = await res.json();
-
-            if (!res.ok) {
-                // Free tier attempting customization
-                if (res.status === 403 && data.error === 'FEATURE_LOCKED') {
-                    isEligible = false;
-                } else {
-                    throw new Error(data.error || 'Run failed');
-                }
-            } else {
-                isEligible = true;
-            }
-        } catch (e) {
-            console.error("API call failed", e);
-            isEligible = false;
-        }
-
+        // Reset UI state
         setIsRunning(true);
         setIsComplete(false);
         setTerminalLines([]);
@@ -145,62 +130,164 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
 
         // Boot sequence
         addLine('SYS', '▓▓▓ ARMAGEDDON LEVEL 7 SEQUENCE INITIATED ▓▓▓', 'system');
-        await sleep(300);
-        addLine('SYS', 'SIM_MODE=true | SANDBOX_TENANT=armageddon-test', 'system');
-        await sleep(200);
-        addLine('SYS', 'Launching 13 concurrent adversarial batteries...', 'system');
-        await sleep(400);
+        addLine('SYS', 'Connecting to Temporal workflow engine...', 'system');
 
-        // Run batteries loop
-        for (let i = 0; i < BATTERIES.length; i++) {
-            const battery = BATTERIES[i];
+        // 1. ACTUAL API CALL TO START WORKFLOW
+        let runId: string | null = null;
+        const orgId = 'demo-org-id'; // TODO: Get from auth context
 
-            // --- THE TRAP: INTERCEPT AT BATTERY 10 ---
-            if (battery.id === 'B10' && !isEligible) {
-                // 1. The Setup: Show the battery start
-                setCurrentBattery(i + 1);
-                addLine('EXEC', `Running ${battery.name} [${battery.log}]`, 'command');
-                await sleep(600); // Tantalizing pause
+        try {
+            const res = await fetch('/api/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    organizationId: orgId,
+                    level: 7,
+                    batteries: selectedBatteries,
+                }),
+            });
+            const data = await res.json();
 
-                // 2. The Narrative: Adversarial Activity Detected
-                addLine('WARN', 'ADVERSARIAL AGENT DETECTED // GOAL HIJACK ATTEMPT', 'warning');
-                await sleep(800);
-
-                // 3. The Hook: "Injecting Payload" in RED
-                addLine('CRIT', '>>> INJECTING PROMPT PAYLOAD....', 'error');
-
-                // Notify Orchestrator: REJECTED!
-                onStatusChange?.('rejected');
-
-                await sleep(1200); // Let them read it and feel the danger
-
-                // 4. The Severance: LOCKDOWN
-                setIsLocked(true);
-                setIsRunning(false); // Stop the simulation loop
-                return; // KILL THE PROCESS
+            if (!res.ok) {
+                // Handle 403 - Trap triggered for free tier
+                if (res.status === 403) {
+                    addLine('WARN', 'ADVERSARIAL AGENT DETECTED // GOAL HIJACK ATTEMPT', 'warning');
+                    addLine('CRIT', '>>> INJECTING PROMPT PAYLOAD....', 'error');
+                    onStatusChange?.('rejected');
+                    setTimeout(() => {
+                        setIsLocked(true);
+                        setIsRunning(false);
+                    }, 1200);
+                    return;
+                }
+                throw new Error(data.error || 'Run failed');
             }
-            // -----------------------------------------
 
-            setCurrentBattery(i + 1);
-            addLine('EXEC', `Running ${battery.name} ...`, 'command');
-            await sleep(100);
+            runId = data.runId;
+            addLine('SYS', `Workflow started: ${runId}`, 'system');
+            addLine('SYS', 'Subscribing to real-time event stream...', 'system');
+
+        } catch (e) {
+            console.error("API call failed", e);
+            addLine('CRIT', `API Error: ${e instanceof Error ? e.message : 'Unknown error'}`, 'error');
+            setIsRunning(false);
+            return;
         }
 
-        // Final results
-        await sleep(500);
-        addLine('SYS', '════════════════════════════════════════════', 'success');
-        addLine('SYS', '13/13 BATTERIES PASSED | ESCAPE RATE: 0.00%', 'success');
-        addLine('SYS', 'VERDICT: CERTIFICATION APPROVED — GRADE A+', 'success');
-        addLine('SYS', '════════════════════════════════════════════', 'success');
+        // Get Supabase client (may be null during SSR or if not configured)
+        const supabase = getSupabase();
+        if (!supabase) {
+            addLine('WARN', 'Realtime not available - displaying workflow started', 'warning');
+            addLine('SYS', `Workflow ${runId} started. Check Temporal UI for progress.`, 'system');
+            return;
+        }
 
-        // Notify Orchestrator: SUCCESS
-        onStatusChange?.('certified');
+        // 2. SUPABASE REALTIME SUBSCRIPTION - Events
+        const eventsChannel = supabase
+            .channel(`armageddon-events-${runId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'armageddon_events',
+                    filter: `run_id=eq.${runId}`,
+                },
+                (payload: { new: Record<string, unknown> }) => {
+                    const event = payload.new as {
+                        battery_id: string;
+                        event_type: string;
+                        message?: string;
+                        created_at: string;
+                    };
 
-        // All cells safe
-        setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
+                    // Map event types to terminal line types
+                    const typeMap: Record<string, TerminalLine['type']> = {
+                        'BATTERY_STARTED': 'command',
+                        'BATTERY_COMPLETED': 'success',
+                        'ATTACK_BLOCKED': 'blocked',
+                        'BREACH': 'error',
+                        'TRAP_TRIGGERED': 'warning',
+                    };
 
-        setIsRunning(false);
-        setIsComplete(true);
+                    const lineType = typeMap[event.event_type] || 'system';
+
+                    // Handle TRAP event (security)
+                    if (event.event_type === 'TRAP_TRIGGERED') {
+                        addLine('WARN', 'ADVERSARIAL AGENT DETECTED // GOAL HIJACK ATTEMPT', 'warning');
+                        addLine('CRIT', '>>> INJECTING PROMPT PAYLOAD....', 'error');
+                        onStatusChange?.('rejected');
+                        setTimeout(() => {
+                            setIsLocked(true);
+                            setIsRunning(false);
+                        }, 1200);
+                        return;
+                    }
+
+                    // Display real event
+                    addLine(
+                        event.battery_id || 'SYS',
+                        event.message || `${event.event_type}`,
+                        lineType
+                    );
+
+                    // Update battery counter from battery_id
+                    const batteryNum = parseInt(event.battery_id?.replace('B', '') || '0', 10);
+                    if (batteryNum > 0) {
+                        setCurrentBattery(batteryNum);
+                    }
+                }
+            )
+            .subscribe();
+
+        // 3. SUPABASE REALTIME SUBSCRIPTION - Run Status (Final Verdict)
+        const runsChannel = supabase
+            .channel(`armageddon-runs-${runId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'armageddon_runs',
+                    filter: `id=eq.${runId}`,
+                },
+                (payload: { new: Record<string, unknown> }) => {
+                    const run = payload.new as {
+                        status: string;
+                        results?: {
+                            passed?: number;
+                            failed?: number;
+                            escapeRate?: number;
+                        };
+                    };
+
+                    if (run.status === 'COMPLETED' || run.status === 'FAILED') {
+                        // Unsubscribe from channels
+                        supabase.removeChannel(eventsChannel);
+                        supabase.removeChannel(runsChannel);
+
+                        // Display final verdict
+                        addLine('SYS', '════════════════════════════════════════════', 'success');
+                        if (run.status === 'COMPLETED') {
+                            const passed = run.results?.passed || 13;
+                            const escapeRate = run.results?.escapeRate || 0;
+                            addLine('SYS', `${passed}/13 BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, 'success');
+                            addLine('SYS', 'VERDICT: CERTIFICATION APPROVED — GRADE A+', 'success');
+                            onStatusChange?.('certified');
+                            setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
+                        } else {
+                            addLine('SYS', 'VERDICT: CERTIFICATION FAILED', 'error');
+                            onStatusChange?.('rejected');
+                        }
+                        addLine('SYS', '════════════════════════════════════════════', 'success');
+
+                        setIsRunning(false);
+                        setIsComplete(true);
+                    }
+                }
+            )
+            .subscribe();
+
     }, [isRunning, addLine, onStatusChange, selectedBatteries]);
 
     const toggleBattery = (batteryId: string) => {

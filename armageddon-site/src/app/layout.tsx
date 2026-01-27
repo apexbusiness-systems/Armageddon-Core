@@ -20,9 +20,8 @@ export const metadata: Metadata = {
     authors: [{ name: 'APEX Business Systems Ltd.' }],
     manifest: '/manifest.json', // PWA Manifest Link
     icons: {
-        icon: '/favicon.ico', // Standard
-        shortcut: '/favicon.ico',
-        apple: '/icon.png', // Higher res for Apple
+        icon: '/icon.png',
+        apple: '/icon.png',
     },
     appleWebApp: {
         capable: true,
