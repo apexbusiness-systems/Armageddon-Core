@@ -1,0 +1,38 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-grad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    
+    <linearGradient id="magma" x1="256" y1="100" x2="256" y2="412">
+      <stop offset="0%" stop-color="#FFD700"/> <stop offset="40%" stop-color="#FF3300"/> <stop offset="100%" stop-color="#8B0000"/> </linearGradient>
+
+    <linearGradient id="metal" x1="0" y1="0" x2="512" y2="512">
+      <stop offset="0%" stop-color="#333333"/>
+      <stop offset="50%" stop-color="#111111"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+
+    <filter id="bloom" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg-grad)"/>
+
+  <circle cx="256" cy="256" r="180" fill="url(#metal)" stroke="#222" stroke-width="2"/>
+  
+  <g filter="url(#bloom)">
+    <path d="M256 120 L220 392 H292 L256 120 Z" fill="url(#magma)" />
+    <path d="M180 300 L332 300" stroke="url(#magma)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M200 220 L312 220" stroke="url(#magma)" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <ellipse cx="256" cy="180" rx="120" ry="60" fill="white" fill-opacity="0.05"/>
+  <path d="M156 380 Q256 420 356 380" stroke="#FF3300" stroke-width="2" stroke-opacity="0.3" stroke-linecap="round"/>
+  
+  <text x="256" y="460" font-family="monospace" font-size="10" fill="#444" text-anchor="middle" letter-spacing="4">LEVEL 7 CLEARANCE</text>
+</svg>
