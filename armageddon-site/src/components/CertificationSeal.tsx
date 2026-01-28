@@ -56,6 +56,13 @@ export default function CertificationSeal() {
                         className="seal-container relative cursor-pointer"
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                setIsHovered(!isHovered);
+                            }
+                        }}
                     >
                         {/* Glow effect */}
                         <div className="seal-glow" />
@@ -99,7 +106,7 @@ export default function CertificationSeal() {
                                 <div className="space-y-2 mono-data text-xs">
                                     {Object.entries(metadata).map(([key, value]) => (
                                         <div key={key} className="flex justify-between">
-                                            <span className="text-signal/40 uppercase">{key.replace(/([A-Z])/g, ' $1')}</span>
+                                            <span className="text-signal/40 uppercase">{key.replaceAll(/([A-Z])/g, ' $1')}</span>
                                             <span className={
                                                 key === 'grade' ? 'text-[var(--safe)] font-bold' :
                                                     key === 'sandbox' ? 'text-[var(--aerospace)]' :

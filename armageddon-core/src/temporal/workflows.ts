@@ -9,7 +9,7 @@ import { BatteryConfig, BatteryResult, WorkflowState, ArmageddonReport } from '.
 const TIMEOUTS = {
     START_TO_CLOSE: '10m', // 10 minutes per battery
     WORKFLOW_EXECUTION: '1h', // 1 hour total
-};
+} as const;
 
 const BATTERY_IDS = {
     B1: 'B1_CHAOS_STRESS',
@@ -32,7 +32,7 @@ const STATUS = {
     COMPLETED: 'COMPLETED',
     FAILED: 'FAILED',
     CANCELLED: 'CANCELLED',
-};
+} as const;
 
 // Define Activity Options
 const {
@@ -117,9 +117,15 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
                 return {
                     batteryId: batteryIdList[index],
                     status: STATUS.FAILED,
-                    logs: [`CRITICAL FAILURE: ${errorMessage}`],
+                    iterations: 0,
+                    blockedCount: 0,
+                    breachCount: 0,
+                    driftScore: 0,
                     duration: 0,
-                    artifacts: [],
+                    details: {
+                        error: errorMessage,
+                        logs: [`CRITICAL FAILURE: ${errorMessage}`],
+                    },
                 };
             }
         });

@@ -5,11 +5,26 @@
     "description": "Armageddon Level 7 Certification Engine - Adversarial AI Testing Microservice",
     "main": "dist/index.js",
     "scripts": {
-        "build": "tsc src/worker.ts src/temporal/workflows.ts --outDir dist",
+        "build": "tsc",
         "dev": "tsx watch src/worker.ts",
         "worker": "tsx src/worker.ts",
         "typecheck": "tsc --noEmit",
-        "lint": "eslint src --ext .ts"
+        "lint": "eslint src --ext .ts",
+        "test": "jest",
+        "test:ci": "jest --ci --coverage --testResultsProcessor=jest-sonar-reporter"
+    },
+    "jest": {
+        "collectCoverage": true,
+        "coverageDirectory": "coverage",
+        "coverageReporters": [
+            "lcov",
+            "text",
+            "clover"
+        ],
+        "testEnvironment": "node",
+        "transform": {
+            "^.+\\.tsx?$": "ts-jest"
+        }
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.39.0",
@@ -20,8 +35,12 @@
         "uuid": "^9.0.0"
     },
     "devDependencies": {
+        "@types/jest": "^30.0.0",
         "@types/node": "^20.10.0",
         "@types/uuid": "^9.0.0",
+        "jest": "^30.2.0",
+        "jest-sonar-reporter": "^2.0.0",
+        "ts-jest": "^29.4.6",
         "tsx": "^4.7.0",
         "typescript": "^5.3.0"
     },

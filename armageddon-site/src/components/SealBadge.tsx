@@ -123,7 +123,7 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
                             {Object.entries(sealData).map(([key, value]) => (
                                 <div key={key} className="flex justify-between py-1 border-b border-[var(--tungsten-light)]">
                                     <span className="text-signal/40 uppercase">
-                                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                                        {key.replaceAll(/([A-Z])/g, ' $1').trim()}
                                     </span>
                                     <span
                                         className={
