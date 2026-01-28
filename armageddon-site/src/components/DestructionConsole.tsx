@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User, RealtimeChannel } from '@supabase/supabase-js';
 import LockdownModal from './paywall/LockdownModal';
 import AuthControl from './AuthControl';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
@@ -115,6 +115,9 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     // Removed unused userTier
     const [canCustomize, setCanCustomize] = useState(false);
 
+    // Track subscriptions for cleanup
+    const subscriptionRefs = useRef<RealtimeChannel[]>([]);
+
     // ────────────────────────────────────────────────────────────────────────
     // EFFECTS
     // ────────────────────────────────────────────────────────────────────────
@@ -145,6 +148,14 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         });
 
         return () => subscription.unsubscribe();
+    }, []);
+
+    // Cleanup subscriptions on unmount
+    useEffect(() => {
+        return () => {
+            subscriptionRefs.current.forEach(channel => channel.unsubscribe());
+            subscriptionRefs.current = [];
+        };
     }, []);
 
     useEffect(() => {
@@ -265,7 +276,10 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     const batteryNum = Number.parseInt(event.battery_id?.replace('B', '') || '0', 10);
                     if (batteryNum > 0) setCurrentBattery(batteryNum);
                 }
-            ).subscribe();
+            );
+
+        eventsChannel.subscribe();
+        subscriptionRefs.current.push(eventsChannel);
 
         const runsChannel = supabase
             .channel(`runs-${runId}`)
@@ -276,10 +290,17 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     if (run.status === 'COMPLETED' || run.status === 'FAILED') {
                         supabase.removeChannel(eventsChannel);
                         supabase.removeChannel(runsChannel);
+
+                        // Remove from refs too
+                        subscriptionRefs.current = subscriptionRefs.current.filter(c => c !== eventsChannel && c !== runsChannel);
+
                         handleRunCompletion(run.status, run.results);
                     }
                 }
-            ).subscribe();
+            );
+
+        runsChannel.subscribe();
+        subscriptionRefs.current.push(runsChannel);
 
     }, [isRunning, addLine, onStatusChange, selectedBatteries, user, handleTrapTrigger, handleRunCompletion]);
 
@@ -298,7 +319,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         setSelectedBatteries(prev =>
             prev.includes(batteryId)
                 ? (prev.length === 1 ? prev : prev.filter(b => b !== batteryId))
-                : [...prev, batteryId].sort()
+                : [...prev, batteryId].sort((a, b) => a.localeCompare(b))
         );
     };
 
