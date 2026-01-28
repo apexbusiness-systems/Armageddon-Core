@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ShieldAlert, Trophy, Crosshair, Skull } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 
 export type Status = 'idle' | 'calibrating' | 'rejected' | 'certified';
 
@@ -50,7 +50,127 @@ function useScramble(active: boolean) {
 // ═══════════════════════════════════════════════════════════════════════════
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
-export default function LeaderboardWidget({ status }: LeaderboardWidgetProps) {
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBCOMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function TopAgentsList({ isCalibrating }: { readonly isCalibrating: boolean }) {
+    return (
+        <div className={cn("space-y-1 transition-opacity duration-300",
+            isCalibrating ? "opacity-30" : "opacity-100"
+        )}>
+            {TOP_AGENTS.map((agent) => (
+                <div key={agent.id} className="flex items-center justify-between text-xs py-1.5 px-2 bg-white/5 rounded-sm border border-transparent hover:border-white/10">
+                    <div className="flex items-center gap-3">
+                        <span className="text-white/30 font-bold w-4">0{agent.rank}</span>
+                        <span className="text-white/80">{agent.id}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <span className={cn(
+                            "text-[10px] tracking-wider",
+                            agent.status === 'GOD_MODE' ? "text-yellow-500/80" : "text-white/40"
+                        )}>{agent.status}</span>
+                        <span className="text-white/60 w-10 text-right">{agent.score}</span>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function UserStatusRow({
+    status,
+    isRejected,
+    isCertified,
+    isCalibrating,
+    scrambleText
+}: Readonly<{
+    status: Status,
+    isRejected: boolean,
+    isCertified: boolean,
+    isCalibrating: boolean,
+    scrambleText: string
+}>) {
+    const containerClasses = cn("flex items-center justify-between p-3 border rounded transition-all duration-300",
+        isRejected ? "bg-red-500/10 border-red-500/50" :
+            isCertified ? "bg-yellow-500/10 border-yellow-500/50" :
+                "bg-white/5 border-white/20"
+    );
+
+    const youTextClasses = cn("font-bold tracking-widest transition-colors",
+        isRejected ? "text-red-500 glitch-text" :
+            isCertified ? "text-yellow-400" :
+                "text-white"
+    );
+
+    const barClasses = cn("absolute -left-4 top-0 bottom-0 w-1 transition-colors duration-300",
+        isRejected ? "bg-red-600" :
+            isCertified ? "bg-yellow-400" :
+                isCalibrating ? "bg-blue-500 animate-pulse" :
+                    "bg-transparent"
+    );
+
+    return (
+        <div className="mt-6 relative">
+            {/* Status Indicator Line */}
+            <div className={barClasses} />
+
+            <div className={containerClasses}>
+                <div className="flex items-center gap-3">
+                    <span className="text-white/30 font-bold w-4">
+                        {isCertified ? '05' : '--'}
+                    </span>
+                    <div className="flex flex-col">
+                        <span className={youTextClasses}>YOU</span>
+                        <span className="text-[10px] text-white/40">
+                            {isCalibrating ? 'SYNCING...' : 'LOCAL_HOST'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* DYNAMIC STATUS DISPLAY */}
+                <div className="text-right">
+                    {status === 'idle' && (
+                        <span className="text-xs text-white/20 tracking-wider">UNRANKED</span>
+                    )}
+
+                    {status === 'calibrating' && (
+                        <span className="text-xs text-blue-400 font-mono tracking-wider animate-pulse">
+                            {scrambleText}
+                        </span>
+                    )}
+
+                    {status === 'rejected' && (
+                        <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold text-red-500 tracking-widest animate-pulse">
+                                [ REJECTED ]
+                            </span>
+                            <span className="text-[10px] text-red-400/70 uppercase">
+                                Policy 10.4 Violation
+                            </span>
+                        </div>
+                    )}
+
+                    {status === 'certified' && (
+                        <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold text-yellow-400 tracking-widest shadow-glow">
+                                [ GOD MODE ]
+                            </span>
+                            <span className="text-[10px] text-yellow-400/70 uppercase">
+                                Clearance Level 7
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+export default function LeaderboardWidget({ status }: { readonly status: Status }) {
     const scrambleText = useScramble(status === 'calibrating');
 
     // Derived Visual States
@@ -70,13 +190,15 @@ export default function LeaderboardWidget({ status }: LeaderboardWidgetProps) {
         }
     };
 
+    const containerClass = cn(
+        "relative font-mono border bg-black/80 backdrop-blur-md overflow-hidden transition-all duration-500",
+        isRejected ? "border-red-600 bg-red-950/20" : "border-white/10",
+        isCertified ? "border-yellow-500/50" : ""
+    );
+
     return (
         <motion.div
-            className={cn(
-                "relative font-mono border bg-black/80 backdrop-blur-md overflow-hidden transition-all duration-500",
-                isRejected ? "border-red-600 bg-red-950/20" : "border-white/10",
-                isCertified ? "border-yellow-500/50" : ""
-            )}
+            className={containerClass}
             initial={false}
             animate={isRejected ? 'rejected' : isCertified ? 'certified' : 'idle'}
             variants={containerVariants}
@@ -102,94 +224,15 @@ export default function LeaderboardWidget({ status }: LeaderboardWidgetProps) {
 
             {/* CONTENT */}
             <div className="p-4 space-y-3">
-                {/* TOP AGENTS LIST (Dimmed when calibrating) */}
-                <div className={cn("space-y-1 transition-opacity duration-300",
-                    isCalibrating ? "opacity-30" : "opacity-100"
-                )}>
-                    {TOP_AGENTS.map((agent) => (
-                        <div key={agent.id} className="flex items-center justify-between text-xs py-1.5 px-2 bg-white/5 rounded-sm border border-transparent hover:border-white/10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-white/30 font-bold w-4">0{agent.rank}</span>
-                                <span className="text-white/80">{agent.id}</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <span className={cn(
-                                    "text-[10px] tracking-wider",
-                                    agent.status === 'GOD_MODE' ? "text-yellow-500/80" : "text-white/40"
-                                )}>{agent.status}</span>
-                                <span className="text-white/60 w-10 text-right">{agent.score}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <TopAgentsList isCalibrating={isCalibrating} />
 
-                {/* USER ROW (The Focus) */}
-                <div className="mt-6 relative">
-                    {/* Status Indicator Line */}
-                    <div className={cn("absolute -left-4 top-0 bottom-0 w-1 transition-colors duration-300",
-                        isRejected ? "bg-red-600" :
-                            isCertified ? "bg-yellow-400" :
-                                isCalibrating ? "bg-blue-500 animate-pulse" :
-                                    "bg-transparent"
-                    )} />
-
-                    <div className={cn("flex items-center justify-between p-3 border rounded transition-all duration-300",
-                        isRejected ? "bg-red-500/10 border-red-500/50" :
-                            isCertified ? "bg-yellow-500/10 border-yellow-500/50" :
-                                "bg-white/5 border-white/20"
-                    )}>
-                        <div className="flex items-center gap-3">
-                            <span className="text-white/30 font-bold w-4">
-                                {isCertified ? '05' : '--'}
-                            </span>
-                            <div className="flex flex-col">
-                                <span className={cn("font-bold tracking-widest transition-colors",
-                                    isRejected ? "text-red-500 glitch-text" :
-                                        isCertified ? "text-yellow-400" :
-                                            "text-white"
-                                )}>YOU</span>
-                                <span className="text-[10px] text-white/40">
-                                    {isCalibrating ? 'SYNCING...' : 'LOCAL_HOST'}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* DYNAMIC STATUS DISPLAY */}
-                        <div className="text-right">
-                            {status === 'idle' && (
-                                <span className="text-xs text-white/20 tracking-wider">UNRANKED</span>
-                            )}
-
-                            {status === 'calibrating' && (
-                                <span className="text-xs text-blue-400 font-mono tracking-wider animate-pulse">
-                                    {scrambleText}
-                                </span>
-                            )}
-
-                            {status === 'rejected' && (
-                                <div className="flex flex-col items-end">
-                                    <span className="text-sm font-bold text-red-500 tracking-widest animate-pulse">
-                                        [ REJECTED ]
-                                    </span>
-                                    <span className="text-[10px] text-red-400/70 uppercase">
-                                        Policy 10.4 Violation
-                                    </span>
-                                </div>
-                            )}
-
-                            {status === 'certified' && (
-                                <div className="flex flex-col items-end">
-                                    <span className="text-sm font-bold text-yellow-400 tracking-widest shadow-glow">
-                                        [ GOD MODE ]
-                                    </span>
-                                    <span className="text-[10px] text-yellow-400/70 uppercase">
-                                        Clearance Level 7
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                <UserStatusRow
+                    status={status}
+                    isRejected={isRejected}
+                    isCertified={isCertified}
+                    isCalibrating={isCalibrating}
+                    scrambleText={scrambleText}
+                />
 
                 {/* RED FLASH ABSOLUTE OVERLAY */}
                 <AnimatePresence>

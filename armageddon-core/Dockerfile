@@ -9,19 +9,15 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
+COPY package*.json ./
 RUN npm ci
 
 # Copy source
 COPY . .
 
-# Build (running user's perfected tsc command from package.json)
-RUN npm run build
-
-# Verify build output exists (debug)
-RUN ls -la dist
-
-# Security: Run as non-root user (Debian syntax)
-RUN groupadd -g 1001 armageddon && \
+# Build, Verify, and Security Setup
+RUN npm run build && ls -la dist && \
+    groupadd -g 1001 armageddon && \
     useradd -u 1001 -g armageddon -s /bin/bash -m worker
 USER worker
 

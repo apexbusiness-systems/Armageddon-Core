@@ -40,7 +40,7 @@ export interface RunProgress {
  * SupabaseReporter - Pushes real-time events to Supabase for frontend consumption.
  */
 export class SupabaseReporter {
-    private client: SupabaseClient;
+    private readonly client: SupabaseClient;
     private readonly runId: string;
 
     constructor(runId: string) {

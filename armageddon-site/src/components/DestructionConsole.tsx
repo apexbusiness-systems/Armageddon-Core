@@ -49,7 +49,7 @@ const LABELS = {
 // Lazy Supabase client initialization
 let supabaseClient: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient | null {
-    if (typeof window === 'undefined') return null;
+    if (globalThis.window === undefined) return null;
     if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         supabaseClient = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -99,7 +99,7 @@ async function startWorkflowApi(orgId: string, level: number, batteries: string[
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function DestructionConsole({ standalone = false, onStatusChange, status = 'idle' }: DestructionConsoleProps) {
+export default function DestructionConsole({ standalone = false, onStatusChange, status = 'idle' }: { readonly standalone?: boolean, readonly onStatusChange?: (status: Status) => void, readonly status?: Status }) {
     const [isRunning, setIsRunning] = useState(false);
     const [isComplete, setIsComplete] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
@@ -112,7 +112,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     const terminalRef = useRef<HTMLDivElement>(null);
     const [user, setUser] = useState<User | null>(null);
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
-    const [userTier, setUserTier] = useState<'free_dry' | 'verified' | 'certified'>('free_dry');
+    // Removed unused userTier
     const [canCustomize, setCanCustomize] = useState(false);
 
     // ────────────────────────────────────────────────────────────────────────
@@ -125,7 +125,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                 const res = await fetch(API.GATEKEEPER, { method: 'POST' });
                 const data = await res.json();
                 if (data.tier) {
-                    setUserTier(data.tier);
                     setCanCustomize(data.tier !== 'free_dry');
                 }
             } catch (e) {
@@ -263,7 +262,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                         typeMap[event.event_type] || MSG_TYPE.SYSTEM
                     );
 
-                    const batteryNum = parseInt(event.battery_id?.replace('B', '') || '0', 10);
+                    const batteryNum = Number.parseInt(event.battery_id?.replace('B', '') || '0', 10);
                     if (batteryNum > 0) setCurrentBattery(batteryNum);
                 }
             ).subscribe();
@@ -309,7 +308,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
 
     return (
         <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
-            {standalone && <AuthControl />}
+            {standalone && <AuthControl user={user} onLogin={handleLogin} onLogout={handleLogout} />}
 
             <AnimatePresence>
                 {flashActive && (
@@ -342,7 +341,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-8 relative z-20">
-                        <img src="/wordmark.png" alt="ARMAGEDDON TEST SUITE" className="w-full max-w-[700px] h-auto drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow" />
+                        <img src="/icon.svg" alt="ARMAGEDDON LEVEL 7" className="w-auto h-48 drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow" />
                     </div>
 
                     <div className="mt-8 mb-6 relative">
@@ -369,8 +368,8 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                     onClick={() => toggleBattery(battery.id)}
                                     disabled={!canCustomize || isRunning}
                                     className={`px-4 py-3 border transition-all duration-200 ${selectedBatteries.includes(battery.id)
-                                            ? 'border-aerospace bg-aerospace/10 text-aerospace'
-                                            : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
+                                        ? 'border-aerospace bg-aerospace/10 text-aerospace'
+                                        : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
                                         } ${canCustomize && !isRunning ? 'hover:border-zinc-600 cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
                                 >
                                     <span className="mono-small block text-left">
@@ -446,22 +445,27 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                 </div>
                             ) : (
                                 <AnimatePresence mode="popLayout">
-                                    {terminalLines.map(line => (
-                                        <motion.div
-                                            key={line.id}
-                                            initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                                            className="mb-1 break-words leading-relaxed"
-                                        >
-                                            <span className="text-zinc-600 mr-2 select-none">[{line.prefix}]</span>
-                                            <span className={
-                                                line.type === MSG_TYPE.SUCCESS ? 'text-[var(--safe)]' :
-                                                    line.type === MSG_TYPE.ERROR ? 'text-[var(--destructive)] font-bold' :
-                                                        line.type === MSG_TYPE.WARNING ? 'text-amber-500' :
-                                                            line.type === MSG_TYPE.COMMAND ? 'text-[var(--aerospace)]' :
-                                                                line.type === MSG_TYPE.BLOCKED ? 'text-zinc-500 line-through' : 'text-zinc-300'
-                                            }>{line.content}</span>
-                                        </motion.div>
-                                    ))}
+                                    {terminalLines.map(line => {
+                                        const MSG_COLORS: Record<string, string> = {
+                                            [MSG_TYPE.SUCCESS]: 'text-[var(--safe)]',
+                                            [MSG_TYPE.ERROR]: 'text-[var(--destructive)] font-bold',
+                                            [MSG_TYPE.WARNING]: 'text-amber-500',
+                                            [MSG_TYPE.COMMAND]: 'text-[var(--aerospace)]',
+                                            [MSG_TYPE.BLOCKED]: 'text-zinc-500 line-through',
+                                        };
+                                        const msgColor = MSG_COLORS[line.type] || 'text-zinc-300';
+
+                                        return (
+                                            <motion.div
+                                                key={line.id}
+                                                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                                                className="mb-1 break-words leading-relaxed"
+                                            >
+                                                <span className="text-zinc-600 mr-2 select-none">[{line.prefix}]</span>
+                                                <span className={msgColor}>{line.content}</span>
+                                            </motion.div>
+                                        );
+                                    })}
                                     <div ref={terminalRef} />
                                 </AnimatePresence>
                             )}
@@ -486,21 +490,23 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                             </div>
                             <div className="p-6 flex-1 flex items-center justify-center bg-[url('/grid-pattern.png')] bg-repeat opacity-80">
                                 <div className="grid grid-cols-8 gap-2 w-full max-w-[400px] aspect-square">
-                                    {threatMap.map(cell => (
-                                        <motion.div
-                                            key={cell.id}
-                                            className={`
-                                                w-full h-full rounded-sm transition-colors duration-500
-                                                ${cell.status === 'idle' ? 'bg-white/5 border border-white/5' : ''}
-                                                ${cell.status === 'danger' ? 'bg-[var(--destructive)] shadow-[0_0_10px_var(--destructive)]' : ''}
-                                                ${cell.status === 'safe' ? 'bg-[var(--safe)]/20 border border-[var(--safe)]/50 shadow-[0_0_8px_rgba(0,255,100,0.2)]' : ''}
-                                                ${cell.status === 'contained' ? 'bg-amber-500/20 border border-amber-500/50' : ''}
-                                            `}
-                                            initial={false}
-                                            animate={cell.status === 'danger' ? { scale: [1, 1.1, 1] } : {}}
-                                            transition={{ duration: 0.2 }}
-                                        />
-                                    ))}
+                                    {threatMap.map(cell => {
+                                        let cellClass = 'w-full h-full rounded-sm transition-colors duration-500 ';
+                                        if (cell.status === 'idle') cellClass += 'bg-white/5 border border-white/5';
+                                        else if (cell.status === 'danger') cellClass += 'bg-[var(--destructive)] shadow-[0_0_10px_var(--destructive)]';
+                                        else if (cell.status === 'safe') cellClass += 'bg-[var(--safe)]/20 border border-[var(--safe)]/50 shadow-[0_0_8px_rgba(0,255,100,0.2)]';
+                                        else if (cell.status === 'contained') cellClass += 'bg-amber-500/20 border border-amber-500/50';
+
+                                        return (
+                                            <motion.div
+                                                key={cell.id}
+                                                className={cellClass}
+                                                initial={false}
+                                                animate={cell.status === 'danger' ? { scale: [1, 1.1, 1] } : {}}
+                                                transition={{ duration: 0.2 }}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

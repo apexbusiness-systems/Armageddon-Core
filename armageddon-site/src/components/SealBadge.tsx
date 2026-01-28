@@ -33,7 +33,7 @@ const DEFAULT_METADATA: SealMetadata = {
     confidence: 'HIGH',
 };
 
-export default function SealBadge({ metadata, size = 'lg' }: SealBadgeProps) {
+export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata?: Partial<SealMetadata>, readonly size?: 'sm' | 'md' | 'lg' }) {
     const [isHovered, setIsHovered] = useState(false);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
@@ -45,7 +45,7 @@ export default function SealBadge({ metadata, size = 'lg' }: SealBadgeProps) {
         lg: 'w-72 h-72 md:w-96 md:h-96',
     };
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = (e.clientX - rect.left - rect.width / 2) / 20;
         const y = (e.clientY - rect.top - rect.height / 2) / 20;
@@ -55,8 +55,10 @@ export default function SealBadge({ metadata, size = 'lg' }: SealBadgeProps) {
     return (
         <div className="flex flex-col items-center">
             {/* Seal Container */}
-            <div
-                className="seal-container relative cursor-pointer"
+            <button
+                type="button"
+                className="seal-container relative cursor-pointer bg-transparent border-none p-0"
+                onClick={() => setIsHovered(!isHovered)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => {
                     setIsHovered(false);
@@ -148,7 +150,7 @@ export default function SealBadge({ metadata, size = 'lg' }: SealBadgeProps) {
                         </div>
                     </div>
                 </motion.div>
-            </div>
+            </button>
 
             {/* Hover Hint */}
             <motion.p
@@ -157,6 +159,6 @@ export default function SealBadge({ metadata, size = 'lg' }: SealBadgeProps) {
             >
                 HOVER TO INSPECT METADATA
             </motion.p>
-        </div>
+        </div >
     );
 }

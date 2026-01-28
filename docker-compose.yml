@@ -13,7 +13,7 @@ services:
     command: postgres -c 'listen_addresses=*'
     environment:
       POSTGRES_USER: temporal
-      POSTGRES_PASSWORD: temporal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-temporal}
       POSTGRES_DB: temporal
     volumes:
       - armageddon_postgres_data:/var/lib/postgresql/data
@@ -39,7 +39,7 @@ services:
       - DB=postgres12
       - DB_PORT=5432
       - POSTGRES_USER=temporal
-      - POSTGRES_PWD=temporal
+      - POSTGRES_PWD=${POSTGRES_PASSWORD:-temporal}
       - POSTGRES_SEEDS=postgresql
       - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development.yaml
       - SKIP_DB_CREATE=true
