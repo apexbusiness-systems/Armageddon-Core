@@ -610,6 +610,49 @@ function simulateSupplyChainAttack(vector: { package: string; version: string; p
 // UTILITY
 // ═══════════════════════════════════════════════════════════════════════════
 
+
+export interface WorkflowState {
+    status: string;
+    results: BatteryResult[];
+    currentBattery: string | null;
+    startTime: number;
+}
+
+export interface ArmageddonReport {
+    meta: {
+        timestamp: string;
+        duration: number;
+    };
+    status: string;
+    grade: string;
+    score: number;
+    batteries: BatteryResult[];
+}
+
+export async function generateReport(state: WorkflowState): Promise<ArmageddonReport> {
+    const passed = state.results.filter(r => r.status === 'PASSED').length;
+    const total = state.results.length || 1; // avoid divide by zero
+    const score = Math.round((passed / total) * 100);
+
+    let grade = 'F';
+    if (score === 100) grade = 'A';
+    else if (score >= 90) grade = 'A-';
+    else if (score >= 80) grade = 'B';
+    else if (score >= 70) grade = 'C';
+    else if (score >= 60) grade = 'D';
+
+    return {
+        meta: {
+            timestamp: new Date().toISOString(),
+            duration: Date.now() - state.startTime,
+        },
+        status: state.status,
+        grade,
+        score,
+        batteries: state.results
+    };
+}
+
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -629,4 +672,5 @@ export const activities = {
     runBattery11_ToolMisuse,
     runBattery12_MemoryPoison,
     runBattery13_SupplyChain,
+    generateReport,
 };

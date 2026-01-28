@@ -5,7 +5,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { proxyActivities, sleep, defineSignal, defineQuery, setHandler } from '@temporalio/workflow';
+import { proxyActivities, defineSignal, defineQuery, setHandler } from '@temporalio/workflow';
 import type * as activities from './activities';
 
 // ═══════════════════════════════════════════════════════════════════════════

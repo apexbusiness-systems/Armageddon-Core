@@ -17,16 +17,16 @@ try:
         # 192x192
         icon192 = img.resize((192, 192), Image.Resampling.LANCZOS)
         icon192.save(os.path.join(target_dir, "icon-192.png"), "PNG")
-        print(f"Created icon-192.png")
+        print("Created icon-192.png")
 
         # 512x512
         icon512 = img.resize((512, 512), Image.Resampling.LANCZOS)
         icon512.save(os.path.join(target_dir, "icon-512.png"), "PNG")
-        print(f"Created icon-512.png")
+        print("Created icon-512.png")
 
         # 512x512 fallback at root (often used by Next.js metadata if not defined)
         icon512.save(fallback_target, "PNG")
-        print(f"Created fallback icon.png")
+        print("Created fallback icon.png")
 
 except Exception as e:
     print(f"Error resizing images: {e}")

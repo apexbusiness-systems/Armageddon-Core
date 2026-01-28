@@ -6,7 +6,7 @@ interface LockdownModalProps {
     onClose: () => void;
 }
 
-export default function LockdownModal({ onClose }: LockdownModalProps) {
+export default function LockdownModal({ onClose }: { readonly onClose: () => void }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop with reduced opacity to show logs behind */}

@@ -40,9 +40,7 @@ export class SafetyGuard {
   }
 
   public static getInstance(): SafetyGuard {
-    if (!SafetyGuard.instance) {
-      SafetyGuard.instance = new SafetyGuard();
-    }
+    SafetyGuard.instance ??= new SafetyGuard();
     return SafetyGuard.instance;
   }
 

@@ -33,7 +33,7 @@ const DEFAULT_METADATA: SealMetadata = {
     confidence: 'HIGH',
 };
 
-export default function SealBadge({ metadata, size = 'lg' }: SealBadgeProps) {
+export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata?: Partial<SealMetadata>, readonly size?: 'sm' | 'md' | 'lg' }) {
     const [isHovered, setIsHovered] = useState(false);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
@@ -57,12 +57,15 @@ export default function SealBadge({ metadata, size = 'lg' }: SealBadgeProps) {
             {/* Seal Container */}
             <div
                 className="seal-container relative cursor-pointer"
+                role="button"
+                tabIndex={0}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => {
                     setIsHovered(false);
                     setMousePosition({ x: 0, y: 0 });
                 }}
                 onMouseMove={handleMouseMove}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsHovered(!isHovered) }}
             >
                 {/* Glow Effect */}
                 <motion.div

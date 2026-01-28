@@ -179,21 +179,9 @@ export async function runBattery11ToolMisuse(
 
     for (let i = 0; i < cfg.iterations; i++) {
         if (i > 0 && i % cfg.heartbeatInterval === 0) {
-            Context.current().heartbeat({
-                battery: 'B11',
-                iteration: i,
-                blocked,
-                breaches
-            });
-            events.push({
-                iteration: i,
-                type: 'heartbeat',
-                message: `B11 heartbeat: ${i}/${cfg.iterations}`,
-                timestamp: Date.now(),
-            });
+            recordHeartbeat('B11', i, cfg.iterations, blocked, breaches, events);
         }
 
-        // Alternate between SQL and API attacks
         const isSqlAttack = i % 2 === 0;
         const payload = isSqlAttack
             ? sqlPayloads[i % sqlPayloads.length]
@@ -235,6 +223,16 @@ export async function runBattery11ToolMisuse(
         durationMs: Date.now() - startTime,
         events,
     };
+}
+
+function recordHeartbeat(battery: string, i: number, total: number, blocked: number, breaches: number, events: BatteryEvent[]) {
+    Context.current().heartbeat({ battery, iteration: i, blocked, breaches });
+    events.push({
+        iteration: i,
+        type: 'heartbeat',
+        message: `${battery} heartbeat: ${i}/${total}`,
+        timestamp: Date.now(),
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
