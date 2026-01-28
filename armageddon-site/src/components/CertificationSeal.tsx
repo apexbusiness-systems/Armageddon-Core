@@ -115,7 +115,7 @@ export default function CertificationSeal() {
                                 </div>
                             </div>
                         </motion.div>
-                    </div>
+                    </button>
 
                     {/* Hover hint */}
                     <motion.p
