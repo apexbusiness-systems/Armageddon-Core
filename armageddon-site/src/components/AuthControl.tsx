@@ -24,7 +24,8 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
             className="fixed top-6 right-6 z-50 flex items-center gap-4"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            role="presentation"
+            role="group"
+            aria-label="User Authentication"
         >
             <AnimatePresence>
                 {isLoggedIn && (
