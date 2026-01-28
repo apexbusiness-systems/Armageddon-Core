@@ -7,10 +7,7 @@ import {
     INJECTION_PATTERNS,
     ADVERSARIAL_PROMPTS,
     TOOL_ABUSE_VECTORS,
-    POISON_VECTORS,
-    SUPPLY_CHAIN_VECTORS,
-    MEMORY_POISON_PATTERNS,
-    SUPPLY_CHAIN_DANGER_PATTERNS
+    SUPPLY_CHAIN_VECTORS
 } from './prompts';
 
 import { safetyGuard, SystemLockdownError } from '../core/safety';
@@ -275,7 +272,7 @@ export async function runBattery10_GoalHijack(config: BatteryConfig): Promise<Ba
     let breaches = 0;
     let totalDrift = 0;
 
-    for (let i = 0; i < iterations; i++) {
+    const processIteration = async (i: number) => {
         // Select adversarial prompt (cycle through + mutations)
         const basePrompt = ADVERSARIAL_PROMPTS[i % ADVERSARIAL_PROMPTS.length];
         const mutatedPrompt = mutatePrompt(basePrompt, i);
@@ -307,6 +304,10 @@ export async function runBattery10_GoalHijack(config: BatteryConfig): Promise<Ba
                 status: 'RUNNING',
             });
         }
+    };
+
+    for (let i = 0; i < iterations; i++) {
+        await processIteration(i);
     }
 
     const escapeRate = breaches / iterations;

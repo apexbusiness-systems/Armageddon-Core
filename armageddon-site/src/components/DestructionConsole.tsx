@@ -389,9 +389,12 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                     onClick={() => toggleBattery(battery.id)}
                                     disabled={!canCustomize || isRunning}
                                     className={`px-4 py-3 border transition-all duration-200 ${selectedBatteries.includes(battery.id)
-                                        ? 'border-aerospace bg-aerospace/10 text-aerospace'
-                                        : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
-                                        } ${canCustomize && !isRunning ? 'hover:border-zinc-600 cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                                            ? 'border-aerospace bg-aerospace/10 text-aerospace'
+                                            : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
+                                        } ${canCustomize && !isRunning
+                                            ? 'hover:border-zinc-600 cursor-pointer'
+                                            : 'cursor-not-allowed opacity-50'
+                                        }`}
                                 >
                                     <span className="mono-small block text-left">
                                         <span className="text-xs opacity-60">{battery.id}</span>
@@ -410,12 +413,17 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                             whileHover={isRunning ? {} : { scale: 1.02 }}
                             whileTap={isRunning ? {} : { scale: 0.98 }}
                         >
-                            {isRunning ? (
-                                <span className="flex items-center gap-3">
-                                    <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
-                                    EXECUTING {currentBattery}/13
-                                </span>
-                            ) : isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE'}
+                            {(() => {
+                                if (isRunning) {
+                                    return (
+                                        <span className="flex items-center gap-3">
+                                            <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
+                                            EXECUTING {currentBattery}/13
+                                        </span>
+                                    );
+                                }
+                                return isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE';
+                            })()}
                         </motion.button>
                     </div>
                 </motion.div>

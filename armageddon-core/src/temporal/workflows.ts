@@ -132,7 +132,7 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
 
         // 3. Aggregate Results
         const failureCount = state.results.filter(r => r.status === STATUS.FAILED).length;
-        const totalDuration = Date.now() - state.startTime;
+        // totalDuration calculation removed as it was unused
 
         // Final Status Determination
         if (cancelled) {
