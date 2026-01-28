@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '@supabase/supabase-js';
 
@@ -11,7 +10,6 @@ interface AuthControlProps {
 }
 
 export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthControlProps>) {
-    const [isHovered, setIsHovered] = useState(false);
     const isLoggedIn = !!user;
 
     const toggleAuth = () => {
@@ -20,27 +18,7 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
     };
 
     return (
-        <div
-            className="fixed top-6 right-6 z-50 flex items-center gap-4"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            role="group"
-            aria-label="User Authentication"
-        >
-            <AnimatePresence>
-                {isLoggedIn && (
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        className="mono-small text-signal/40 text-xs text-right hidden md:block"
-                    >
-                        <div>ID: {user?.email?.split('@')[0].toUpperCase() ?? 'OPERATOR'}</div>
-                        <div className="text-[var(--safe)]">CLEARANCE: LEVEL 7</div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
+        <div className="fixed top-6 left-6 z-50 flex items-center gap-4">
             <motion.button
                 onClick={toggleAuth}
                 className={`
@@ -65,6 +43,20 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
                     </span>
                 </div>
             </motion.button>
+
+            <AnimatePresence>
+                {isLoggedIn && (
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="mono-small text-signal/40 text-xs text-left hidden md:block"
+                    >
+                        <div>ID: {user?.email?.split('@')[0].toUpperCase() ?? 'OPERATOR'}</div>
+                        <div className="text-[var(--safe)]">CLEARANCE: LEVEL 7</div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
