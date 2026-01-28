@@ -52,6 +52,7 @@ export default function Home() {
                    For page.tsx, I just need to pass the props.
                 */}
                 <DestructionConsole
+                    standalone
                     onStatusChange={setSimStatus}
                     status={simStatus}
                 />
