@@ -32,53 +32,29 @@ export interface BatteryResult {
     details: Record<string, unknown>;
 }
 
-// Iterations normalization function
-export function normalizeIterations(inputIterations?: number): number {
-    // Default iterations
-    const defaultIterations = 2500;
-    
-    // If no input provided, use default
-    if (inputIterations === undefined || inputIterations === null) {
-        return defaultIterations;
-    }
-    
-    // Ensure it's a finite integer
-    const iterations = Number(inputIterations);
-    if (!Number.isFinite(iterations) || !Number.isInteger(iterations)) {
-        return defaultIterations;
-    }
-    
-    // Ensure within safe bounds (1 to 10000)
-    const minIterations = 1;
-    const maxIterations = 10000;
-    
-    if (iterations < minIterations) {
-        return minIterations;
-    }
-    
-    if (iterations > maxIterations) {
-        return maxIterations;
-    }
-    
-    return iterations;
-}
+// Iterations normalization (site-specific implementation)
+export const normalizeIterations = (val?: number | null): number => {
+    const DEFAULT = 2500;
+    if (val == null) return DEFAULT;
 
-// Validate battery IDs
-export function validateBatteryIds(batteryIds?: string[]): string[] {
-    if (!batteryIds || batteryIds.length === 0) {
-        return ['B10', 'B11', 'B12', 'B13']; // Default: all batteries
+    const n = Number(val);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) return DEFAULT;
+
+    return Math.min(Math.max(n, 1), 10000);
+};
+
+// Battery ID validation (site-specific implementation)
+export const validateBatteryIds = (ids?: string[]): string[] => {
+    if (!ids?.length) return ['B10', 'B11', 'B12', 'B13'];
+
+    const unique = Array.from(new Set(ids));
+    const pattern = /^B1[0-3]$/;
+    
+    // Fail fast if any invalid
+    const invalid = unique.filter(id => !pattern.test(id));
+    if (invalid.length > 0) {
+        throw new Error(`Invalid battery IDs found: ${invalid.join(', ')}`);
     }
-    
-    // Remove duplicates
-    const uniqueBatteries = Array.from(new Set(batteryIds));
-    
-    // Validate battery IDs
-    const validPattern = /^B1[0-3]$/;
-    const invalidBatteries = uniqueBatteries.filter(b => !validPattern.test(b));
-    
-    if (invalidBatteries.length > 0) {
-        throw new Error(`Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: B10, B11, B12, B13`);
-    }
-    
-    return uniqueBatteries;
-}
+
+    return unique;
+};

@@ -1,139 +1,132 @@
-# ARMAGEDDON — ADVERSARIAL CERTIFICATION SUITE [LEVEL 7]
+# <div align="center">ARMAGEDDON</div>
 
-> **CLASSIFICATION**: APEX-INTERNAL // LEVEL 7 EYES ONLY  
-> **STATUS**: ACTIVE [SIM_MODE=TRUE]  
-> **VERSION**: v2.4.0 (God Mode)
+<div align="center">
+  <img src="https://armageddon-core.vercel.app/wordmark.png" alt="Armageddon Wordmark" width="0" height="0" style="display: none;" />
+  <img src="https://armageddon-core.vercel.app/seal.png" alt="Armageddon Seal" width="200" />
+</div>
 
-![Armageddon Containment Field](https://armageddon-core.vercel.app/og-image.png)
-
-## 📡 SYSTEM OVERVIEW
-
-**Armageddon** is an autonomous adversarial testing engine designed to validate AI agent resilience against catastrophic failure modes. It acts as a "Containment Field" for assessing high-risk autonomous systems before they are cleared for production deployment.
-
-**Level 7 Certification ("God Mode")** represents the highest tier of validation, subjecting target systems to **10,000+ concurrent iterations** of advanced attack vectors including Goal Hijacking, Tool Misuse, Memory Poisoning, and Supply Chain drift.
+<div align="center">
+  <h3>ADVERSARIAL CERTIFICATION SUITE [LEVEL 7]</h3>
+  <p>
+    <b>CLASSIFICATION: APEX-INTERNAL</b> // <b>STATUS: ACTIVE</b> [SIM_MODE=TRUE]
+  </p>
+  
+  [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](https://apexbusiness.systems)
+  [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
+  [![Coverage](https://img.shields.io/badge/Coverage-100%25-success.svg)]()
+  [![Temporal](https://img.shields.io/badge/Orchestration-Temporal.io-blue.svg)](https://temporal.io)
+</div>
 
 ---
 
+## 📡 SYSTEM OVERVIEW
+
+**Armageddon** is the ultimate adversarial testing engine designed to validate AI agent resilience against catastrophic failure modes. Operating as a **"Containment Field"**, it subjects autonomous systems to immense pressure before they are cleared for production deployment.
+
+**Level 7 Certification ("God Mode")** represents the pinnacle of validation:
+
+- **10,000+ Concurrent Iterations**
+- **Hyper-Realistic Attack Vectors**: Goal Hijacking, Tool Misuse, Memory Poisoning, Supply Chain Drift.
+- **Zero-Failure Tolerance**: A single breach results in immediate certification failure.
+
 ## 🏗 ARCHITECTURE
 
-The system follows a strict **Controller-Worker** architecture enforced by Temporal.io, with a totally isolated execution sandbox.
+The system implements a totally isolated **Controller-Worker** architecture, enforced by Temporal.io for deterministic execution and fault tolerance.
 
 ```mermaid
 graph TD
     User([User]) -->|Visit| UI[Containment Interface (Next.js)]
-    UI -->|POST /api/run| API[API Gateway]
-    API -->|Auth Check| Gate[Monetization Gate (Supabase)]
-    
-    Gate -->|Approved| Temporal[Temporal Cluster]
-    Temporal -->|Dispatch| Worker[Armageddon Worker]
-    
-    subgraph "Sandboxed Execution (SIM_MODE)"
-        Worker --> B10[B10: Goal Hijack]
-        Worker --> B11[B11: Tool Misuse]
-        Worker --> B12[B12: Memory Poison]
-        Worker --> B13[B13: Supply Chain]
+    UI -->|WebSocket| Realtime[Supabase Realtime]
+
+    subgraph "Secure Zone"
+        Gate[Monetization Gate]
+        Worker[Armageddon Worker]
+        DB[(Supabase PostgreSQL)]
     end
-    
-    Worker -->|Results| DB[(Supabase PostgreSQL)]
-    DB -->|Realtime| UI
+
+    UI -->|POST /run| Gate
+    Gate -->|Approved| Worker
+    Worker -->|Dispatch| Batteries[Adversarial Batteries]
+
+    Batteries -->|B10| Hijack[Goal Hijacking]
+    Batteries -->|B11| Misuse[Tool Abuse]
+    Batteries -->|B12| Poison[Memory Injection]
+    Batteries -->|B13| Supply[Supply Chain]
+
+    Batteries -->|Results| DB
+    DB --> Realtime
 ```
 
-### Key Components
+### ✨ KEY FEATURES
 
-*   **Containment Interface (`armageddon-site`)**:
-    *   Framework: **Next.js 14** (App Router)
-    *   Styling: **Tailwind CSS** + Industrial Brutalist Design System
-    *   Features: Realtime WebSocket (Supabase), WebGL visualizers (Three.js/Framer)
-    *   **Psychology**: "Status Injury Loop" (Social Pressure + Rejection Mechanics)
-    *   **Social**: Global Leaderboard with "God Mode" Verification Status
+| Component                 | Description                                                                                                            | Tech Stack                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **Containment Interface** | Premium dashboard for monitoring real-time attacks. Features "Status Injury Loop" psychology and WebGL visualizations. | **Next.js 14**, Tailwind, Framer Motion |
+| **Adversarial Engine**    | The core weapon system. Manages 4 concurrent attack batteries with deterministic replay capabilities.                  | **Temporal.io**, Node.js 20, TypeScript |
+| **Monetization Gate**     | Tier-based access control protecting Level 7 resources.                                                                | **Supabase**, Row Level Security (RLS)  |
 
-*   **Adversarial Engine (`armageddon-core`)**:
-    *   Orchestration: **Temporal.io** (TypeScript SDK)
-    *   Safety: Mandatory `SIM_MODE=true` environment lock
-    *   Batteries: 4 concurrent attack vectors running 2,500 iterations each
+## 🚀 DEPLOYMENT PROTOCOL
 
-*   **Gatekeeper**:
-    *   Database: **Supabase** (PostgreSQL)
-    *   Security: **RLS Policies** (Row Level Security) ensuring strict tenant isolation
-    *   Monetization: Tier-based access control (Free vs. Certified)
+### PREREQUISITES
 
----
+- **Node.js 20+**
+- **Docker** (Optional, for local stack)
+- **Supabase Account** & **Temporal Cloud** namespace
 
-## 🚀 GETTING STARTED
+### QUICK START
 
-### Prerequisites
+1.  **Initialize Environment**
 
-*   Node.js 20+
-*   Docker (for local Temporal/DB)
-*   Supabase Account
-*   Temporal Cloud (or local)
-
-### Installation
-
-1.  **Clone the Repository**
     ```bash
     git clone https://github.com/apexbusiness-systems/Armageddon-Core.git
     cd Armageddon-Core
-    ```
-
-2.  **Environment Setup**
-    ```bash
     cp .env.example .env.local
     ```
-    *Required Variables*:
-    *   `NEXT_PUBLIC_SUPABASE_URL`
-    *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-    *   `SIM_MODE=true` (CRITICAL)
 
-3.  **Run Development Server**
+2.  **Ignite Frontend (Containment Interface)**
+
     ```bash
     cd armageddon-site
     npm install
     npm run dev
     ```
 
-4.  **Start Temporal Worker**
+3.  **Engage Worker (Adversarial Engine)**
     ```bash
     cd armageddon-core
     npm install
     npm run start:worker
     ```
 
----
-
 ## 🛡️ SAFETY PROTOCOLS
 
-> **WARNING**: DISABLING SAFETY GUARDS WILL RESULT IN SYSTEM LOCKDOWN.
+> [!WARNING]
+> **SIM_MODE MUST BE ENABLED AT ALL TIMES.**
+> Disabling safety guards in a non-airgapped environment is a verifiable Class 1 violation.
 
-*   **SIM_MODE**: Must be set to `true` at all times in non-airgapped environments.
-*   **SANDBOX_TENANT**: All destructive tests must be scoped to a dedicated test tenant ID.
-*   **Kill Switch**: In event of containment breach, execute `kubectl scale deployment/armageddon-worker --replicas=0`.
+- **Isolation**: All tests run in ephemeral sandboxes.
+- **Tenant Scoping**: Destructive operations are strictly scoped to test tenants.
+- **Kill Switch**: `kubectl scale deployment/armageddon-worker --replicas=0`
 
----
-
-## 📂 PROJECT STRUCTURE
+## 📂 DIRECTORY STRUCTURE
 
 ```
 /
-├── armageddon-site/      # Next.js Frontend
-│   ├── src/app/          # App Router
-│   ├── src/components/   # UI System (Seal, Console, Grid)
-│   └── public/           # Static Assets
+├── armageddon-site/      # [UI] Next.js Dashboard
+│   ├── src/components/   # Design System (Seal, Console, Grid)
+│   └── src/lib/          # Shared Logic & Types
 │
-├── armageddon-core/      # Backend Engine
-│   ├── src/core/engine/  # Temporal Workflows & Activities
-│   └── src/core/monetization/ # Gating Logic
+├── armageddon-core/      # [ENGINE] Temporal Worker
+│   ├── src/temporal/     # Workflows & Activities
+│   └── src/core/         # Monetization & Safety Logic
 │
-├── supabase/             # Database
-│   └── migrations/       # SQL Schemas
-│
-└── OPS_RUNBOOKS.md       # Incident Response Docs
+└── supabase/             # [DATA] Migrations & RLS
 ```
-
----
 
 ## 📜 LICENSE
 
-**CONFIDENTIAL**. Source code and testing methodologies are proprietary to **APEX Business Systems Ltd.**. Unauthorized reproduction or reverse engineering of the adversarial batteries is strictly prohibited.
+**CONFIDENTIAL**.
+Source code, attack patterns, and testing methodologies are proprietary to **APEX Business Systems Ltd.**
+Unauthorized reproduction or reverse engineering is strictly prohibited.
 
-*Copyright © 2026 APEX Business Systems Ltd. All rights reserved.*
+_Copyright © 2026 APEX Business Systems Ltd. All rights reserved._

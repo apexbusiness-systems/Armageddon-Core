@@ -26,7 +26,7 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
             onMouseLeave={() => setIsHovered(false)}
         >
             <AnimatePresence>
-                {isLoggedIn && (
+                {isLoggedIn && isHovered && (
                     <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}

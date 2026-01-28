@@ -91,35 +91,34 @@ function getSupabaseClient(): SupabaseClient {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ELIGIBILITY CHECK
+// ELIGIBILITY CHECK (SITE IMPLEMENTATION)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * Check if an organization is eligible to run a specific certification level.
- * 
- * @param orgId - The organization's UUID
- * @param requestedLevel - The certification level requested (1-7)
- * @returns EligibilityResult with access decision and upsell info
  */
-export async function checkRunEligibility(
+export const checkRunEligibility = async (
     orgId: string,
     requestedLevel: number,
     batteries?: string[]
-): Promise<EligibilityResult> {
+): Promise<EligibilityResult> => {
     const supabase = getSupabaseClient();
+    const DEFAULT_FAIL: EligibilityResult = {
+        eligible: false,
+        tier: 'free_dry',
+        requestedLevel,
+    };
 
-    // Validate level
+    // 1. Validate Level Inputs
     if (requestedLevel < 1 || requestedLevel > 7) {
         return {
-            eligible: false,
-            tier: 'free_dry',
-            requestedLevel,
+            ...DEFAULT_FAIL,
             reason: 'INVALID_LEVEL',
             upsellMessage: 'Invalid certification level. Valid levels are 1-7.',
         };
     }
 
-    // Fetch organization
+    // 2. Fetch Organization Logic
     const { data: org, error } = await supabase
         .from('organizations')
         .select('id, name, slug, current_tier')
@@ -128,72 +127,65 @@ export async function checkRunEligibility(
 
     if (error || !org) {
         return {
-            eligible: false,
-            tier: 'free_dry',
-            requestedLevel,
+            ...DEFAULT_FAIL,
             reason: 'ORG_NOT_FOUND',
             upsellMessage: 'Organization not found. Please ensure you have a valid account.',
         };
     }
 
-    const tier = org.current_tier as OrganizationTier;
-    const allowedLevels = TIER_LEVEL_ACCESS[tier];
-    const tierFeatures = TIER_FEATURES[tier];
+    const currentTier = org.current_tier as OrganizationTier;
+    const { allowedBatteries, canCustomizeBatteries } = TIER_FEATURES[currentTier];
 
-    // Check battery customization
-    if (batteries && batteries.length > 0) {
-        const defaultBatteries = ['B10', 'B11', 'B12', 'B13'];
-        const isCustomized = batteries.length !== defaultBatteries.length ||
-            !batteries.every(b => defaultBatteries.includes(b));
-
-        if (isCustomized && !tierFeatures.canCustomizeBatteries) {
-            return {
+    // 3. Battery Validation Logic
+    if (batteries?.length) {
+        const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13'];
+        const isDefaultSet = batteries.length === DEFAULT_BATTERIES.length &&
+            batteries.every(b => DEFAULT_BATTERIES.includes(b));
+        
+        // Customization Check
+        if (!isDefaultSet && !canCustomizeBatteries) {
+             return {
                 eligible: false,
-                tier,
+                tier: currentTier,
                 requestedLevel,
                 reason: 'FEATURE_LOCKED',
-                upsellMessage:
-                    '🔒 Custom Battery Selection requires VERIFIED tier. ' +
-                    'Upgrade to choose specific attack vectors (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain).',
-                upgradeUrl: UPGRADE_URLS[tier],
+                upsellMessage: [
+                    '🔒 Custom Battery Selection requires VERIFIED tier.',
+                    'Upgrade to choose specific attack vectors (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain).'
+                ].join(' '),
+                upgradeUrl: UPGRADE_URLS[currentTier],
             };
         }
 
-        // Validate battery IDs
-        const invalidBatteries = batteries.filter(
-            b => !tierFeatures.allowedBatteries.includes(b)
-        );
-        if (invalidBatteries.length > 0) {
+        // Invalid ID Check
+        const illegal = batteries.filter(b => !allowedBatteries.includes(b));
+        if (illegal.length > 0) {
             return {
                 eligible: false,
-                tier,
+                tier: currentTier,
                 requestedLevel,
                 reason: 'INVALID_BATTERIES',
-                upsellMessage: `Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: ${tierFeatures.allowedBatteries.join(', ')}`,
+                upsellMessage: `Invalid battery IDs: ${illegal.join(', ')}. Allowed: ${allowedBatteries.join(', ')}`,
             };
         }
     }
 
-    if (allowedLevels.includes(requestedLevel)) {
-        return {
-            eligible: true,
-            tier,
-            requestedLevel,
-        };
+    // 4. Level Access Check
+    if (TIER_LEVEL_ACCESS[currentTier].includes(requestedLevel)) {
+        return { eligible: true, tier: currentTier, requestedLevel };
     }
 
-    // Access denied - generate upsell message
-    const requiredTier = getRequiredTier(requestedLevel);
-
+    // 5. Generate Upsell (Access Denied)
+    const required = getRequiredTier(requestedLevel);
     return {
         eligible: false,
-        tier,
+        tier: currentTier,
         requestedLevel,
         reason: 'ACCESS_DENIED',
-        upsellMessage: generateUpsellMessage(requestedLevel, tier, requiredTier),
-        upgradeUrl: UPGRADE_URLS[tier],
+        upsellMessage: generateUpsellMessage(requestedLevel, currentTier, required),
+        upgradeUrl: UPGRADE_URLS[currentTier],
     };
-}
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
