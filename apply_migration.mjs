@@ -2,8 +2,13 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 
-const supabaseUrl = 'https://qhjqselqpkfqjfpuxykb.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoanFzZWxxcGtmcWpmcHV4eWtiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTM5MDQ5OSwiZXhwIjoyMDg0OTY2NDk5fQ.r_A3UC4O5tDHp6o5HBbAEu4GWnuiKnNP9229_WZHFck';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://qhjqselqpkfqjfpuxykb.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseKey) {
+    console.error('❌ Error: SUPABASE_SERVICE_ROLE_KEY is required');
+    process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
