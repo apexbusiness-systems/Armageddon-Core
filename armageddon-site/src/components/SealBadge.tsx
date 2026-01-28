@@ -45,7 +45,7 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
         lg: 'w-72 h-72 md:w-96 md:h-96',
     };
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = (e.clientX - rect.left - rect.width / 2) / 20;
         const y = (e.clientY - rect.top - rect.height / 2) / 20;
@@ -64,7 +64,6 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
                     setIsHovered(false);
                     setMousePosition({ x: 0, y: 0 });
                 }}
-                onMouseMove={handleMouseMove}
                 onMouseMove={handleMouseMove}
             >
                 {/* Glow Effect */}
@@ -151,15 +150,15 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
                         </div>
                     </div>
                 </motion.div>
-        </div>
+            </button>
 
-            {/* Hover Hint */ }
-    <motion.p
-        className="mt-24 mono-small text-signal/25"
-        animate={{ opacity: isHovered ? 0 : 1 }}
-    >
-        HOVER TO INSPECT METADATA
-    </motion.p>
+            {/* Hover Hint */}
+            <motion.p
+                className="mt-24 mono-small text-signal/25"
+                animate={{ opacity: isHovered ? 0 : 1 }}
+            >
+                HOVER TO INSPECT METADATA
+            </motion.p>
         </div >
     );
 }
