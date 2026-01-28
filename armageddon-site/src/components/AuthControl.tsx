@@ -1,15 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { User } from '@supabase/supabase-js';
 
-export default function AuthControl() {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
+interface AuthControlProps {
+    user: User | null;
+    onLogin: () => void;
+    onLogout: () => void;
+}
+
+export default function AuthControl({ user, onLogin, onLogout }: AuthControlProps) {
     const [isHovered, setIsHovered] = useState(false);
+    const isLoggedIn = !!user;
 
     const toggleAuth = () => {
-        setIsLoggedIn(!isLoggedIn);
-        // In a real app, this would trigger a Supabase auth flow or redirect
+        if (isLoggedIn) onLogout();
+        else onLogin();
     };
 
     return (
@@ -26,7 +31,7 @@ export default function AuthControl() {
                         exit={{ opacity: 0, x: 20 }}
                         className="mono-small text-signal/40 text-xs text-right hidden md:block"
                     >
-                        <div>ID: OPERATOR_7</div>
+                        <div>ID: {user?.email?.split('@')[0].toUpperCase() ?? 'OPERATOR'}</div>
                         <div className="text-[var(--safe)]">CLEARANCE: LEVEL 7</div>
                     </motion.div>
                 )}

@@ -309,7 +309,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
 
     return (
         <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
-            {standalone && <AuthControl />}
+            {standalone && <AuthControl user={user} onLogin={handleLogin} onLogout={handleLogout} />}
 
             <AnimatePresence>
                 {flashActive && (
