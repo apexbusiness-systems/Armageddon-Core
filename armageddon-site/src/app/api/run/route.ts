@@ -9,8 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Client, Connection } from '@temporalio/client';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import { checkRunEligibility } from '../../../../armageddon-core/src/core/monetization/gate';
-import { normalizeIterations, validateBatteryIds } from '../../../../armageddon-core/src/core/engine/types';
+import { checkRunEligibility } from '../../../lib/gate';
+import { normalizeIterations, validateBatteryIds } from '../../../lib/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             return NextResponse.json(
                 {
                     success: false,
-                    error: eligibility.error,
+                    error: eligibility.reason || 'ACCESS_DENIED',
                     upsellMessage: eligibility.upsellMessage,
                     upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
                 },
