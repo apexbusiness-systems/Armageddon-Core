@@ -27,13 +27,4 @@ export {
     type BatteryEvent,
 } from './activities';
 
-// Workflow
-export {
-    ArmageddonLevel7Workflow,
-    cancelSignal,
-    progressQuery,
-    type Level7WorkflowInput,
-    type Level7WorkflowResult,
-    type BatteryStatus,
-    type WorkflowProgress,
-} from './workflow';
+// Workflow exports removed - workflow logic centralized in src/temporal/workflows.ts

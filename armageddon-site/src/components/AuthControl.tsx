@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '@supabase/supabase-js';
+import { useState } from 'react';
 
 interface AuthControlProps {
     user: User | null;
@@ -11,6 +12,7 @@ interface AuthControlProps {
 
 export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthControlProps>) {
     const isLoggedIn = !!user;
+    const [isHovered, setIsHovered] = useState(false);
 
     const toggleAuth = () => {
         if (isLoggedIn) onLogout();
@@ -18,7 +20,24 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
     };
 
     return (
-        <div className="fixed top-6 left-6 z-50 flex items-center gap-4">
+        <div
+            className="fixed top-6 right-6 z-50 flex items-center gap-4"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <AnimatePresence>
+                {isLoggedIn && (
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className="mono-small text-signal/40 text-xs text-right hidden md:block"
+                    >
+                        <div>ID: {user?.email?.split('@')[0].toUpperCase() ?? 'OPERATOR'}</div>
+                        <div className="text-[var(--safe)]">CLEARANCE: LEVEL 7</div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             <motion.button
                 onClick={toggleAuth}
                 className={`

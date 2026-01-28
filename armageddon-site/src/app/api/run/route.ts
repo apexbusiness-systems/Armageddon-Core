@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Client, Connection } from '@temporalio/client';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { checkRunEligibility } from '../../../lib/gate';
+import { normalizeIterations, validateBatteryIds } from '../../../lib/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -75,76 +77,8 @@ async function getTemporalClient(): Promise<Client> {
     });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // ELIGIBILITY CHECK
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function checkRunEligibility(
-    orgId: string,
-    requestedLevel: number,
-    batteries?: string[]
-): Promise<{ eligible: boolean; tier: OrganizationTier; error?: string; upsellMessage?: string; upgradeUrl?: string }> {
-    const supabase = getSupabase();
-
-    // Fetch organization
-    const { data: org, error } = await supabase
-        .from('organizations')
-        .select('id, current_tier')
-        .eq('id', orgId)
-        .single();
-
-    if (error || !org) {
-        return {
-            eligible: false,
-            tier: 'free_dry',
-            error: 'Organization not found',
-        };
-    }
-
-    const tier = org.current_tier as OrganizationTier;
-    const allowedLevels = TIER_LEVEL_ACCESS[tier];
-
-    // Check battery customization
-    if (batteries && batteries.length > 0) {
-        const defaultBatteries = ['B10', 'B11', 'B12', 'B13'];
-        const isCustomized = batteries.length !== defaultBatteries.length ||
-            !batteries.every(b => defaultBatteries.includes(b));
-
-        if (isCustomized && tier === 'free_dry') {
-            return {
-                eligible: false,
-                tier,
-                error: 'FEATURE_LOCKED',
-                upsellMessage: '🔒 Custom Battery Selection requires VERIFIED tier. ' +
-                    'Upgrade to choose specific attack vectors (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain).',
-                upgradeUrl: '/pricing?upgrade=verified',
-            };
-        }
-    }
-
-    if (allowedLevels.includes(requestedLevel)) {
-        return { eligible: true, tier };
-    }
-
-    // Level 7 requires certified
-    if (requestedLevel === 7) {
-        return {
-            eligible: false,
-            tier,
-            error: 'ACCESS_DENIED',
-            upsellMessage: '🔒 Level 7 God Mode requires CERTIFIED tier. ' +
-                'Upgrade to unlock 10,000+ iteration adversarial testing with ' +
-                'Batteries 10-13 (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain).',
-        };
-    }
-
-    return {
-        eligible: false,
-        tier,
-        error: 'ACCESS_DENIED',
-        upsellMessage: `Level ${requestedLevel} requires a higher tier.`,
-    };
-}
+// Using centralized checkRunEligibility from armageddon-core/src/core/monetization/gate.ts
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST HANDLER
@@ -196,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             return NextResponse.json(
                 {
                     success: false,
-                    error: eligibility.error,
+                    error: eligibility.reason || 'ACCESS_DENIED',
                     upsellMessage: eligibility.upsellMessage,
                     upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
                 },
