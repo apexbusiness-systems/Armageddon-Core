@@ -52,18 +52,14 @@ export default function CertificationSeal() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.8, delay: 0.1 }}
                 >
-                    <div
-                        className="seal-container relative cursor-pointer"
+                    <button
+                        type="button"
+                        className="seal-container relative cursor-pointer bg-transparent border-none p-0"
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                setIsHovered(!isHovered);
-                            }
-                        }}
+                        onClick={() => setIsHovered(!isHovered)}
                     >
+
                         {/* Glow effect */}
                         <div className="seal-glow" />
 
