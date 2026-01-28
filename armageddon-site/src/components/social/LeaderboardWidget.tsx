@@ -91,24 +91,24 @@ function UserStatusRow({
     isCalibrating: boolean,
     scrambleText: string
 }>) {
-    const containerClasses = cn("flex items-center justify-between p-3 border rounded transition-all duration-300",
-        isRejected ? "bg-red-500/10 border-red-500/50" :
-            isCertified ? "bg-yellow-500/10 border-yellow-500/50" :
-                "bg-white/5 border-white/20"
-    );
+    let containerStyle = "bg-white/5 border-white/20";
+    if (isRejected) containerStyle = "bg-red-500/10 border-red-500/50";
+    else if (isCertified) containerStyle = "bg-yellow-500/10 border-yellow-500/50";
 
-    const youTextClasses = cn("font-bold tracking-widest transition-colors",
-        isRejected ? "text-red-500 glitch-text" :
-            isCertified ? "text-yellow-400" :
-                "text-white"
-    );
+    const containerClasses = cn("flex items-center justify-between p-3 border rounded transition-all duration-300", containerStyle);
 
-    const barClasses = cn("absolute -left-4 top-0 bottom-0 w-1 transition-colors duration-300",
-        isRejected ? "bg-red-600" :
-            isCertified ? "bg-yellow-400" :
-                isCalibrating ? "bg-blue-500 animate-pulse" :
-                    "bg-transparent"
-    );
+    let youTextStyle = "text-white";
+    if (isRejected) youTextStyle = "text-red-500 glitch-text";
+    else if (isCertified) youTextStyle = "text-yellow-400";
+
+    const youTextClasses = cn("font-bold tracking-widest transition-colors", youTextStyle);
+
+    let barStyle = "bg-transparent";
+    if (isRejected) barStyle = "bg-red-600";
+    else if (isCertified) barStyle = "bg-yellow-400";
+    else if (isCalibrating) barStyle = "bg-blue-500 animate-pulse";
+
+    const barClasses = cn("absolute -left-4 top-0 bottom-0 w-1 transition-colors duration-300", barStyle);
 
     return (
         <div className="mt-6 relative">
@@ -214,9 +214,11 @@ export default function LeaderboardWidget({ status }: { readonly status: Status 
                 </div>
                 <div className="flex items-center gap-2">
                     <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse",
-                        isRejected ? "bg-red-500" :
-                            isCertified ? "bg-yellow-400" :
-                                "bg-green-500"
+                        (() => {
+                            if (isRejected) return "bg-red-500";
+                            if (isCertified) return "bg-yellow-400";
+                            return "bg-green-500";
+                        })()
                     )} />
                     <span className="text-[10px] text-white/30">LIVE</span>
                 </div>

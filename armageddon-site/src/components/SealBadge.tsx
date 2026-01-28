@@ -126,15 +126,12 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
                                         {key.replaceAll(/([A-Z])/g, ' $1').trim()}
                                     </span>
                                     <span
-                                        className={
-                                            key === 'grade'
-                                                ? 'text-[var(--safe)] font-bold'
-                                                : key === 'sandbox'
-                                                    ? 'text-[var(--aerospace)]'
-                                                    : key === 'escapeRate' && value === '0.0000%'
-                                                        ? 'text-[var(--safe)]'
-                                                        : 'text-signal'
-                                        }
+                                        className={(() => {
+                                            if (key === 'grade') return 'text-[var(--safe)] font-bold';
+                                            if (key === 'sandbox') return 'text-[var(--aerospace)]';
+                                            if (key === 'escapeRate' && value === '0.0000%') return 'text-[var(--safe)]';
+                                            return 'text-signal';
+                                        })()}
                                     >
                                         {value}
                                     </span>

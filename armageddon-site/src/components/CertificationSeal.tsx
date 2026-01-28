@@ -103,11 +103,11 @@ export default function CertificationSeal() {
                                     {Object.entries(metadata).map(([key, value]) => (
                                         <div key={key} className="flex justify-between">
                                             <span className="text-signal/40 uppercase">{key.replaceAll(/([A-Z])/g, ' $1')}</span>
-                                            <span className={
-                                                key === 'grade' ? 'text-[var(--safe)] font-bold' :
-                                                    key === 'sandbox' ? 'text-[var(--aerospace)]' :
-                                                        'text-signal'
-                                            }>
+                                            <span className={(() => {
+                                                if (key === 'grade') return 'text-[var(--safe)] font-bold';
+                                                if (key === 'sandbox') return 'text-[var(--aerospace)]';
+                                                return 'text-signal';
+                                            })()}>
                                                 {value}
                                             </span>
                                         </div>

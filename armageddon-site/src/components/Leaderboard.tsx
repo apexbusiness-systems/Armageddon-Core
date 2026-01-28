@@ -38,7 +38,7 @@ export default function Leaderboard() {
             <div className="p-4 border-b border-[var(--tungsten-light)] bg-black/40 flex justify-between items-center">
                 <span className="mono-small text-[var(--aerospace)] tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 bg-[var(--aerospace)] animate-pulse" />
-                    GLOBAL_RANKINGS
+                    <span>GLOBAL_RANKINGS</span>
                 </span>
                 <span className="mono-tiny text-signal/30">LEVEL_7_ACCESS</span>
             </div>
@@ -75,7 +75,7 @@ export default function Leaderboard() {
                                 </div>
                                 <div className="flex gap-2 mono-tiny text-[10px] opacity-60">
                                     <span className={index === 0 ? 'text-[var(--aerospace)]' : ''}>{rank.status}</span>
-                                    <span>//</span>
+                                    <span>{'//'}</span>
                                     <span>{rank.latency}</span>
                                 </div>
                             </div>

@@ -362,7 +362,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-8 relative z-20">
-                        <img src="/icon.svg" alt="ARMAGEDDON LEVEL 7" className="w-auto h-48 drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow" />
+                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-3xl h-auto object-contain drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow" />
                     </div>
 
                     <div className="mt-8 mb-6 relative">
@@ -389,9 +389,12 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                     onClick={() => toggleBattery(battery.id)}
                                     disabled={!canCustomize || isRunning}
                                     className={`px-4 py-3 border transition-all duration-200 ${selectedBatteries.includes(battery.id)
-                                        ? 'border-aerospace bg-aerospace/10 text-aerospace'
-                                        : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
-                                        } ${canCustomize && !isRunning ? 'hover:border-zinc-600 cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                                            ? 'border-aerospace bg-aerospace/10 text-aerospace'
+                                            : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
+                                        } ${canCustomize && !isRunning
+                                            ? 'hover:border-zinc-600 cursor-pointer'
+                                            : 'cursor-not-allowed opacity-50'
+                                        }`}
                                 >
                                     <span className="mono-small block text-left">
                                         <span className="text-xs opacity-60">{battery.id}</span>
@@ -410,12 +413,17 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                             whileHover={isRunning ? {} : { scale: 1.02 }}
                             whileTap={isRunning ? {} : { scale: 0.98 }}
                         >
-                            {isRunning ? (
-                                <span className="flex items-center gap-3">
-                                    <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
-                                    EXECUTING {currentBattery}/13
-                                </span>
-                            ) : isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE'}
+                            {(() => {
+                                if (isRunning) {
+                                    return (
+                                        <span className="flex items-center gap-3">
+                                            <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
+                                            EXECUTING {currentBattery}/13
+                                        </span>
+                                    );
+                                }
+                                return isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE';
+                            })()}
                         </motion.button>
                     </div>
                 </motion.div>

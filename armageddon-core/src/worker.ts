@@ -72,7 +72,9 @@ async function run() {
     await worker.run();
 }
 
-run().catch((err) => {
+try {
+    await run();
+} catch (err) {
     console.error('Worker failed to start:', err);
     process.exit(1);
-});
+}
