@@ -195,7 +195,7 @@ function BatteryCard({
     onToggle,
     onHoverChange,
     isLarge
-}: {
+}: Readonly<{
     battery: Battery;
     index: number;
     isExpanded: boolean;
@@ -203,7 +203,7 @@ function BatteryCard({
     onToggle: () => void;
     onHoverChange: (hovered: boolean) => void;
     isLarge: boolean;
-}) {
+}>) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 30 }}
