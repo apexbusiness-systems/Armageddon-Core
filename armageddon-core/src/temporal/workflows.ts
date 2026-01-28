@@ -1,6 +1,7 @@
 import { proxyActivities, defineSignal, setHandler } from '@temporalio/workflow';
 import type * as activities from './activities';
 import { BatteryConfig, BatteryResult, WorkflowState, ArmageddonReport } from './activities';
+import { normalizeIterations, validateBatteryIds } from '../core/engine/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION & CONSTANTS
@@ -58,6 +59,14 @@ const {
 export const cancelSignal = defineSignal('cancel');
 
 export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<ArmageddonReport> {
+    // Normalize iterations at the workflow boundary
+    const normalizedIterations = normalizeIterations(config.iterations);
+    
+    // Create normalized config
+    const normalizedConfig: BatteryConfig = {
+        ...config,
+        iterations: normalizedIterations,
+    };
 
     // 1. Initialize State
     let cancelled = false;
@@ -77,21 +86,21 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
 
         const batteryPromises = [
             // Baseline batteries (1-9)
-            runBattery1_ChaosStress(config),
-            runBattery2_ChaosEngine(config),
-            runBattery3_PromptInjection(config),
-            runBattery4_SecurityAuth(config),
-            runBattery5_FullUnit(config),
-            runBattery6_UnsafeGate(config),
-            runBattery7_PlaywrightE2E(config),
-            runBattery8_AssetSmoke(config),
-            runBattery9_IntegrationHandshake(config),
+            runBattery1_ChaosStress(normalizedConfig),
+            runBattery2_ChaosEngine(normalizedConfig),
+            runBattery3_PromptInjection(normalizedConfig),
+            runBattery4_SecurityAuth(normalizedConfig),
+            runBattery5_FullUnit(normalizedConfig),
+            runBattery6_UnsafeGate(normalizedConfig),
+            runBattery7_PlaywrightE2E(normalizedConfig),
+            runBattery8_AssetSmoke(normalizedConfig),
+            runBattery9_IntegrationHandshake(normalizedConfig),
 
-            // God Mode batteries (10-13) - 10,000 iterations
-            runBattery10_GoalHijack(config),
-            runBattery11_ToolMisuse(config),
-            runBattery12_MemoryPoison(config),
-            runBattery13_SupplyChain(config),
+            // God Mode batteries (10-13) - use normalized iterations
+            runBattery10_GoalHijack(normalizedConfig),
+            runBattery11_ToolMisuse(normalizedConfig),
+            runBattery12_MemoryPoison(normalizedConfig),
+            runBattery13_SupplyChain(normalizedConfig),
         ];
 
         // Execute all concurrently with resilience
