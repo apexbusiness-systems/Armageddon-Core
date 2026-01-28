@@ -15,11 +15,9 @@ RUN npm ci
 # Copy source
 COPY . .
 
-# Build and Verify
-RUN npm run build && ls -la dist
-
-# Security: Run as non-root user (Debian syntax)
-RUN groupadd -g 1001 armageddon && \
+# Build, Verify, and Security Setup
+RUN npm run build && ls -la dist && \
+    groupadd -g 1001 armageddon && \
     useradd -u 1001 -g armageddon -s /bin/bash -m worker
 USER worker
 

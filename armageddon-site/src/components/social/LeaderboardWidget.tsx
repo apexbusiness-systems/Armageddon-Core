@@ -54,7 +54,7 @@ function useScramble(active: boolean) {
 // SUBCOMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TopAgentsList({ isCalibrating }: { isCalibrating: boolean }) {
+function TopAgentsList({ isCalibrating }: { readonly isCalibrating: boolean }) {
     return (
         <div className={cn("space-y-1 transition-opacity duration-300",
             isCalibrating ? "opacity-30" : "opacity-100"
@@ -84,13 +84,13 @@ function UserStatusRow({
     isCertified,
     isCalibrating,
     scrambleText
-}: {
+}: Readonly<{
     status: Status,
     isRejected: boolean,
     isCertified: boolean,
     isCalibrating: boolean,
     scrambleText: string
-}) {
+}>) {
     const containerClasses = cn("flex items-center justify-between p-3 border rounded transition-all duration-300",
         isRejected ? "bg-red-500/10 border-red-500/50" :
             isCertified ? "bg-yellow-500/10 border-yellow-500/50" :

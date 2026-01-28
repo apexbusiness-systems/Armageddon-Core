@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '@supabase/supabase-js';
 
 interface AuthControlProps {
@@ -8,7 +10,7 @@ interface AuthControlProps {
     onLogout: () => void;
 }
 
-export default function AuthControl({ user, onLogin, onLogout }: AuthControlProps) {
+export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthControlProps>) {
     const [isHovered, setIsHovered] = useState(false);
     const isLoggedIn = !!user;
 

@@ -55,17 +55,17 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
     return (
         <div className="flex flex-col items-center">
             {/* Seal Container */}
-            <div
-                className="seal-container relative cursor-pointer"
-                role="button"
-                tabIndex={0}
+            <button
+                type="button"
+                className="seal-container relative cursor-pointer bg-transparent border-none p-0"
+                onClick={() => setIsHovered(!isHovered)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => {
                     setIsHovered(false);
                     setMousePosition({ x: 0, y: 0 });
                 }}
                 onMouseMove={handleMouseMove}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsHovered(!isHovered) }}
+                onMouseMove={handleMouseMove}
             >
                 {/* Glow Effect */}
                 <motion.div
@@ -151,15 +151,15 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
                         </div>
                     </div>
                 </motion.div>
-            </div>
-
-            {/* Hover Hint */}
-            <motion.p
-                className="mt-24 mono-small text-signal/25"
-                animate={{ opacity: isHovered ? 0 : 1 }}
-            >
-                HOVER TO INSPECT METADATA
-            </motion.p>
         </div>
+
+            {/* Hover Hint */ }
+    <motion.p
+        className="mt-24 mono-small text-signal/25"
+        animate={{ opacity: isHovered ? 0 : 1 }}
+    >
+        HOVER TO INSPECT METADATA
+    </motion.p>
+        </div >
     );
 }

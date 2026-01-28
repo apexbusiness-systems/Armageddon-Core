@@ -1,6 +1,6 @@
 
 const ENDPOINT = 'http://localhost:3000/api/run';
-export { };
+export const config = { endpoint: ENDPOINT };
 // This secret is for local verification loop
 const secret = '6f7679a4675ad424e30873f5f5a45db2c90e79cdaa57101f8a60c54';
 

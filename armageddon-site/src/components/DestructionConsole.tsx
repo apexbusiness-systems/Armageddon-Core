@@ -49,7 +49,7 @@ const LABELS = {
 // Lazy Supabase client initialization
 let supabaseClient: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient | null {
-    if (typeof globalThis.window === 'undefined') return null;
+    if (globalThis.window === undefined) return null;
     if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         supabaseClient = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -125,7 +125,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                 const res = await fetch(API.GATEKEEPER, { method: 'POST' });
                 const data = await res.json();
                 if (data.tier) {
-                    // setUserTier(data.tier); 
                     setCanCustomize(data.tier !== 'free_dry');
                 }
             } catch (e) {
@@ -447,11 +446,14 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                             ) : (
                                 <AnimatePresence mode="popLayout">
                                     {terminalLines.map(line => {
-                                        const msgColor = line.type === MSG_TYPE.SUCCESS ? 'text-[var(--safe)]' :
-                                            line.type === MSG_TYPE.ERROR ? 'text-[var(--destructive)] font-bold' :
-                                                line.type === MSG_TYPE.WARNING ? 'text-amber-500' :
-                                                    line.type === MSG_TYPE.COMMAND ? 'text-[var(--aerospace)]' :
-                                                        line.type === MSG_TYPE.BLOCKED ? 'text-zinc-500 line-through' : 'text-zinc-300';
+                                        const MSG_COLORS: Record<string, string> = {
+                                            [MSG_TYPE.SUCCESS]: 'text-[var(--safe)]',
+                                            [MSG_TYPE.ERROR]: 'text-[var(--destructive)] font-bold',
+                                            [MSG_TYPE.WARNING]: 'text-amber-500',
+                                            [MSG_TYPE.COMMAND]: 'text-[var(--aerospace)]',
+                                            [MSG_TYPE.BLOCKED]: 'text-zinc-500 line-through',
+                                        };
+                                        const msgColor = MSG_COLORS[line.type] || 'text-zinc-300';
 
                                         return (
                                             <motion.div
