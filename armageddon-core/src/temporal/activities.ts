@@ -10,8 +10,9 @@ import {
     SUPPLY_CHAIN_VECTORS
 } from './prompts';
 
-import { safetyGuard, SystemLockdownError } from '../core/safety';
-import { createReporter, SupabaseReporter } from '../core/reporter';
+import { safetyGuard } from '../core/safety';
+import { createReporter } from '../core/reporter';
+import { secureRandom } from '../core/utils';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -49,7 +50,7 @@ export async function runBattery1_ChaosStress(config: BatteryConfig): Promise<Ba
     let blocked = 0;
     for (let i = 0; i < Math.min(config.iterations, 100); i++) {
         // Simulate network failure handling
-        const shouldFail = Math.random() < 0.03;
+        const shouldFail = secureRandom() < 0.03;
         if (shouldFail) blocked++;
         await sleep(10);
     }
@@ -76,7 +77,7 @@ export async function runBattery2_ChaosEngine(config: BatteryConfig): Promise<Ba
     await reporter.pushEvent('B2', 'BATTERY_STARTED');
 
     // Idempotency, dedupe receipts, guardrails
-    const dedupeHits = Math.floor(Math.random() * 20) + 80;
+    const dedupeHits = Math.floor(secureRandom() * 20) + 80;
 
     await reporter.pushEvent('B2', 'BATTERY_COMPLETED', { dedupeHits });
 

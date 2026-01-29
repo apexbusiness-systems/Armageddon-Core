@@ -35,7 +35,11 @@ function useScramble(active: boolean) {
             setText(
                 'EVALUATING [' +
                 Array.from({ length: 4 })
-                    .map(() => chars[Math.floor(Math.random() * chars.length)])
+                    .map(() => {
+                        const arr = new Uint32Array(1);
+                        crypto.getRandomValues(arr);
+                        return chars[arr[0] % chars.length];
+                    })
                     .join('') +
                 ']...'
             );
@@ -196,11 +200,17 @@ export default function LeaderboardWidget({ status }: { readonly status: Status 
         isCertified ? "border-yellow-500/50" : ""
     );
 
+    const animationState = (() => {
+        if (isRejected) return 'rejected';
+        if (isCertified) return 'certified';
+        return 'idle';
+    })();
+
     return (
         <motion.div
             className={containerClass}
             initial={false}
-            animate={isRejected ? 'rejected' : isCertified ? 'certified' : 'idle'}
+            animate={animationState}
             variants={containerVariants}
         >
             {/* SCANNING LINES OVERLAY */}
