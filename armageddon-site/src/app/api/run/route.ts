@@ -9,8 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Client, Connection } from '@temporalio/client';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import { checkRunEligibility } from '../../../lib/gate';
-import { normalizeIterations, validateBatteryIds } from '../../../lib/types';
+import { checkRunEligibility, normalizeIterations, validateBatteryIds } from '@armageddon/shared';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES

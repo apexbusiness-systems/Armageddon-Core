@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BATTERIES } from '@/lib/batteries';
+import { BATTERIES } from '@armageddon/shared';
 import BatteryCard from './BatteryCard';
 
 export default function BatteryGrid() {

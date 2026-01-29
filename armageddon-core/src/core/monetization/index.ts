@@ -12,4 +12,4 @@ export {
     type EligibilityResult,
     type Organization,
     type QuotaResult,
-} from './gate';
+} from '@armageddon/shared';

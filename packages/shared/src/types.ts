@@ -33,7 +33,7 @@ export interface BatteryResult {
 }
 
 // Iterations normalization function
-export function normalizeIterations(inputIterations?: number): number {
+export function normalizeIterations(inputIterations?: number | null): number {
     // Default iterations
     const defaultIterations = 2500;
     

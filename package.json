@@ -1,4 +1,10 @@
 {
+  "private": true,
+  "workspaces": [
+    "armageddon-core",
+    "armageddon-site",
+    "packages/*"
+  ],
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1"
   }

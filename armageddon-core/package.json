@@ -17,6 +17,7 @@
         "@temporalio/client": "^1.14.0",
         "@temporalio/worker": "^1.14.0",
         "@temporalio/workflow": "^1.14.0",
+        "@armageddon/shared": "*",
         "uuid": "^9.0.0"
     },
     "devDependencies": {

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Battery } from '@/lib/batteries';
+import { Battery } from '@armageddon/shared';
 
 interface BatteryCardProps {
     battery: Battery;

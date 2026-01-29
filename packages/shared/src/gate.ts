@@ -36,9 +36,9 @@ export interface Organization {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
-    free_dry: [1, 2, 3],           // Basic batteries only
-    verified: [1, 2, 3, 4, 5, 6],  // Standard batteries
-    certified: [1, 2, 3, 4, 5, 6, 7], // All batteries including God Mode
+    free_dry: [1, 2, 3],
+    verified: [1, 2, 3, 4, 5, 6],
+    certified: [1, 2, 3, 4, 5, 6, 7],
 };
 
 const TIER_NAMES: Record<OrganizationTier, string> = {
@@ -76,7 +76,8 @@ const TIER_FEATURES: Record<OrganizationTier, {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getSupabaseClient(): SupabaseClient {
-    const url = process.env.SUPABASE_URL;
+    // Attempt standard env var then Next.js public env var
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!url || !serviceKey) {
@@ -96,10 +97,6 @@ function getSupabaseClient(): SupabaseClient {
 
 /**
  * Check if an organization is eligible to run a specific certification level.
- * 
- * @param orgId - The organization's UUID
- * @param requestedLevel - The certification level requested (1-7)
- * @returns EligibilityResult with access decision and upsell info
  */
 export async function checkRunEligibility(
     orgId: string,
@@ -107,13 +104,16 @@ export async function checkRunEligibility(
     batteries?: string[]
 ): Promise<EligibilityResult> {
     const supabase = getSupabaseClient();
+    const DEFAULT_FAIL: EligibilityResult = {
+        eligible: false,
+        tier: 'free_dry',
+        requestedLevel,
+    };
 
     // Validate level
     if (requestedLevel < 1 || requestedLevel > 7) {
         return {
-            eligible: false,
-            tier: 'free_dry',
-            requestedLevel,
+            ...DEFAULT_FAIL,
             reason: 'INVALID_LEVEL',
             upsellMessage: 'Invalid certification level. Valid levels are 1-7.',
         };
@@ -128,9 +128,7 @@ export async function checkRunEligibility(
 
     if (error || !org) {
         return {
-            eligible: false,
-            tier: 'free_dry',
-            requestedLevel,
+            ...DEFAULT_FAIL,
             reason: 'ORG_NOT_FOUND',
             upsellMessage: 'Organization not found. Please ensure you have a valid account.',
         };
@@ -147,7 +145,7 @@ export async function checkRunEligibility(
             !batteries.every(b => defaultBatteries.includes(b));
 
         if (isCustomized && !tierFeatures.canCustomizeBatteries) {
-            return {
+             return {
                 eligible: false,
                 tier,
                 requestedLevel,
@@ -297,7 +295,7 @@ export async function checkQuota(orgId: string): Promise<QuotaResult> {
         return {
             allowed: false,
             runsThisPeriod: 0,
-            maxRuns,
+            maxRuns: maxRuns,
             periodEndsAt: '',
             reason: 'QUOTA_CHECK_FAILED',
         };

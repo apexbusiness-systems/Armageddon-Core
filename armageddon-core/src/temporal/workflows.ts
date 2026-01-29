@@ -1,7 +1,7 @@
 import { proxyActivities, defineSignal, setHandler } from '@temporalio/workflow';
 import type * as activities from './activities';
 import { BatteryConfig, WorkflowState, ArmageddonReport } from './activities';
-import { normalizeIterations } from '../core/engine/types';
+import { normalizeIterations } from '@armageddon/shared';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION & CONSTANTS
