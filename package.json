@@ -5,6 +5,9 @@
     "armageddon-site",
     "packages/*"
   ],
+  "scripts": {
+    "postinstall": "npm run build -w @armageddon/shared"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1"
   }
