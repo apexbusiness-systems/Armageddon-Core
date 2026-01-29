@@ -8,12 +8,13 @@ FROM node:20-slim
 WORKDIR /app
 
 # Install dependencies
-COPY package*.json ./
+# Install dependencies
 COPY package*.json ./
 RUN npm ci
 
 # Copy source
-COPY . .
+COPY tsconfig.json ./
+COPY src ./src
 
 # Build, Verify, and Security Setup
 RUN npm run build && ls -la dist && \

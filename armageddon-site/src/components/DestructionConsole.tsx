@@ -169,9 +169,11 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     // ────────────────────────────────────────────────────────────────────────
 
     const addLine = useCallback((prefix: string, content: string, type: TerminalLine['type']) => {
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
         setTerminalLines(prev => [
             ...prev.slice(-25),
-            { id: Date.now() + Math.random(), prefix, content, type },
+            { id: Date.now() + array[0], prefix, content, type },
         ]);
     }, []);
 
@@ -316,11 +318,14 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
 
     const toggleBattery = (batteryId: string) => {
         if (!canCustomize || isRunning) return;
-        setSelectedBatteries(prev =>
-            prev.includes(batteryId)
-                ? (prev.length === 1 ? prev : prev.filter(b => b !== batteryId))
-                : [...prev, batteryId].sort((a, b) => a.localeCompare(b))
-        );
+        setSelectedBatteries(prev => {
+            if (prev.includes(batteryId)) {
+                // Prevent unselecting the last one
+                if (prev.length === 1) return prev;
+                return prev.filter(b => b !== batteryId);
+            }
+            return [...prev, batteryId].sort((a, b) => a.localeCompare(b));
+        });
     };
 
     // ────────────────────────────────────────────────────────────────────────
