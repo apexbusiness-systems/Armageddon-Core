@@ -21,7 +21,11 @@ export default function Leaderboard() {
             setRanks(prev => {
                 const newRanks = [...prev];
                 // Randomly swap 4th and 5th for "live" feel
-                if (newRanks.length >= 5 && Math.random() > 0.7) {
+                const randomBuffer = new Uint8Array(1);
+                window.crypto.getRandomValues(randomBuffer);
+                const randomValue = randomBuffer[0] / 255;
+                
+                if (newRanks.length >= 5 && randomValue > 0.7) {
                     const temp = newRanks[3];
                     newRanks[3] = newRanks[4];
                     newRanks[4] = temp;
