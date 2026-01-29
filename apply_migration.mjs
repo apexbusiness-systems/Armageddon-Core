@@ -1,6 +1,7 @@
 // Apply migration via Supabase SDK
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
+import 'dotenv/config';
 
 const supabaseUrl = process.env.SUPABASE_URL || 'https://qhjqselqpkfqjfpuxykb.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
