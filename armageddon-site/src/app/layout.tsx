@@ -75,7 +75,7 @@ export default function RootLayout({
                     <div className="scanline" aria-hidden="true" />
 
                     {/* SYSTEM STATUS INDICATOR */}
-                    <div className="fixed top-5 right-5 z-[10000] pointer-events-none">
+                    <div className="fixed top-5 left-5 z-[10000] pointer-events-none">
                         <div className="flex items-center gap-3 bg-[var(--void)]/95 border border-[var(--tungsten)] px-4 py-2 backdrop-blur-sm">
                             <div className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse shadow-[0_0_8px_var(--safe)]" />
                             <span className="mono-small text-[var(--safe)]/80 tracking-widest">
