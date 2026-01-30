@@ -367,7 +367,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-8 relative z-20">
-                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-3xl h-auto object-contain drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow" />
+                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-lg h-auto object-contain drop-shadow-[0_0_25px_rgba(255,80,0,0.4)] animate-pulse-slow" />
                     </div>
 
                     <div className="mt-8 mb-6 relative">
