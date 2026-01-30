@@ -9,6 +9,7 @@
     "postinstall": "npm run build -w @armageddon/shared"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.93.1"
+    "@supabase/supabase-js": "^2.93.1",
+    "dotenv": "^17.2.3"
   }
 }
