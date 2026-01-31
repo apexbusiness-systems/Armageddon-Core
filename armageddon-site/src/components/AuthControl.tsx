@@ -21,7 +21,7 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
 
     return (
         <div
-            className="fixed top-6 right-6 z-50 flex items-center gap-4"
+            className="fixed top-6 right-6 z-[100] flex items-center gap-4"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
@@ -41,10 +41,10 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
             <motion.button
                 onClick={toggleAuth}
                 className={`
-                    relative px-6 py-2 border backdrop-blur-md transition-all duration-300
+                    relative px-7 py-2.5 border backdrop-blur-md transition-all duration-300 text-sm tracking-[0.3em] uppercase
                     ${isLoggedIn
-                        ? 'border-[var(--safe)] bg-[var(--safe)]/10 text-[var(--safe)]'
-                        : 'border-[var(--aerospace)] bg-[var(--aerospace)]/10 text-[var(--aerospace)]'
+                        ? 'border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] shadow-[0_0_18px_rgba(72,255,180,0.35)]'
+                        : 'border-[var(--safe)] bg-[var(--safe)]/25 text-[var(--safe)] ring-2 ring-[var(--safe)]/60 shadow-[0_0_28px_rgba(72,255,180,0.6)]'
                     }
                 `}
                 whileHover={{ scale: 1.05 }}

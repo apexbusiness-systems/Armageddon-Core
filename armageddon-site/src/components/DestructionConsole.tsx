@@ -367,7 +367,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-4 relative z-20">
-                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-xs h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow" />
+                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-[23rem] h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow" />
                     </div>
 
                     <div className="mt-8 mb-6 relative">
@@ -388,25 +388,30 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                 { id: 'B11', name: 'Tool Misuse' },
                                 { id: 'B12', name: 'Memory Poison' },
                                 { id: 'B13', name: 'Supply Chain' },
-                            ].map(battery => (
-                                <button
-                                    key={battery.id}
-                                    onClick={() => toggleBattery(battery.id)}
-                                    disabled={!canCustomize || isRunning}
-                                    className={`px-4 py-3 border transition-all duration-200 ${selectedBatteries.includes(battery.id)
+                            ].map(battery => {
+                                const isSelected = selectedBatteries.includes(battery.id);
+                                return (
+                                    <button
+                                        key={battery.id}
+                                        onClick={() => toggleBattery(battery.id)}
+                                        disabled={!canCustomize || isRunning}
+                                        className={`px-4 py-3 border transition-all duration-200 ${isSelected
                                             ? 'border-aerospace bg-aerospace/10 text-aerospace'
                                             : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
                                         } ${canCustomize && !isRunning
                                             ? 'hover:border-zinc-600 cursor-pointer'
                                             : 'cursor-not-allowed opacity-50'
                                         }`}
-                                >
-                                    <span className="mono-small block text-left">
-                                        <span className="text-xs opacity-60">{battery.id}</span>
-                                        <span className="block mt-0.5">{battery.name}</span>
-                                    </span>
-                                </button>
-                            ))}
+                                    >
+                                        <span className="mono-small block text-left">
+                                            <span className={`text-xs opacity-60 ${isSelected ? 'text-[var(--safe)] opacity-90' : ''}`}>
+                                                {battery.id}
+                                            </span>
+                                            <span className="block mt-0.5">{battery.name}</span>
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -449,7 +454,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                 <span className="mono-small text-signal/60 tracking-widest">DESTRUCTION_CONSOLE</span>
                             </div>
                             <div className="flex items-center gap-4">
-                                {user ? (
+                                {user && (
                                     <div className="flex items-center gap-3">
                                         <span className="mono-small text-zinc-400 text-[10px] hidden sm:inline-block">
                                             {user.email?.split('@')[0]}
@@ -458,10 +463,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                             [LOGOUT]
                                         </button>
                                     </div>
-                                ) : (
-                                    <button onClick={handleLogin} className="text-[10px] text-[var(--aerospace)] hover:text-cyan-300 hover:underline mono-small animate-pulse tracking-wider">
-                                        [LOGIN]
-                                    </button>
                                 )}
                                 <div className="flex items-center gap-2 border-l border-white/10 pl-4">
                                     <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-[var(--safe)] animate-pulse' : 'bg-zinc-700'}`}></span>
