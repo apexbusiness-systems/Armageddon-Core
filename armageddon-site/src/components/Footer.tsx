@@ -9,6 +9,19 @@ import { useAuth } from '@/lib/useAuth';
 // FOOTER
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Lazy Supabase client initialization
+let supabaseClient: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient | null {
+    if (globalThis.window === undefined) return null;
+    if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        supabaseClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+    }
+    return supabaseClient;
+}
+
 export default function Footer() {
     const user = useAuth();
     const [isLoading, setIsLoading] = useState(false);
