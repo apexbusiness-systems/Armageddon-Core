@@ -21,7 +21,7 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
 
     return (
         <div
-            className="fixed top-6 right-6 z-[100] flex items-center gap-4"
+            className="fixed top-6 right-6 z-[9999] flex items-center gap-4"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
