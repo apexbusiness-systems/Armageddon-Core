@@ -1,13 +1,78 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FOOTER
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Lazy Supabase client initialization
+let supabaseClient: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient | null {
+    if (globalThis.window === undefined) return null;
+    if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        supabaseClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+    }
+    return supabaseClient;
+}
+
 export default function Footer() {
+    const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const sb = getSupabase();
+        if (!sb) return;
+
+        sb.auth.getUser().then(({ data }) => setUser(data.user));
+
+        const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const handleGetCertified = async () => {
+        const sb = getSupabase();
+        if (!sb) {
+            console.error('Supabase not initialized');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            // If already logged in, redirect to the console/dashboard
+            if (user) {
+                // Scroll to top where the destruction console is
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setIsLoading(false);
+                return;
+            }
+
+            // If not logged in, trigger OAuth signup/login
+            const { error } = await sb.auth.signInWithOAuth({
+                provider: 'github',
+                options: {
+                    redirectTo: `${window.location.origin}/`
+                }
+            });
+
+            if (error) {
+                console.error('Auth error:', error);
+            }
+        } catch (error) {
+            console.error('Failed to initiate auth:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <footer className="relative overflow-hidden">
             {/* CTA Section */}
@@ -36,11 +101,13 @@ export default function Footer() {
                         viewport={{ once: true }}
                         transition={{ duration: 0.8, delay: 0.1 }}
                     >
-                        <Link href="https://omniport.apexomnihub.icu" target="_blank" rel="noopener noreferrer">
-                            <button className="btn-cta mx-auto">
-                                <span>GET CERTIFIED</span>
-                            </button>
-                        </Link>
+                        <button
+                            onClick={handleGetCertified}
+                            disabled={isLoading}
+                            className={`btn-cta mx-auto ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
+                        >
+                            <span>{isLoading ? 'LOADING...' : user ? 'START TESTING' : 'GET CERTIFIED'}</span>
+                        </button>
                     </motion.div>
 
                     {/* Tier info */}
