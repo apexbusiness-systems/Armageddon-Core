@@ -308,12 +308,39 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
 
     const handleLogin = async () => {
         const sb = getSupabase();
-        if (sb) await sb.auth.signInWithOAuth({ provider: 'github' });
+        if (!sb) {
+            console.error('Supabase not initialized - check environment variables');
+            return;
+        }
+        try {
+            const { error } = await sb.auth.signInWithOAuth({
+                provider: 'github',
+                options: {
+                    redirectTo: `${window.location.origin}/`
+                }
+            });
+            if (error) {
+                console.error('Login error:', error);
+            }
+        } catch (err) {
+            console.error('Failed to initiate login:', err);
+        }
     };
 
     const handleLogout = async () => {
         const sb = getSupabase();
-        if (sb) await sb.auth.signOut();
+        if (!sb) {
+            console.error('Supabase not initialized');
+            return;
+        }
+        try {
+            const { error } = await sb.auth.signOut();
+            if (error) {
+                console.error('Logout error:', error);
+            }
+        } catch (err) {
+            console.error('Failed to logout:', err);
+        }
     };
 
     const toggleBattery = (batteryId: string) => {
