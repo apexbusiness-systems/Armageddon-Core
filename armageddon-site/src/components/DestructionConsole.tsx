@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient, SupabaseClient, User, RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/useAuth';
 import LockdownModal from './paywall/LockdownModal';
 import AuthControl from './AuthControl';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
@@ -45,19 +47,6 @@ const LABELS = {
     DIVIDER: '════════════════════════════════════════════',
     OFFLINE_WARN: 'Realtime not available - displaying workflow started',
 };
-
-// Lazy Supabase client initialization
-let supabaseClient: SupabaseClient | null = null;
-function getSupabase(): SupabaseClient | null {
-    if (globalThis.window === undefined) return null;
-    if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        supabaseClient = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        );
-    }
-    return supabaseClient;
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -110,7 +99,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     const [currentBattery, setCurrentBattery] = useState(0);
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
-    const [user, setUser] = useState<User | null>(null);
+    const user = useAuth();
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
     // Removed unused userTier
     const [canCustomize, setCanCustomize] = useState(false);
@@ -135,19 +124,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
             }
         };
         checkTier();
-    }, []);
-
-    useEffect(() => {
-        const sb = getSupabase();
-        if (!sb) return;
-
-        sb.auth.getUser().then(({ data }) => setUser(data.user));
-
-        const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-        });
-
-        return () => subscription.unsubscribe();
     }, []);
 
     // Cleanup subscriptions on unmount

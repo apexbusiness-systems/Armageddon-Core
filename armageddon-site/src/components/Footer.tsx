@@ -1,42 +1,17 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { useState } from 'react';
+import { getSupabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/useAuth';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FOOTER
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Lazy Supabase client initialization
-let supabaseClient: SupabaseClient | null = null;
-function getSupabase(): SupabaseClient | null {
-    if (globalThis.window === undefined) return null;
-    if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        supabaseClient = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        );
-    }
-    return supabaseClient;
-}
-
 export default function Footer() {
-    const [user, setUser] = useState<User | null>(null);
+    const user = useAuth();
     const [isLoading, setIsLoading] = useState(false);
-
-    useEffect(() => {
-        const sb = getSupabase();
-        if (!sb) return;
-
-        sb.auth.getUser().then(({ data }) => setUser(data.user));
-
-        const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
 
     const handleGetCertified = async () => {
         const sb = getSupabase();
