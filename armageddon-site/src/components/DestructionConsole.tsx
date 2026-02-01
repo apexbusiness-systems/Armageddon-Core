@@ -367,10 +367,10 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-4 relative z-20">
-                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-[23rem] h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow" />
+                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-[29rem] h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow" />
                     </div>
 
-                    <div className="mt-8 mb-6 relative">
+                    <div className="mt-[calc(2rem+2cm)] mb-6 relative">
                         <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">BATTERY CONFIGURATION</h3>
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/80 backdrop-blur-sm border border-zinc-800 flex items-center justify-center cursor-not-allowed">
