@@ -131,7 +131,18 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
     useEffect(() => {
         const checkTier = async () => {
             try {
-                const res = await fetch(API.GATEKEEPER, { method: 'POST' });
+                const sb = getSupabase();
+                const session = (await sb?.auth.getSession())?.data.session;
+                
+                const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                if (session?.access_token) {
+                    headers['Authorization'] = `Bearer ${session.access_token}`;
+                }
+
+                const res = await fetch(API.GATEKEEPER, { 
+                    method: 'POST',
+                    headers
+                });
                 const data = await res.json();
                 if (data.tier) {
                     setCanCustomize(data.tier !== 'free_dry');
