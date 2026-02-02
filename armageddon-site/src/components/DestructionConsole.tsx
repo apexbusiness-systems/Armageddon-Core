@@ -70,6 +70,23 @@ interface DestructionConsoleProps {
     status?: Status;
 }
 
+interface RunResults {
+    passed: number;
+    escapeRate: number;
+}
+
+interface ArmageddonEvent {
+    event_type: string;
+    battery_id?: string;
+    message?: string;
+    // Add other fields as necessary
+}
+
+interface ArmageddonRun {
+    status: 'COMPLETED' | 'FAILED' | 'RUNNING';
+    results: RunResults;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS (Extracted to reduce Component Complexity)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -163,7 +180,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
         }, 1200);
     }, [addLine, onStatusChange]);
 
-    const handleRunCompletion = useCallback((status: string, results: any) => {
+    const handleRunCompletion = useCallback((status: string, results: RunResults) => {
         addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
         if (status === 'COMPLETED') {
             const passed = results?.passed || 13;
@@ -230,7 +247,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
             .channel(`events-${runId}`)
             .on('postgres_changes',
                 { event: EVENTS.INSERT, schema: TABLE.SCHEMA, table: TABLE.EVENTS, filter: `run_id=eq.${runId}` },
-                (payload: { new: any }) => {
+                (payload: { new: ArmageddonEvent }) => {
                     const event = payload.new;
                     if (event.event_type === EVENTS.TRAP) {
                         handleTrapTrigger();
@@ -263,7 +280,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
             .channel(`runs-${runId}`)
             .on('postgres_changes',
                 { event: EVENTS.UPDATE, schema: TABLE.SCHEMA, table: TABLE.RUNS, filter: `id=eq.${runId}` },
-                (payload: { new: any }) => {
+                (payload: { new: ArmageddonRun }) => {
                     const run = payload.new;
                     if (run.status === 'COMPLETED' || run.status === 'FAILED') {
                         supabase.removeChannel(eventsChannel);
