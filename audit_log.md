@@ -37,3 +37,6 @@
 - **[2026-01-25]**: Refactored `activities.ts` to use `SeedableRNG` seeded by `runId`.
 - **[2026-01-25]**: Implemented real unit tests in `armageddon-core/tests/` for core logic. All tests PASSED.
 - **[2026-01-25]**: Upgraded Battery 5 to execute `npm test` via child process, bridging simulation and reality.
+- **[2026-01-25]**: **Security Hardening**:
+    - Replaced regex parsing of test output with `npm run test -- --reporter=json` to prevent ReDoS (SonarCloud S5852).
+    - Hardcoded `PATH` environment variable in `exec` calls to prevent PATH injection attacks (SonarCloud S4036).
