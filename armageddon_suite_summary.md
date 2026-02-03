@@ -2,11 +2,11 @@
 
 **Date:** 2026-01-25
 **Status:** OPTIMIZED & HARDENED
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ## 📊 Executive Summary
 
-The Armageddon Test Suite has been upgraded from a purely probabilistic simulation engine to a **Hybrid Validation Framework**. The core engine driving these simulations is now protected by real, deterministic unit tests, and the simulations themselves have been refactored for reproducibility.
+The Armageddon Test Suite has been upgraded from a purely probabilistic simulation engine to a **Hybrid Validation Framework**. The core engine driving these simulations is now protected by real, deterministic unit tests, and the simulations themselves have been refactored for reproducibility and security compliance.
 
 ### Key Metrics
 
@@ -16,6 +16,7 @@ The Armageddon Test Suite has been upgraded from a purely probabilistic simulati
 | **Real Test Coverage** | 0% | 100% (Core Engine) | +100% |
 | **Simulation Logic** | Non-Deterministic | Deterministic (Seedable) | ✅ Fixed |
 | **Safety Mechanisms** | Untested | Verified (Unit Tests) | ✅ Secured |
+| **Security Compliance** | Vulnerable (ReDoS, PATH) | Hardened (JSON Parsing, PATH Whitelist) | ✅ Fixed |
 
 ---
 
@@ -31,6 +32,9 @@ The suite now operates in two layers:
 2.  **Verification Layer (The Guard):**
     - **Battery 5 (Full Unit):** TRANSITIONED TO REAL.
     - **Action:** Now executes `vitest` against `armageddon-core` logic.
+    - **Hardening:**
+        - **Anti-ReDoS:** Replaced regex output parsing with `vitest --reporter=json`.
+        - **Anti-Injection:** Enforced strict `PATH` allowlist during test execution.
     - **Scope:** Validates `SafetyGuard`, `SupabaseReporter`, and `SeedableRNG`.
 
 ---

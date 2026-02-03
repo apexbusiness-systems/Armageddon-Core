@@ -55,8 +55,8 @@
 - **Feature:** Battery 5 - Full Unit / Module
   - **Location:** `src/temporal/activities.ts` -> `runBattery5_FullUnit`
   - **Scope:** Unit testing of core engine logic (`safety.ts`, `reporter.ts`).
-  - **Status:** ✅ REAL EXECUTION
-  - **Notes:** Executes `npm test` (Vitest) via child process. Returns actual test results.
+  - **Status:** ✅ REAL EXECUTION (Hardened)
+  - **Notes:** Executes `npm test` (Vitest) via `exec` with JSON reporting and PATH sanitization.
 
 - **Feature:** Battery 6 - Unsafe Gate
   - **Location:** `src/temporal/activities.ts` -> `runBattery6_UnsafeGate`
