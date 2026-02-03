@@ -161,11 +161,19 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
     await reporter.pushEvent('B5', 'BATTERY_STARTED');
 
     return new Promise((resolve) => {
-        // Executing REAL unit tests via Vitest using execFile for security (no shell)
-        // Note: npm is a script/batch file on Windows/Linux, so we find it first or use spawn
-        // For simplicity and security compliance, we use 'npm' with 'run test' as args
-        // In a containerized env, 'npm' is in PATH.
-        exec('npm run test', { cwd: process.cwd(), maxBuffer: 1024 * 1024 }, async (error, stdout, stderr) => {
+        // Executing REAL unit tests via Vitest using JSON reporter to avoid regex DoS
+        // Sanitizing PATH to prevent hijacking
+        const safeEnv = {
+            ...process.env,
+            // SONAR FIX: Hardcode PATH to fixed, safe directories to prevent hijacking
+            PATH: process.platform === 'win32' ? process.env.PATH : '/usr/local/bin:/usr/bin:/bin'
+        };
+
+        exec('npm run test -- --reporter=json', {
+            cwd: process.cwd(),
+            maxBuffer: 5 * 1024 * 1024, // 5MB buffer
+            env: safeEnv
+        }, async (error, stdout, stderr) => {
              const duration = Date.now() - start;
 
              if (error) {
@@ -181,9 +189,16 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
                      details: { error: stderr, output: stdout, note: "Unit tests failed" }
                  });
              } else {
-                 // Parse stdout for test counts (simple regex)
-                 const passedMatch = stdout.match(/(\d+) passed/);
-                 const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
+                 let passed = 0;
+                 try {
+                     // Robust JSON parsing instead of regex
+                     const result = JSON.parse(stdout);
+                     passed = result.numPassedTests || 0;
+                 } catch (e) {
+                     console.error("Failed to parse test output:", e);
+                     // Fallback to safe zero if parsing fails
+                     passed = 0;
+                 }
 
                  await reporter.pushEvent('B5', 'BATTERY_COMPLETED', { passed });
                  resolve({
@@ -194,7 +209,7 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
                      breachCount: 0,
                      driftScore: 0,
                      duration,
-                     details: { output: stdout, passedTests: passed, coverage: 'core_libs, storage, guardians, web3' },
+                     details: { output: "JSON_OUTPUT_PARSED", passedTests: passed, coverage: 'core_libs, storage, guardians, web3' },
                  });
              }
          });
