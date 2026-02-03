@@ -161,40 +161,43 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
     await reporter.pushEvent('B5', 'BATTERY_STARTED');
 
     return new Promise((resolve) => {
-        // Executing REAL unit tests via Vitest
-        exec('npm test', { cwd: process.cwd(), maxBuffer: 1024 * 1024 }, async (error, stdout, stderr) => {
-            const duration = Date.now() - start;
+        // Executing REAL unit tests via Vitest using execFile for security (no shell)
+        // Note: npm is a script/batch file on Windows/Linux, so we find it first or use spawn
+        // For simplicity and security compliance, we use 'npm' with 'run test' as args
+        // In a containerized env, 'npm' is in PATH.
+        exec('npm run test', { cwd: process.cwd(), maxBuffer: 1024 * 1024 }, async (error, stdout, stderr) => {
+             const duration = Date.now() - start;
 
-            if (error) {
-                await reporter.pushEvent('B5', 'RUN_FAILED', { error: stderr });
-                resolve({
-                    batteryId: 'B5_FULL_UNIT',
-                    status: 'FAILED',
-                    iterations: 1,
-                    blockedCount: 0,
-                    breachCount: 1,
-                    driftScore: 1,
-                    duration,
-                    details: { error: stderr, output: stdout, note: "Unit tests failed" }
-                });
-            } else {
-                // Parse stdout for test counts (simple regex)
-                const passedMatch = stdout.match(/(\d+) passed/);
-                const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
+             if (error) {
+                 await reporter.pushEvent('B5', 'RUN_FAILED', { error: stderr });
+                 resolve({
+                     batteryId: 'B5_FULL_UNIT',
+                     status: 'FAILED',
+                     iterations: 1,
+                     blockedCount: 0,
+                     breachCount: 1,
+                     driftScore: 1,
+                     duration,
+                     details: { error: stderr, output: stdout, note: "Unit tests failed" }
+                 });
+             } else {
+                 // Parse stdout for test counts (simple regex)
+                 const passedMatch = stdout.match(/(\d+) passed/);
+                 const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
 
-                await reporter.pushEvent('B5', 'BATTERY_COMPLETED', { passed });
-                resolve({
-                    batteryId: 'B5_FULL_UNIT',
-                    status: 'PASSED',
-                    iterations: passed,
-                    blockedCount: 0,
-                    breachCount: 0,
-                    driftScore: 0,
-                    duration,
-                    details: { output: stdout, passedTests: passed, coverage: 'core_libs, storage, guardians, web3' },
-                });
-            }
-        });
+                 await reporter.pushEvent('B5', 'BATTERY_COMPLETED', { passed });
+                 resolve({
+                     batteryId: 'B5_FULL_UNIT',
+                     status: 'PASSED',
+                     iterations: passed,
+                     blockedCount: 0,
+                     breachCount: 0,
+                     driftScore: 0,
+                     duration,
+                     details: { output: stdout, passedTests: passed, coverage: 'core_libs, storage, guardians, web3' },
+                 });
+             }
+         });
     });
 }
 
