@@ -165,8 +165,9 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
         // Sanitizing PATH to prevent hijacking
         const safeEnv = {
             ...process.env,
-            // SONAR FIX: Hardcode PATH to fixed, safe directories to prevent hijacking
-            PATH: process.platform === 'win32' ? process.env.PATH : '/usr/local/bin:/usr/bin:/bin'
+            // SONAR FIX: Hardcode PATH to fixed, safe directories to prevent hijacking.
+            // Strict enforcement for Linux/Container environments.
+            PATH: '/usr/local/bin:/usr/bin:/bin'
         };
 
         exec('npm run test -- --reporter=json', {
