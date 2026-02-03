@@ -45,6 +45,13 @@ export class SafetyGuard {
   }
 
   /**
+   * Resets the singleton instance. FOR TESTING ONLY.
+   */
+  public static resetForTesting(): void {
+    SafetyGuard.instance = null;
+  }
+
+  /**
    * Enforces all safety checks. Call at the start of EVERY activity.
    * @throws SystemLockdownError if any check fails
    */
