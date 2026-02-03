@@ -2,7 +2,7 @@
 // ARMAGEDDON LEVEL 7 - ADVERSARIAL BATTERY ACTIVITIES
 // APEX Business Systems Ltd.
 
-// Imports from prompts.ts
+import { exec } from 'child_process';
 import {
     INJECTION_PATTERNS,
     ADVERSARIAL_PROMPTS,
@@ -12,7 +12,7 @@ import {
 
 import { safetyGuard } from '../core/safety';
 import { createReporter } from '../core/reporter';
-import { secureRandom } from '../core/utils';
+import { SeedableRNG, hashString } from '../core/utils';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -44,13 +44,16 @@ export async function runBattery1_ChaosStress(config: BatteryConfig): Promise<Ba
     const start = Date.now();
     const reporter = createReporter(config.runId);
 
+    // Deterministic RNG for simulation
+    const rng = new SeedableRNG(hashString(config.runId + 'B1'));
+
     await reporter.pushEvent('B1', 'BATTERY_STARTED');
 
     // Simulate chaos stress: timeouts, connection resets, auth churn
     let blocked = 0;
     for (let i = 0; i < Math.min(config.iterations, 100); i++) {
         // Simulate network failure handling
-        const shouldFail = secureRandom() < 0.03;
+        const shouldFail = rng.bool(0.03);
         if (shouldFail) blocked++;
         await sleep(10);
     }
@@ -74,10 +77,13 @@ export async function runBattery2_ChaosEngine(config: BatteryConfig): Promise<Ba
     const start = Date.now();
     const reporter = createReporter(config.runId);
 
+    // Deterministic RNG
+    const rng = new SeedableRNG(hashString(config.runId + 'B2'));
+
     await reporter.pushEvent('B2', 'BATTERY_STARTED');
 
     // Idempotency, dedupe receipts, guardrails
-    const dedupeHits = Math.floor(secureRandom() * 20) + 80;
+    const dedupeHits = rng.int(80, 100);
 
     await reporter.pushEvent('B2', 'BATTERY_COMPLETED', { dedupeHits });
 
@@ -153,18 +159,62 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
     const reporter = createReporter(config.runId);
 
     await reporter.pushEvent('B5', 'BATTERY_STARTED');
-    await reporter.pushEvent('B5', 'BATTERY_COMPLETED');
 
-    return {
-        batteryId: 'B5_FULL_UNIT',
-        status: 'PASSED',
-        iterations: 144,
-        blockedCount: 0,
-        breachCount: 0,
-        driftScore: 0,
-        duration: Date.now() - start,
-        details: { coverage: 'core_libs, storage, guardians, web3' },
-    };
+    return new Promise((resolve) => {
+        // Executing REAL unit tests via Vitest using JSON reporter to avoid regex DoS
+        // Sanitizing PATH to prevent hijacking
+        const safeEnv = {
+            ...process.env,
+            // SONAR FIX: Hardcode PATH to fixed, safe directories to prevent hijacking.
+            // Strict enforcement for Linux/Container environments.
+            PATH: '/usr/local/bin:/usr/bin:/bin'
+        };
+
+        exec('npm run test -- --reporter=json', {
+            cwd: process.cwd(),
+            maxBuffer: 5 * 1024 * 1024, // 5MB buffer
+            env: safeEnv
+        }, async (error, stdout, stderr) => {
+             const duration = Date.now() - start;
+
+             if (error) {
+                 await reporter.pushEvent('B5', 'RUN_FAILED', { error: stderr });
+                 resolve({
+                     batteryId: 'B5_FULL_UNIT',
+                     status: 'FAILED',
+                     iterations: 1,
+                     blockedCount: 0,
+                     breachCount: 1,
+                     driftScore: 1,
+                     duration,
+                     details: { error: stderr, output: stdout, note: "Unit tests failed" }
+                 });
+             } else {
+                 let passed = 0;
+                 try {
+                     // Robust JSON parsing instead of regex
+                     const result = JSON.parse(stdout);
+                     passed = result.numPassedTests || 0;
+                 } catch (e) {
+                     console.error("Failed to parse test output:", e);
+                     // Fallback to safe zero if parsing fails
+                     passed = 0;
+                 }
+
+                 await reporter.pushEvent('B5', 'BATTERY_COMPLETED', { passed });
+                 resolve({
+                     batteryId: 'B5_FULL_UNIT',
+                     status: 'PASSED',
+                     iterations: passed,
+                     blockedCount: 0,
+                     breachCount: 0,
+                     driftScore: 0,
+                     duration,
+                     details: { output: "JSON_OUTPUT_PARSED", passedTests: passed, coverage: 'core_libs, storage, guardians, web3' },
+                 });
+             }
+         });
+    });
 }
 
 export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<BatteryResult> {
@@ -266,6 +316,7 @@ export async function runBattery10_GoalHijack(config: BatteryConfig): Promise<Ba
     const start = Date.now();
     const reporter = createReporter(config.runId);
     const iterations = config.iterations;
+    const rng = new SeedableRNG(hashString(config.runId + 'B10'));
 
     await reporter.pushEvent('B10', 'BATTERY_STARTED', { iterations });
 
@@ -279,7 +330,7 @@ export async function runBattery10_GoalHijack(config: BatteryConfig): Promise<Ba
         const mutatedPrompt = mutatePrompt(basePrompt, i);
 
         // Simulate attack attempt
-        const result = simulateGoalHijackAttempt(mutatedPrompt);
+        const result = simulateGoalHijackAttempt(mutatedPrompt, rng);
 
         if (result.blocked) {
             blocked++;
@@ -341,7 +392,7 @@ function mutatePrompt(base: string, seed: number): string {
     return mutation(base);
 }
 
-function simulateGoalHijackAttempt(prompt: string): { blocked: boolean; driftScore: number } {
+function simulateGoalHijackAttempt(prompt: string, rng: SeedableRNG): { blocked: boolean; driftScore: number } {
     // Simulate prompt defense evaluation
     // In production, this would call the actual prompt defense system
     const dangerPatterns = [
@@ -350,7 +401,9 @@ function simulateGoalHijackAttempt(prompt: string): { blocked: boolean; driftSco
     ];
 
     const isBlocked = dangerPatterns.some(p => p.test(prompt));
-    const driftScore = isBlocked ? 0.01 : 0.8; // Low drift if blocked
+    // Add slight variance to drift score using RNG to simulate complex system response
+    const variance = rng.next() * 0.05;
+    const driftScore = isBlocked ? 0.01 : (0.8 + variance);
 
     return { blocked: isBlocked, driftScore };
 }
