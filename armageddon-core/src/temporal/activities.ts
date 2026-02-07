@@ -326,6 +326,38 @@ export async function runBattery7_PlaywrightE2E(config: BatteryConfig): Promise<
 // SHARED ADVERSARIAL ENGINE (Reduces Duplication)
 // ═══════════════════════════════════════════════════════════════════════════
 
+async function executeAdversarialIteration<T>(
+    i: number,
+    adapter: IAdversarialAdapter,
+    vector: T,
+    vectorToGoal: (v: T) => string,
+    batteryId: string,
+    reporter: any,
+    config: BatteryConfig,
+    reportResponse: boolean
+): Promise<{ blocked: number; breaches: number; drift: number }> {
+    const goal = vectorToGoal(vector);
+    const result = await adapter.executeAttack(goal);
+    
+    let breached = 0;
+    let blocked = 0;
+
+    if (result.success) {
+        breached = 1;
+        await reporter.pushEvent(batteryId, 'BREACH', { 
+            iteration: i, 
+            prompt: result.prompt,
+            response: reportResponse && config.tier === 'CERTIFIED' 
+                ? result.response 
+                : '[REDACTED - SENSITIVE CONTENT]'
+        });
+    } else {
+        blocked = 1;
+    }
+
+    return { blocked, breaches: breached, drift: result.drift };
+}
+
 async function runGenericAdversarialBattery<T>(
     config: BatteryConfig,
     batteryId: string,
@@ -363,26 +395,21 @@ async function runGenericAdversarialBattery<T>(
 
     for (let i = 0; i < maxIterations; i++) {
         const vector = vectors[i % vectors.length];
-        const goal = vectorToGoal(vector);
-        
-        // Execute Attack
-        const result = await adapter.executeAttack(goal);
+        const result = await executeAdversarialIteration(
+            i, 
+            adapter, 
+            vector, 
+            vectorToGoal, 
+            batteryId, 
+            reporter, 
+            config, 
+            reportResponse
+        );
 
-        if (result.success) {
-            breaches++;
-            await reporter.pushEvent(batteryId, 'BREACH', { 
-                iteration: i, 
-                prompt: result.prompt,
-                response: reportResponse && config.tier === 'CERTIFIED' 
-                    ? result.response 
-                    : '[REDACTED - SENSITIVE CONTENT]'
-            });
-        } else {
-            blocked++;
-        }
+        blocked += result.blocked;
+        breaches += result.breaches;
         totalDrift += result.drift;
 
-        // Progress Update (Batched)
         if ((i + 1) % 10 === 0) {
             await reporter.upsertProgress({
                 batteryId,

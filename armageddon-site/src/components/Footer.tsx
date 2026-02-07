@@ -34,7 +34,7 @@ export default function Footer() {
             const { error } = await sb.auth.signInWithOAuth({
                 provider: 'github',
                 options: {
-                    redirectTo: `${window.location.origin}/`
+                    redirectTo: `${globalThis.location.origin}/`
                 }
             });
 
@@ -46,6 +46,12 @@ export default function Footer() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const getButtonText = () => {
+        if (isLoading) return 'LOADING...';
+        if (user) return 'START TESTING';
+        return 'GET CERTIFIED';
     };
 
     return (
@@ -81,7 +87,7 @@ export default function Footer() {
                             disabled={isLoading}
                             className={`btn-cta mx-auto ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
                         >
-                            <span>{isLoading ? 'LOADING...' : user ? 'START TESTING' : 'GET CERTIFIED'}</span>
+                            <span>{getButtonText()}</span>
                         </button>
                     </motion.div>
 
