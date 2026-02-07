@@ -18,7 +18,7 @@ import {
 
 import { safetyGuard } from '../core/safety';
 import { createReporter } from '../core/reporter';
-import { SeedableRNG, hashString } from '../core/utils';
+import { hashString } from '../core/utils';
 import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial';
 import { runStressTest, StressTestConfig } from '../core/stress';
 
@@ -164,7 +164,6 @@ class LiveFireAdapter implements IAdversarialAdapter {
 
 export async function runBattery1_ChaosStress(config: BatteryConfig): Promise<BatteryResult> {
     safetyGuard.enforce('Battery1_ChaosStress');
-    const start = Date.now();
     const reporter = createReporter(config.runId);
     
     // OMNIFINANCE: Asymmetric Value
