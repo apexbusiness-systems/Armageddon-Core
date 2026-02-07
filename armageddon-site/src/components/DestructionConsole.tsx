@@ -320,7 +320,7 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
             const { error } = await sb.auth.signInWithOAuth({
                 provider: 'github',
                 options: {
-                    redirectTo: `${window.location.origin}/`
+                    redirectTo: `${globalThis.location.origin}/`
                 }
             });
             if (error) {

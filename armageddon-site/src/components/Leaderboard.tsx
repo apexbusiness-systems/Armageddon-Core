@@ -22,7 +22,7 @@ export default function Leaderboard() {
                 const newRanks = [...prev];
                 // Randomly swap 4th and 5th for "live" feel
                 const randomBuffer = new Uint8Array(1);
-                window.crypto.getRandomValues(randomBuffer);
+                globalThis.crypto.getRandomValues(randomBuffer);
                 const randomValue = randomBuffer[0] / 255;
                 
                 if (newRanks.length >= 5 && randomValue > 0.7) {
