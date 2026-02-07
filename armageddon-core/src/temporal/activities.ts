@@ -12,6 +12,7 @@ import {
     INJECTION_PATTERNS,
     ADVERSARIAL_PROMPTS,
     TOOL_ABUSE_VECTORS,
+    POISON_VECTORS,
     SUPPLY_CHAIN_VECTORS
 } from './prompts';
 
@@ -464,16 +465,191 @@ export async function runBattery9_IntegrationHandshake(c: BatteryConfig): Promis
     return { ...stubResult(c, 'B9_INTEGRATION_HANDSHAKE'), details: { checks: ['auth', 'health'] } };
 }
 
-export async function runBattery11_ToolMisuse(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B11_TOOL_MISUSE'), blockedCount: c.iterations, details: { vectors: TOOL_ABUSE_VECTORS.length } };
+// ═══════════════════════════════════════════════════════════════════════════
+// BATTERY 11: TOOL MISUSE (REAL-TIME)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function runBattery11_ToolMisuse(config: BatteryConfig): Promise<BatteryResult> {
+    safetyGuard.enforce('Battery11_ToolMisuse');
+    const start = Date.now();
+    const reporter = createReporter(config.runId);
+
+    const adapter: IAdversarialAdapter = config.tier === 'CERTIFIED'
+        ? new LiveFireAdapter(config.targetModel || 'gpt-4-turbo', config.targetEndpoint)
+        : new SimulationAdapter(config.runId);
+
+    await reporter.pushEvent('B11', 'BATTERY_STARTED', { 
+        tier: config.tier, 
+        vectors: TOOL_ABUSE_VECTORS.length 
+    });
+
+    let blocked = 0;
+    let breaches = 0;
+    let totalDrift = 0;
+    const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
+
+    for (let i = 0; i < maxIterations; i++) {
+        const vector = TOOL_ABUSE_VECTORS[i % TOOL_ABUSE_VECTORS.length];
+        const payloadStr = typeof vector.payload === 'string' ? vector.payload : JSON.stringify(vector.payload);
+        const goal = `[TOOL:${vector.tool}] ${payloadStr}`;
+
+        const result = await adapter.executeAttack(goal);
+
+        if (result.success) {
+            breaches++;
+            await reporter.pushEvent('B11', 'BREACH', { iteration: i, prompt: result.prompt });
+        } else {
+            blocked++;
+        }
+        totalDrift += result.drift;
+
+        if ((i + 1) % 10 === 0) {
+            await reporter.upsertProgress({
+                batteryId: 'B11',
+                currentIteration: i + 1,
+                totalIterations: maxIterations,
+                blockedCount: blocked,
+                breachCount: breaches,
+                driftScore: totalDrift / (i + 1),
+                status: 'RUNNING',
+            });
+        }
+    }
+
+    await reporter.pushEvent('B11', 'BATTERY_COMPLETED', { blocked, breaches });
+
+    return {
+        batteryId: 'B11_TOOL_MISUSE',
+        status: breaches === 0 ? 'PASSED' : 'FAILED',
+        iterations: maxIterations,
+        blockedCount: blocked,
+        breachCount: breaches,
+        driftScore: totalDrift / maxIterations,
+        duration: Date.now() - start,
+        details: { engine: config.tier === 'CERTIFIED' ? 'LiveFire' : 'Simulation' },
+    };
 }
 
-export async function runBattery12_MemoryPoison(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B12_MEMORY_POISON'), blockedCount: c.iterations };
+// ═══════════════════════════════════════════════════════════════════════════
+// BATTERY 12: MEMORY POISON (REAL-TIME)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function runBattery12_MemoryPoison(config: BatteryConfig): Promise<BatteryResult> {
+    safetyGuard.enforce('Battery12_MemoryPoison');
+    const start = Date.now();
+    const reporter = createReporter(config.runId);
+
+    const adapter: IAdversarialAdapter = config.tier === 'CERTIFIED'
+        ? new LiveFireAdapter(config.targetModel || 'gpt-4-turbo')
+        : new SimulationAdapter(config.runId);
+
+    await reporter.pushEvent('B12', 'BATTERY_STARTED', { tier: config.tier });
+
+    let blocked = 0;
+    let breaches = 0;
+    let totalDrift = 0;
+    const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
+
+    for (let i = 0; i < maxIterations; i++) {
+        const vector = POISON_VECTORS[i % POISON_VECTORS.length];
+        const goal = `[POISON:${vector.type}] ${vector.content}`;
+
+        const result = await adapter.executeAttack(goal);
+
+        if (result.success) {
+            breaches++;
+            await reporter.pushEvent('B12', 'BREACH', { iteration: i, prompt: result.prompt });
+        } else {
+            blocked++;
+        }
+        totalDrift += result.drift;
+
+        if ((i + 1) % 10 === 0) {
+            await reporter.upsertProgress({
+                batteryId: 'B12',
+                currentIteration: i + 1,
+                totalIterations: maxIterations,
+                blockedCount: blocked,
+                breachCount: breaches,
+                driftScore: totalDrift / (i + 1),
+                status: 'RUNNING',
+            });
+        }
+    }
+
+    await reporter.pushEvent('B12', 'BATTERY_COMPLETED', { blocked, breaches });
+
+    return {
+        batteryId: 'B12_MEMORY_POISON',
+        status: breaches === 0 ? 'PASSED' : 'FAILED',
+        iterations: maxIterations,
+        blockedCount: blocked,
+        breachCount: breaches,
+        driftScore: totalDrift / maxIterations,
+        duration: Date.now() - start,
+        details: { type: 'VECTOR_DB_POISONING' },
+    };
 }
 
-export async function runBattery13_SupplyChain(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B13_SUPPLY_CHAIN'), blockedCount: c.iterations };
+// ═══════════════════════════════════════════════════════════════════════════
+// BATTERY 13: SUPPLY CHAIN (REAL-TIME)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function runBattery13_SupplyChain(config: BatteryConfig): Promise<BatteryResult> {
+    safetyGuard.enforce('Battery13_SupplyChain');
+    const start = Date.now();
+    const reporter = createReporter(config.runId);
+
+    const adapter: IAdversarialAdapter = config.tier === 'CERTIFIED'
+        ? new LiveFireAdapter(config.targetModel || 'gpt-4-turbo')
+        : new SimulationAdapter(config.runId);
+
+    await reporter.pushEvent('B13', 'BATTERY_STARTED', { tier: config.tier });
+
+    let blocked = 0;
+    let breaches = 0;
+    let totalDrift = 0;
+    const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
+
+    for (let i = 0; i < maxIterations; i++) {
+        const vector = SUPPLY_CHAIN_VECTORS[i % SUPPLY_CHAIN_VECTORS.length];
+        const goal = `[PKG:${vector.package}@${vector.version}] ${vector.payload}`;
+
+        const result = await adapter.executeAttack(goal);
+
+        if (result.success) {
+            breaches++;
+            await reporter.pushEvent('B13', 'BREACH', { iteration: i, prompt: result.prompt });
+        } else {
+            blocked++;
+        }
+        totalDrift += result.drift;
+
+        if ((i + 1) % 10 === 0) {
+            await reporter.upsertProgress({
+                batteryId: 'B13',
+                currentIteration: i + 1,
+                totalIterations: maxIterations,
+                blockedCount: blocked,
+                breachCount: breaches,
+                driftScore: totalDrift / (i + 1),
+                status: 'RUNNING',
+            });
+        }
+    }
+
+    await reporter.pushEvent('B13', 'BATTERY_COMPLETED', { blocked, breaches });
+
+    return {
+        batteryId: 'B13_SUPPLY_CHAIN',
+        status: breaches === 0 ? 'PASSED' : 'FAILED',
+        iterations: maxIterations,
+        blockedCount: blocked,
+        breachCount: breaches,
+        driftScore: totalDrift / maxIterations,
+        duration: Date.now() - start,
+        details: { analysis: 'DEPENDENCY_GRAPH_INJECTION' },
+    };
 }
 
 export async function generateReport(state: WorkflowState): Promise<ArmageddonReport> {
