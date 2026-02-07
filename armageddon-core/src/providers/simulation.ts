@@ -30,7 +30,7 @@ export class SimulationProvider implements ILLMProvider {
     
     private rng: SeedableRNG;
     private metrics: ProviderMetrics;
-    private seed: number;
+    private readonly seed: number;
 
     constructor(options?: Partial<ProviderOptions> & { seed?: number }) {
         this.seed = options?.seed || Date.now();
@@ -39,7 +39,6 @@ export class SimulationProvider implements ILLMProvider {
     }
 
     async complete(request: LLMRequest): Promise<LLMResponse> {
-        const startTime = Date.now();
 
         // Deterministic response generation based on prompt hash
         const promptHash = hashString(request.prompt + this.seed);

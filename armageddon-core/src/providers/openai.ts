@@ -17,10 +17,10 @@ import { BaseProvider, type TokenUsage } from './base-provider';
  * OpenAI pricing per 1M tokens (as of 2026)
  */
 const OPENAI_COSTS: Record<OpenAIModel, CostConfig> = {
-    'gpt-4-turbo': { inputPer1M: 10.0, outputPer1M: 30.0 },
-    'gpt-4o': { inputPer1M: 5.0, outputPer1M: 15.0 },
-    'gpt-4o-mini': { inputPer1M: 0.15, outputPer1M: 0.60 },
-    'gpt-3.5-turbo': { inputPer1M: 0.50, outputPer1M: 1.50 },
+    'gpt-4-turbo': { inputPer1M: 10, outputPer1M: 30 },
+    'gpt-4o': { inputPer1M: 5, outputPer1M: 15 },
+    'gpt-4o-mini': { inputPer1M: 0.15, outputPer1M: 0.6 },
+    'gpt-3.5-turbo': { inputPer1M: 0.5, outputPer1M: 1.5 },
 };
 
 /**

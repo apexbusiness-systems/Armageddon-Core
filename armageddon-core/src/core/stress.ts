@@ -5,14 +5,8 @@
 //
 // Implements real load/stress testing using Artillery/k6 or native HTTP.
 
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
-import * as os from 'node:os';
 import type { OrganizationTier } from './types';
-
-const execAsync = promisify(exec);
+import { SeedableRNG, hashString } from './utils';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -48,6 +42,28 @@ export interface StressTestResult {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SHARED UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Parse duration string to milliseconds
+ * Shared by both NativeHttpStressTester and SimulatedStressTester
+ */
+function parseDuration(duration: string): number {
+    const durationRegex = /^(\d+)([smh])$/;
+    const match = durationRegex.exec(duration);
+    if (!match) return 30000; // Default 30s
+    
+    const value = Number.parseInt(match[1], 10);
+    switch (match[2]) {
+        case 's': return value * 1000;
+        case 'm': return value * 60 * 1000;
+        case 'h': return value * 60 * 60 * 1000;
+        default: return 30000;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // NATIVE HTTP STRESS TEST
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -56,14 +72,14 @@ export interface StressTestResult {
  * Uses Node.js fetch API for load generation
  */
 export class NativeHttpStressTester {
-    private results: number[] = [];
-    private errors: Map<string, number> = new Map();
+    private readonly results: number[] = [];
+    private readonly errors: Map<string, number> = new Map();
     private successCount = 0;
     private failCount = 0;
 
     async run(config: StressTestConfig): Promise<StressTestResult> {
         const targetUrl = config.targetUrl || 'http://localhost:3000/health';
-        const durationMs = this.parseDuration(config.duration);
+        const durationMs = parseDuration(config.duration);
         const interval = 1000 / config.arrivalRate;
         const maxVUs = config.maxVirtualUsers || 100;
         
@@ -125,19 +141,6 @@ export class NativeHttpStressTester {
         this.errors.set(error, (this.errors.get(error) || 0) + 1);
     }
 
-    private parseDuration(duration: string): number {
-        const match = duration.match(/^(\d+)(s|m|h)$/);
-        if (!match) return 30000; // Default 30s
-        
-        const value = parseInt(match[1], 10);
-        switch (match[2]) {
-            case 's': return value * 1000;
-            case 'm': return value * 60 * 1000;
-            case 'h': return value * 60 * 60 * 1000;
-            default: return 30000;
-        }
-    }
-
     private buildResult(mode: StressTestResult['mode'], duration: number): StressTestResult {
         const sorted = [...this.results].sort((a, b) => a - b);
         const len = sorted.length || 1;
@@ -150,7 +153,7 @@ export class NativeHttpStressTester {
             failedRequests: this.failCount,
             latency: {
                 min: sorted[0] || 0,
-                max: sorted[len - 1] || 0,
+                max: sorted.at(-1) || 0,
                 median: sorted[Math.floor(len / 2)] || 0,
                 p95: sorted[Math.floor(len * 0.95)] || 0,
                 p99: sorted[Math.floor(len * 0.99)] || 0,
@@ -168,8 +171,6 @@ export class NativeHttpStressTester {
 // SIMULATED STRESS TEST (FREE TIER)
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { SeedableRNG, hashString } from './utils';
-
 /**
  * Simulated stress tester for FREE tier
  * Generates realistic-looking results without actual load
@@ -177,7 +178,7 @@ import { SeedableRNG, hashString } from './utils';
 export class SimulatedStressTester {
     async run(config: StressTestConfig): Promise<StressTestResult> {
         const rng = new SeedableRNG(hashString(config.runId + 'stress'));
-        const durationMs = this.parseDuration(config.duration);
+        const durationMs = parseDuration(config.duration);
         
         // Simulate processing time (1-5 seconds)
         await new Promise(r => setTimeout(r, 1000 + rng.int(0, 4000)));
@@ -206,19 +207,6 @@ export class SimulatedStressTester {
             },
             errors: failedRequests > 0 ? { 'TIMEOUT': failedRequests } : {},
         };
-    }
-
-    private parseDuration(duration: string): number {
-        const match = duration.match(/^(\d+)(s|m|h)$/);
-        if (!match) return 30000;
-        
-        const value = parseInt(match[1], 10);
-        switch (match[2]) {
-            case 's': return value * 1000;
-            case 'm': return value * 60 * 1000;
-            case 'h': return value * 60 * 60 * 1000;
-            default: return 30000;
-        }
     }
 }
 

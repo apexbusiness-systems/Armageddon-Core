@@ -31,7 +31,7 @@ export interface ExecutionResult {
     stdout: string;
     stderr: string;
     /** Structured metrics parsed from the final output lines */
-    jsonResult?: KineticMetrics | unknown;
+    jsonResult?: KineticMetrics;
     durationMs: number;
 }
 
