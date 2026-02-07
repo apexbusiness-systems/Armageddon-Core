@@ -118,14 +118,19 @@ export class PythonExecutor extends EventEmitter {
                 return;
             }
 
+            if (!this.process.stdout || !this.process.stderr) {
+                reject(new Error('[PythonExecutor] Failed to initialize stdio'));
+                return;
+            }
+
             // Setup readline for zero-latency streaming
             this.setupStreamReader(
-                this.process.stdout!,
+                this.process.stdout,
                 'stdout',
                 onHeartbeat
             );
             this.setupStreamReader(
-                this.process.stderr!,
+                this.process.stderr,
                 'stderr',
                 onHeartbeat
             );
