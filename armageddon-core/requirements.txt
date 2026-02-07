@@ -1,0 +1,16 @@
+# ARMAGEDDON Kinetic Engine Dependencies
+# DATE: 2026-02-06
+# PURPOSE: Python packages for real adversarial testing
+
+# Core adversarial testing framework
+garak==0.9.0
+
+# Async HTTP for stress testing
+aiohttp==3.9.1
+
+# Numerical operations
+numpy>=1.26.0
+
+# Additional utilities
+tenacity>=8.2.0  # Retry logic
+structlog>=24.1.0  # Structured logging
