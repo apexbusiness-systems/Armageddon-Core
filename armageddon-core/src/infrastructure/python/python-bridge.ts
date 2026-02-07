@@ -35,7 +35,7 @@ const REDACTION_MARKER = '***REDACTED***';
  */
 function redactSecrets(input: string): { output: string; redacted: boolean } {
     let redacted = false;
-    const output = input.replace(SECRET_REGEX, () => {
+    const output = input.replaceAll(SECRET_REGEX, () => {
         redacted = true;
         return REDACTION_MARKER;
     });
@@ -65,8 +65,8 @@ export class PythonExecutor extends EventEmitter {
     private process: ChildProcess | null = null;
     private stdoutReader: Interface | null = null;
     private stderrReader: Interface | null = null;
-    private stdoutBuffer: string[] = [];
-    private stderrBuffer: string[] = [];
+    private readonly stdoutBuffer: string[] = [];
+    private readonly stderrBuffer: string[] = [];
     private startTime: number = 0;
     private timeoutHandle: NodeJS.Timeout | null = null;
     private killed: boolean = false;
@@ -265,7 +265,7 @@ export class PythonExecutor extends EventEmitter {
      * Parse JSON result from final stdout lines
      * Looks for valid JSON in the last 5 lines
      */
-    private parseJsonResult(): KineticMetrics | unknown | undefined {
+    private parseJsonResult(): KineticMetrics | undefined {
         const lastLines = this.stdoutBuffer.slice(-5);
 
         for (let i = lastLines.length - 1; i >= 0; i--) {

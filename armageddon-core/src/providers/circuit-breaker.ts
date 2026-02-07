@@ -10,7 +10,7 @@ import type { CircuitBreakerConfig, CircuitState, ProviderMetrics, CostConfig } 
  * Conservative defaults to prevent runaway costs
  */
 export const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
-    maxCostUSD: 10.0,              // $10 hard stop
+    maxCostUSD: 10,                // $10 hard stop
     maxTokensPerRun: 100_000,      // 100k tokens
     maxRequestsPerMinute: 60,      // 1 RPS sustained
     maxConsecutiveErrors: 5,       // Trip after 5 failures
@@ -21,8 +21,8 @@ export const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
  * Default cost configuration (OpenAI GPT-4 Turbo pricing)
  */
 export const DEFAULT_COST_CONFIG: CostConfig = {
-    inputPer1M: 10.0,   // $10 per 1M input tokens
-    outputPer1M: 30.0,  // $30 per 1M output tokens
+    inputPer1M: 10,   // $10 per 1M input tokens
+    outputPer1M: 30,  // $30 per 1M output tokens
 };
 
 /**
@@ -33,8 +33,8 @@ export const DEFAULT_COST_CONFIG: CostConfig = {
  */
 export class CircuitBreaker {
     private state: CircuitState = 'CLOSED';
-    private config: CircuitBreakerConfig;
-    private costConfig: CostConfig;
+    private readonly config: CircuitBreakerConfig;
+    private readonly costConfig: CostConfig;
     private metrics: ProviderMetrics;
     private requestTimestamps: number[] = [];
     private consecutiveErrors: number = 0;
@@ -192,12 +192,12 @@ export class CircuitBreaker {
  */
 export class CircuitBreakerRegistry {
     private static instance: CircuitBreakerRegistry;
-    private breakers: Map<string, CircuitBreaker> = new Map();
-    private globalBreaker: CircuitBreaker;
+    private readonly breakers: Map<string, CircuitBreaker> = new Map();
+    private readonly globalBreaker: CircuitBreaker;
 
     private constructor() {
         this.globalBreaker = new CircuitBreaker({
-            maxCostUSD: 50.0,        // $50 global limit
+            maxCostUSD: 50,          // $50 global limit
             maxTokensPerRun: 500_000, // 500k tokens global
         });
     }

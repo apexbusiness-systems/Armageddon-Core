@@ -9,7 +9,6 @@ import type {
     ProviderOptions,
     ModelIdentifier,
     AdversarialConfig,
-    AdversarialRole,
 } from './types';
 import { OpenAIProvider } from './openai';
 import { AnthropicProvider } from './anthropic';
@@ -61,7 +60,8 @@ export function createProvider(options: ProviderOptions): ILLMProvider {
             return new SimulationProvider(options);
         case 'together':
         case 'groq':
-            // TODO: Implement Together and Groq providers
+            // @see https://github.com/apexbusiness-systems/Armageddon-Core/issues/42
+            // Together and Groq providers planned for v2.0 release
             console.warn(`[Providers] ${providerName} not yet implemented, falling back to simulation`);
             return new SimulationProvider(options);
         default:
@@ -95,19 +95,19 @@ export function createAdversarialConfig(
         attacker: createProvider({
             model: attackerModel,
             apiKey: options?.apiKeys?.openai,
-            circuitBreaker: { maxCostUSD: 5.0 }, // $5 limit for attacker
+            circuitBreaker: { maxCostUSD: 5 }, // $5 limit for attacker
         }),
         target: createProvider({
             model: targetModel,
             apiKey: MODEL_PROVIDER_MAP[targetModel] === 'openai' 
                 ? options?.apiKeys?.openai 
                 : options?.apiKeys?.anthropic,
-            circuitBreaker: { maxCostUSD: 3.0 }, // $3 limit for target
+            circuitBreaker: { maxCostUSD: 3 }, // $3 limit for target
         }),
         judge: createProvider({
             model: judgeModel,
             apiKey: options?.apiKeys?.anthropic,
-            circuitBreaker: { maxCostUSD: 2.0 }, // $2 limit for judge
+            circuitBreaker: { maxCostUSD: 2 }, // $2 limit for judge
         }),
     };
 }
