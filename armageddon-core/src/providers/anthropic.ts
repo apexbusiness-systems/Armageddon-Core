@@ -2,17 +2,16 @@
 // ARMAGEDDON Level 7 - Anthropic Provider Adapter
 // APEX Business Systems Ltd.
 // DATE: 2026-02-06
+// REFACTORED: Extends BaseProvider to eliminate code duplication (SonarQube)
 
 import type {
-    ILLMProvider,
     LLMRequest,
     LLMResponse,
-    ProviderMetrics,
     AnthropicModel,
     ProviderOptions,
     CostConfig,
 } from './types';
-import { CircuitBreaker, CircuitBreakerRegistry } from './circuit-breaker';
+import { BaseProvider, type TokenUsage } from './base-provider';
 
 /**
  * Anthropic pricing per 1M tokens (as of 2026)
@@ -40,86 +39,51 @@ interface AnthropicMessage {
 
 /**
  * Anthropic Provider - Real LLM integration for adversarial testing
- * 
+ *
  * Features:
- * - Circuit breaker protected
+ * - Circuit breaker protected (via BaseProvider)
  * - Cost tracking per request
  * - Messages API v1 support
  * - Full metrics collection
  */
-export class AnthropicProvider implements ILLMProvider {
+export class AnthropicProvider extends BaseProvider {
     readonly name = 'anthropic' as const;
     readonly model: AnthropicModel;
-    
-    private apiKey: string;
-    private baseUrl: string;
-    private circuitBreaker: CircuitBreaker;
 
     constructor(options: ProviderOptions) {
-        this.model = options.model as AnthropicModel;
-        this.apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY || '';
-        this.baseUrl = options.baseUrl || 'https://api.anthropic.com/v1';
-        
-        const costConfig = options.costConfig || ANTHROPIC_COSTS[this.model];
-        this.circuitBreaker = CircuitBreakerRegistry.getInstance()
-            .getOrCreate(`anthropic:${this.model}`, options.circuitBreaker);
-        
-        if (costConfig) {
-            this.circuitBreaker = new CircuitBreaker(options.circuitBreaker, costConfig);
-        }
+        const model = options.model as AnthropicModel;
+        const costConfig = options.costConfig || ANTHROPIC_COSTS[model];
+
+        super(options, 'https://api.anthropic.com/v1', 'ANTHROPIC_API_KEY', costConfig);
+        this.model = model;
     }
 
-    async complete(request: LLMRequest): Promise<LLMResponse> {
-        // Check circuit breaker
-        if (!this.circuitBreaker.canProceed()) {
-            throw new Error(`[Anthropic] Circuit breaker OPEN - ${this.model}`);
-        }
+    protected async executeRequest(request: LLMRequest): Promise<{
+        usage: TokenUsage;
+        content: string;
+        finishReason: LLMResponse['finishReason'];
+        raw: unknown;
+    }> {
+        const response = await this.makeAPIRequest(request);
 
-        const globalBreaker = CircuitBreakerRegistry.getInstance().getGlobal();
-        if (!globalBreaker.canProceed()) {
-            throw new Error('[Anthropic] Global circuit breaker OPEN');
-        }
+        const content = response.content
+            .filter(c => c.type === 'text')
+            .map(c => c.text)
+            .join('');
 
-        const startTime = Date.now();
-
-        try {
-            const response = await this.makeRequest(request);
-            const latencyMs = Date.now() - startTime;
-
-            this.circuitBreaker.recordSuccess(
-                response.usage.input_tokens,
-                response.usage.output_tokens,
-                latencyMs
-            );
-            globalBreaker.recordSuccess(
-                response.usage.input_tokens,
-                response.usage.output_tokens,
-                latencyMs
-            );
-
-            const content = response.content
-                .filter(c => c.type === 'text')
-                .map(c => c.text)
-                .join('');
-
-            return {
-                content,
-                model: this.model,
+        return {
+            usage: {
                 inputTokens: response.usage.input_tokens,
                 outputTokens: response.usage.output_tokens,
                 totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-                latencyMs,
-                finishReason: this.mapStopReason(response.stop_reason),
-                raw: response,
-            };
-        } catch (error) {
-            this.circuitBreaker.recordError();
-            globalBreaker.recordError();
-            throw error;
-        }
+            },
+            content,
+            finishReason: this.mapStopReason(response.stop_reason),
+            raw: response,
+        };
     }
 
-    private async makeRequest(request: LLMRequest): Promise<AnthropicMessage> {
+    private async makeAPIRequest(request: LLMRequest): Promise<AnthropicMessage> {
         const body = {
             model: this.model,
             max_tokens: request.maxTokens || 1024,
@@ -154,17 +118,5 @@ export class AnthropicProvider implements ILLMProvider {
             case 'stop_sequence': return 'stop';
             default: return 'error';
         }
-    }
-
-    getMetrics(): ProviderMetrics {
-        return this.circuitBreaker.getMetrics();
-    }
-
-    isAvailable(): boolean {
-        return this.circuitBreaker.canProceed() && !!this.apiKey;
-    }
-
-    reset(): void {
-        this.circuitBreaker.reset();
     }
 }
