@@ -6,7 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "npm run build -w @armageddon/shared"
+    "postinstall": "npm run build -w @armageddon/shared",
+    "certify:armageddon": "npm run build -w @armageddon/shared && npm run build -w armageddon-core && npm run typecheck -w armageddon-core && npm run build -w armageddon-site && npm run lint -w armageddon-site",
+    "validate:all": "npm ci && npm run certify:armageddon"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1",
