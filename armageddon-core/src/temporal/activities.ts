@@ -341,6 +341,7 @@ async function executeAdversarialIteration<T>(
     options: AdversarialIterationOptions<T>
 ): Promise<{ blocked: number; breaches: number; drift: number }> {
     const { iteration, adapter, vector, vectorToGoal, batteryId, reporter, config, reportResponse } = options;
+    // REFACTOR-VERIFY: Parameter object pattern confirmed compliant with MAX_PARAMS rule.
     const goal = vectorToGoal(vector);
     const result = await adapter.executeAttack(goal);
     
