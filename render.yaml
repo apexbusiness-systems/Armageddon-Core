@@ -1,0 +1,17 @@
+services:
+  - type: worker
+    name: armageddon-worker
+    env: docker
+    rootDir: armageddon-core
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: SUPABASE_URL
+        value: https://qhjqselqpkfqjfpuxykb.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoanFzZWxxcGtmcWpmcHV4eWtiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTM5MDQ5OSwiZXhwIjoyMDg0OTY2NDk5fQ.Kt-xvJX5rBGWHEEH3mDkj9QdD2iI-TQKE4C7Dg6qPVo
+      - key: SIM_MODE
+        value: "true"
+      - key: SANDBOX_TENANT
+        value: armageddon-test
+      - key: TEMPORAL_ADDRESS
+        value: localhost:7233
