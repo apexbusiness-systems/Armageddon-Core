@@ -6,121 +6,94 @@
 </div>
 
 <div align="center">
-  <h3>ADVERSARIAL CERTIFICATION SUITE [LEVEL 7]</h3>
+  <h3>ADVERSARIAL CERTIFICATION SUITE [LEVEL 8]</h3>
   <p>
-    <b>CLASSIFICATION: APEX-INTERNAL</b> // <b>STATUS: ACTIVE</b> [SIM_MODE=TRUE]
+    <b>CLASSIFICATION: APEX-INTERNAL</b> // <b>STATUS: ACTIVE</b> [MOAT_SECURE]
   </p>
   
   [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](https://apexbusiness.systems)
-  [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
-  [![Coverage](https://img.shields.io/badge/Coverage-100%25-success.svg)]()
-  [![Temporal](https://img.shields.io/badge/Orchestration-Temporal.io-blue.svg)](https://temporal.io)
+  [![Moat Status](https://img.shields.io/badge/Moat-Active-brightgreen.svg)]()
+  [![Orchestration](https://img.shields.io/badge/Temporal-Local-blue.svg)]()
 </div>
 
 ---
 
 ## 📡 SYSTEM OVERVIEW
 
-**Armageddon** is the ultimate adversarial testing engine designed to validate AI agent resilience against catastrophic failure modes. Operating as a **"Containment Field"**, it subjects autonomous systems to immense pressure before they are cleared for production deployment.
+**Armageddon** is the ultimate adversarial testing engine designed to validate AI agent resilience. The **Level 8 "Kinetic Moat"** update introduces a self-contained, air-gapped compatible execution environment driven by a custom **Python Bridge**.
 
-**Level 7 Certification ("God Mode")** represents the pinnacle of validation:
+- **Proprietary Moat**: Docker-based containment field, fully decoupled from cloud providers.
+- **Kinetic Engine**: Node.js/Python hybrid execution context for adversarial batteries.
+- **Zero-Failure Tolerance**: Automated "Kill Switch" protocols.
 
-- **10,000+ Concurrent Iterations**
-- **Hyper-Realistic Attack Vectors**: Goal Hijacking, Tool Misuse, Memory Poisoning, Supply Chain Drift.
-- **Zero-Failure Tolerance**: A single breach results in immediate certification failure.
+## 🏗 ARCHITECTURE (PROPRIETARY)
 
-## 🏗 ARCHITECTURE
-
-The system implements a totally isolated **Controller-Worker** architecture, enforced by Temporal.io for deterministic execution and fault tolerance.
+The system runs as a localized "Moat" cluster defined in `docker-compose.moat.yml`.
 
 ```mermaid
 graph TD
-    User([User]) -->|Visit| UI[Containment Interface (Next.js)]
-    UI -->|WebSocket| Realtime[Supabase Realtime]
+    User([User]) -->|Localhost:3000| UI[Containment Interface]
 
-    subgraph "Secure Zone"
-        Gate[Monetization Gate]
-        Worker[Armageddon Worker]
-        DB[(Supabase PostgreSQL)]
+    subgraph "The Moat (Docker Network)"
+        Worker[Armageddon Worker (Kinetic)]
+        Temporal[Temporal Server]
+        Postgres[(Persistence)]
     end
 
-    UI -->|POST /run| Gate
-    Gate -->|Approved| Worker
-    Worker -->|Dispatch| Batteries[Adversarial Batteries]
-
-    Batteries -->|B10| Hijack[Goal Hijacking]
-    Batteries -->|B11| Misuse[Tool Abuse]
-    Batteries -->|B12| Poison[Memory Injection]
-    Batteries -->|B13| Supply[Supply Chain]
-
-    Batteries -->|Results| DB
-    DB --> Realtime
+    UI -->|Dispatch| Temporal
+    Temporal -->|Task Queue| Worker
+    Worker -->|Python Bridge| Kinetic[Kinetic Python Engine]
 ```
-
-### ✨ KEY FEATURES
-
-| Component                 | Description                                                                                                            | Tech Stack                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| **Containment Interface** | Premium dashboard for monitoring real-time attacks. Features "Status Injury Loop" psychology and WebGL visualizations. | **Next.js 14**, Tailwind, Framer Motion |
-| **Adversarial Engine**    | The core weapon system. Manages 4 concurrent attack batteries with deterministic replay capabilities.                  | **Temporal.io**, Node.js 20, TypeScript |
-| **Monetization Gate**     | Tier-based access control protecting Level 7 resources.                                                                | **Supabase**, Row Level Security (RLS)  |
 
 ## 🚀 DEPLOYMENT PROTOCOL
 
-### PREREQUISITES
+**Reference**: [`DEPLOYMENT.md`](./DEPLOYMENT.md) for full protocol.
 
-- **Node.js 20+**
-- **Docker** (Optional, for local stack)
-- **Supabase Account** & **Temporal Cloud** namespace
+### QUICK START (MOAT EDITION)
 
-### QUICK START
+1.  **Configure Secrets**:
 
-1.  **Initialize Environment**
-
-    ```bash
-    git clone https://github.com/apexbusiness-systems/Armageddon-Core.git
-    cd Armageddon-Core
-    cp .env.example .env.local
+    ```powershell
+    cp .env.moat.example .env.moat
+    # Edit .env.moat with your keys
     ```
 
-2.  **Ignite Frontend (Containment Interface)**
+2.  **Ignite the Moat**:
 
-    ```bash
-    cd armageddon-site
-    npm install
-    npm run dev
+    ```powershell
+    .\scripts\deploy_moat.ps1
     ```
 
-3.  **Engage Worker (Adversarial Engine)**
-    ```bash
-    cd armageddon-core
-    npm install
-    npm run start:worker
-    ```
+    _Builds, Verifies, and Deploys in one atomic operation._
+
+3.  **Access**:
+    - **UI**: http://localhost:3000
+    - **Temporal**: http://localhost:8080
 
 ## 🛡️ SAFETY PROTOCOLS
 
 > [!WARNING]
 > **SIM_MODE MUST BE ENABLED AT ALL TIMES.**
-> Disabling safety guards in a non-airgapped environment is a verifiable Class 1 violation.
 
-- **Isolation**: All tests run in ephemeral sandboxes.
-- **Tenant Scoping**: Destructive operations are strictly scoped to test tenants.
-- **Kill Switch**: `kubectl scale deployment/armageddon-worker --replicas=0`
+### KILL SWITCH (SEV-1)
+
+In case of containment breach:
+
+```powershell
+.\scripts\kill_moat.ps1
+```
 
 ## 📂 DIRECTORY STRUCTURE
 
 ```
 /
 ├── armageddon-site/      # [UI] Next.js Dashboard
-│   ├── src/components/   # Design System (Seal, Console, Grid)
-│   └── src/lib/          # Shared Logic & Types
-│
-├── armageddon-core/      # [ENGINE] Temporal Worker
-│   ├── src/temporal/     # Workflows & Activities
-│   └── src/core/         # Monetization & Safety Logic
-│
-└── supabase/             # [DATA] Migrations & RLS
+├── armageddon-core/      # [ENGINE] Temporal Worker & Kinetic Python
+├── scripts/              # [OPS] Moat Automation Checks
+│   ├── deploy_moat.ps1   # Deployment Automator
+│   ├── kill_moat.ps1     # Emergency Suppression
+│   └── verify_kinetic... # Bridge Verification
+└── docker-compose.moat.yml # Moat Orchestration
 ```
 
 ## 📜 LICENSE

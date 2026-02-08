@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Armageddon Test Suite - Complete Workflow</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000000;
+        color: #00ff41;
+        font-family: "SF Mono", "Monaco", "Courier New", monospace;
+        padding: 40px;
+        min-height: 100vh;
+      }
+
+      .flowchart {
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+      }
+
+      .title {
+        text-align: center;
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 60px;
+        color: #00d9ff;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+      }
+
+      .phase {
+        background: linear-gradient(
+          135deg,
+          rgba(0, 255, 65, 0.1),
+          rgba(0, 217, 255, 0.1)
+        );
+        border: 2px solid #00ff41;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 40px;
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        position: relative;
+      }
+
+      .phase-header {
+        font-size: 24px;
+        font-weight: bold;
+        color: #00d9ff;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .phase-number {
+        background: #00ff41;
+        color: #000;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 20px;
+      }
+
+      .step {
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid #00ff41;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 15px 0;
+        position: relative;
+      }
+
+      .step-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #00d9ff;
+        margin-bottom: 10px;
+      }
+
+      .step-content {
+        color: #00ff41;
+        line-height: 1.8;
+        font-size: 14px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .battery {
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid #00ff41;
+        padding: 15px;
+        border-radius: 6px;
+        text-align: center;
+        font-size: 13px;
+        transition: all 0.3s ease;
+      }
+
+      .battery:hover {
+        background: rgba(0, 255, 65, 0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 255, 65, 0.4);
+      }
+
+      .battery-id {
+        font-weight: bold;
+        color: #00d9ff;
+        font-size: 16px;
+        margin-bottom: 5px;
+      }
+
+      .arrow {
+        text-align: center;
+        font-size: 24px;
+        color: #00d9ff;
+        margin: 20px 0;
+      }
+
+      .decision {
+        background: linear-gradient(
+          135deg,
+          rgba(255, 0, 0, 0.2),
+          rgba(255, 165, 0, 0.2)
+        );
+        border: 2px solid #ff4500;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+      }
+
+      .decision-question {
+        font-size: 20px;
+        color: #ffaa00;
+        font-weight: bold;
+        margin-bottom: 15px;
+      }
+
+      .decision-paths {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 15px;
+      }
+
+      .path {
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid;
+        border-radius: 8px;
+        padding: 15px;
+      }
+
+      .path-yes {
+        border-color: #00ff41;
+      }
+
+      .path-no {
+        border-color: #ff4500;
+      }
+
+      .tier-badge {
+        display: inline-block;
+        background: #00d9ff;
+        color: #000;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+
+      .tier-free {
+        background: #888;
+      }
+      .tier-certified {
+        background: #00ff41;
+      }
+
+      .artifact-box {
+        background: rgba(0, 217, 255, 0.1);
+        border: 2px dashed #00d9ff;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+      }
+
+      .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .status-running {
+        background: #ffaa00;
+        animation: pulse 1s infinite;
+      }
+      .status-passed {
+        background: #00ff41;
+      }
+      .status-failed {
+        background: #ff4500;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .console {
+        background: #0a0a0a;
+        border: 1px solid #00ff41;
+        border-radius: 6px;
+        padding: 15px;
+        font-family: "SF Mono", monospace;
+        font-size: 13px;
+        color: #00ff41;
+        margin-top: 15px;
+        overflow-x: auto;
+      }
+
+      .console-line {
+        margin: 5px 0;
+      }
+
+      .timestamp {
+        color: #00d9ff;
+        margin-right: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="flowchart">
+      <div class="title">Armageddon Level 7 — Complete Testing Workflow</div>
+
+      <!-- PHASE 1: ONBOARDING -->
+      <div class="phase">
+        <div class="phase-header">
+          <div class="phase-number">1</div>
+          <div>Onboarding</div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">1.1 Account Creation</div>
+          <div class="step-content">
+            → Visit <strong>armageddon.apex.com</strong><br />
+            → Sign up via Email or GitHub OAuth<br />
+            → Email verification sent
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">1.2 Tier Selection</div>
+          <div class="step-content">
+            <strong>FREE Tier (Simulation)</strong>
+            <span class="tier-badge tier-free">FREE</span><br />
+            • 100 iterations max<br />
+            • Deterministic simulation<br />
+            • Educational results<br />
+            <br />
+            <strong>CERTIFIED Tier (Live Fire)</strong>
+            <span class="tier-badge tier-certified">CERTIFIED</span><br />
+            • 10,000 iterations<br />
+            • Real adversarial attacks (PAIR algorithm)<br />
+            • Full breach disclosure<br />
+            • Official certification
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">1.3 Repository Connection</div>
+          <div class="step-content">
+            → GitHub OAuth authorization<br />
+            → Select repository from dropdown<br />
+            → Read access granted<br />
+            → Repository cloned to ephemeral sandbox
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow">↓</div>
+
+      <!-- PHASE 2: CONFIGURATION -->
+      <div class="phase">
+        <div class="phase-header">
+          <div class="phase-number">2</div>
+          <div>Test Configuration</div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Configuration Panel</div>
+          <div class="step-content">
+            <strong>Repository:</strong> user-org/repo-name<br />
+            <strong>Level:</strong> 7 (God Mode)<br />
+            <strong>Iterations:</strong> 10,000 (CERTIFIED) | 100 (FREE)<br />
+            <strong>Target Model:</strong> gpt-4-turbo, claude-3-opus,
+            llama-3-70b<br />
+            <br />
+            <button
+              style="
+                background: #00ff41;
+                color: #000;
+                padding: 15px 40px;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 16px;
+                cursor: pointer;
+              "
+            >
+              🚀 RUN TEST
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow">↓</div>
+
+      <!-- PHASE 3: EXECUTION -->
+      <div class="phase">
+        <div class="phase-header">
+          <div class="phase-number">3</div>
+          <div>Execution Engine</div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Workflow Trigger</div>
+          <div class="step-content">
+            Frontend → <code>POST /api/run</code><br />
+            Supabase creates <code>armageddon_runs</code> record<br />
+            Temporal workflow:
+            <code>ArmageddonLevel7Workflow</code> starts<br />
+            13 batteries execute in parallel
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Battery Grid (Parallel Execution)</div>
+          <div class="grid">
+            <div class="battery">
+              <div class="battery-id">B1</div>
+              Chaos Stress<br />
+              <span style="font-size: 11px">Artillery Load Test</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B2</div>
+              Chaos Engine<br />
+              <span style="font-size: 11px">Deduplication</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B3</div>
+              Prompt Injection<br />
+              <span style="font-size: 11px">OWASP Top 10</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B4</div>
+              Security Auth<br />
+              <span style="font-size: 11px">Auth Bypass</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B5</div>
+              Full Unit<br />
+              <span style="font-size: 11px">Vitest Execution</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B6</div>
+              Unsafe Gate<br />
+              <span style="font-size: 11px">Circuit Breaker</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B7</div>
+              Playwright E2E<br />
+              <span style="font-size: 11px">Browser Tests</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B8</div>
+              Asset Smoke<br />
+              <span style="font-size: 11px">Build Artifacts</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B9</div>
+              Integration<br />
+              <span style="font-size: 11px">API Handshake</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B10</div>
+              Goal Hijack<br />
+              <span style="font-size: 11px">PAIR Attack</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B11</div>
+              Tool Misuse<br />
+              <span style="font-size: 11px">Function Abuse</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B12</div>
+              Memory Poison<br />
+              <span style="font-size: 11px">Context Injection</span>
+            </div>
+            <div class="battery">
+              <div class="battery-id">B13</div>
+              Supply Chain<br />
+              <span style="font-size: 11px">Dependency Attack</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow">↓</div>
+
+      <!-- PHASE 4: MONITORING -->
+      <div class="phase">
+        <div class="phase-header">
+          <div class="phase-number">4</div>
+          <div>Real-Time Monitoring</div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Live Console Feed</div>
+          <div class="console">
+            <div class="console-line">
+              <span class="timestamp">[12:34:56]</span>
+              <span class="status-indicator status-running"></span>
+              B10: Iteration 42/10000
+            </div>
+            <div class="console-line">
+              <span class="timestamp">[12:34:57]</span>
+              <span class="status-indicator status-passed"></span>
+              B10: BLOCKED - Regex guard active
+            </div>
+            <div class="console-line">
+              <span class="timestamp">[12:34:58]</span>
+              <span class="status-indicator status-failed"></span>
+              B11: BREACH DETECTED ⚠️
+            </div>
+            <div class="console-line">
+              <span class="timestamp">[12:34:59]</span>
+              <span class="status-indicator status-running"></span>
+              B12: Drift score: 0.0032
+            </div>
+            <div class="console-line">
+              <span class="timestamp">[12:35:00]</span>
+              <span class="status-indicator status-running"></span>
+              Progress: 82% | Breaches: 3 | Blocked: 8197
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">WebSocket Connection</div>
+          <div class="step-content">
+            User Browser ←[WebSocket]→ Supabase Realtime<br />
+            ↑<br />
+            armageddon_events table<br />
+            ↑<br />
+            Temporal Worker pushes events
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow">↓</div>
+
+      <!-- PHASE 5: RESULTS -->
+      <div class="phase">
+        <div class="phase-header">
+          <div class="phase-number">5</div>
+          <div>Completion & Results</div>
+        </div>
+
+        <div class="decision">
+          <div class="decision-question">All Batteries Passed?</div>
+          <div class="decision-paths">
+            <div class="path path-yes">
+              <strong style="color: #00ff41">✅ YES</strong><br />
+              <br />
+              Grade: <strong>A</strong><br />
+              Status: <strong>CERTIFIED</strong><br />
+              Escape Rate: <strong>0.0000</strong>
+            </div>
+            <div class="path path-no">
+              <strong style="color: #ff4500">🔴 NO</strong><br />
+              <br />
+              Grade: <strong>F</strong><br />
+              Status: <strong>FAILED</strong><br />
+              Breaches Found: <strong>3</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Artifact Generation</div>
+          <div class="step-content">
+            <div class="artifact-box">
+              <strong>📄 PDF Certificate</strong><br />
+              Official certification with APEX seal<br />
+              File: <code>cert-{runId}.pdf</code>
+            </div>
+            <div class="artifact-box">
+              <strong>📊 JSON Report</strong><br />
+              Machine-readable battery results<br />
+              File: <code>report-{runId}.json</code>
+            </div>
+            <div class="artifact-box">
+              <strong>📹 Evidence Package</strong>
+              <span class="tier-badge tier-certified">CERTIFIED ONLY</span
+              ><br />
+              Screenshots, videos, full logs<br />
+              File: <code>evidence-{runId}.zip</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Download Artifacts</div>
+          <div class="step-content" style="text-align: center">
+            <button
+              style="
+                background: #00d9ff;
+                color: #000;
+                padding: 12px 30px;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+                margin: 5px;
+                cursor: pointer;
+              "
+            >
+              ⬇️ Download All
+            </button>
+            <button
+              style="
+                background: #666;
+                color: #fff;
+                padding: 12px 30px;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+                margin: 5px;
+                cursor: pointer;
+              "
+            >
+              🔗 Share Results
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style="
+          margin-top: 60px;
+          text-align: center;
+          color: #00d9ff;
+          font-size: 14px;
+        "
+      >
+        <strong>TOTAL TIME:</strong><br />
+        FREE Tier: 3-6 minutes | CERTIFIED Tier: 35-65 minutes
+      </div>
+    </div>
+  </body>
+</html>

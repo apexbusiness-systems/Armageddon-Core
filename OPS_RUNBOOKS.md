@@ -1,116 +1,114 @@
-# ARMAGEDDON OPS RUNBOOKS [LEVEL 7]
+# ARMAGEDDON OPS RUNBOOKS [LEVEL 8]
+
 > **CLASSIFICATION**: INTERNAL EYES ONLY
 > **SEVERITY**: CRITICAL
-> **LAST UPDATED**: 2026-01-25
+> **VERSION**: 2.1.0 ("Kinetic Moat")
+> **LAST UPDATED**: 2026-02-08
 
 ---
 
 ## 🚨 SEV-1: CRITICAL INCIDENTS
 
 ### 1.1 SYSTEM_LOCKDOWN_TRIGGERED
+
 **Trigger**: `SystemLockdownError` thrown in Temporal workflow.
 **Impact**: All certification runs blocked.
 **Diagnosis**:
+
 1. Check Worker logs for `LOCKDOWN: SIM_MODE is not set to "true"` or `SANDBOX_TENANT is not defined`.
-2. Verify environment variables in Temporal Cloud / Worker container.
+2. Verify environment variables in the Moat container.
 
 **Remediation**:
-```bash
-# 1. Verify ENV vars on worker fleet
-printenv | grep SIM_MODE
+
+```powershell
+# 1. Verify ENV vars on worker
+docker exec armageddon-worker-moat printenv | findstr SIM_MODE
 # MUST output: SIM_MODE=true
 
-# 2. If missing, redeploy workers with correct config
-kubectl set env deployment/armageddon-worker SIM_MODE=true SANDBOX_TENANT=armageddon-test-01
-
-# 3. Restart stuck workflows (using tctl or Temporal UI)
-tctl workflow reset --workflow_id <id> --reason "Config Fixed"
+# 2. If missing, fix .env.moat and REDEPLOY
+# Edit .env.moat -> .\scripts\deploy_moat.ps1
 ```
 
 ### 1.2 CONTAINMENT_BREACH_DETECTED
+
 **Trigger**: Real database access detected outside `SANDBOX_TENANT`.
 **Impact**: Potential data corruption in prod.
 **Protocol**:
-1. **KILL SWITCH**: Immediately stop all Temporal Workers.
-   ```bash
-   kubectl scale deployment/armageddon-worker --replicas=0
+
+1. **KILL SWITCH**: Immediately execute the suppression script.
+
+   ```powershell
+   .\scripts\kill_moat.ps1
    ```
+
+   _(Legacy: `kubectl scale` is deprecated for Moat deployments)_
+
 2. **REVOKE ACCESS**: Rotate Supabase `service_role` key immediately.
-3. **AUDIT**: Query `armageddon_events` for any `breach` type events with invalid tenant timestamps.
+3. **AUDIT**: Query `armageddon_events` for any `breach` type events.
 
 ---
 
 ## 🛠 SEV-2: MAINTENANCE & DEPLOYMENT
 
-### 2.1 DEPLOYING_CORE_UPDATE (Temporal Workers)
+### 2.1 DEPLOYING_CORE_UPDATE (Proprietary Moat)
+
 **Context**: Updating `armageddon-core` engine logic.
 **Procedure**:
-1. **Versioning**: Ensure `taskQueue` matches version if breaking changes (e.g., `armageddon-level7-v2`).
-2. **Drain**: Stop accepting new runs (API toggle).
-3. **Deploy**:
-   ```bash
-   # Build & Push
-   docker build -t armageddon-worker:latest .
-   kubectl rollout restart deployment/armageddon-worker
+
+1. **Commit**: Ensure all changes are committed (deployment script uses git hash).
+2. **Execute Protocol**:
+   ```powershell
+   .\scripts\deploy_moat.ps1
    ```
-4. **Verification**: Run `npm run test:smoke` (executes Battery 01 only).
+3. **Verification**:
+   The script automatically runs `verify_kinetic_moat.ts` (Bridge Check) and `npm run test:smoke` (Battery 01).
+   If script exits with `✅ DEPLOYMENT COMPLETE`, no further action is needed.
 
 ### 2.2 ROTATING_KEYS (Supabase/Stripe)
+
 **Frequency**: Quarterly or post-incident.
 **Procedure**:
+
 1. Generate new keys in Supabase/Stripe Dashboard.
-2. Update Vercel Env Vars (`SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`).
-3. Update Worker Env Vars.
-4. Redeploy both Frontend and Workers.
-5. Verify `checkRunEligibility` still passes for Certified orgs.
+2. Update `.env.moat` locally.
+3. Execute `.\scripts\deploy_moat.ps1` to rotate the running containers.
+4. Verify `checkRunEligibility` passes.
 
 ---
 
 ## 🔍 DEBUGGING & TRIAGE
 
 ### 3.1 HIGH_ESCAPE_RATE (>1%)
+
 **Symptom**: Too many organizations failing certification inappropriately.
 **Investigation**:
-1. Check `simulateAttack` probability in `activities.ts`. Default should be `0.0001`.
-2. Analyze `armageddon_events` for specific battery failures using SQL:
-   ```sql
-   SELECT battery_id, count(*) as failures 
-   FROM armageddon_events 
-   WHERE event_type = 'breach' 
-   AND created_at > NOW() - INTERVAL '1 hour'
-   GROUP BY battery_id;
-   ```
+
+1. Check `simulateAttack` probability in `activities.ts`. Default `0.0001`.
+2. check logs: `docker logs --tail 100 armageddon-worker-moat`
 
 ### 3.2 STUCK_WORKFLOWS
+
 **Symptom**: Runs stuck in `running` state > 10 mins.
 **Remediation**:
-1. Check Temporal UI for `ActivityTaskTimedOut`.
-2. Inspect `batteries_executed` array in `armageddon_runs`.
-3. Terminate workflow if non-recoverable:
-   ```bash
-   tctl workflow terminate --workflow_id <id> --reason "Stuck > 10m"
+
+1. Check Temporal UI (http://localhost:8080).
+2. Terminate workflow via CLI (inside container) or UI.
+   ```powershell
+   docker exec armageddon-temporal-moat tctl workflow terminate --workflow_id <id>
    ```
-4. Update `armageddon_runs` status to `failed` manually if needed.
 
 ---
 
 ## 📋 ONBOARDING (OPS)
 
-### 4.1 ADD_CERTIFIED_ORG (Manual Override)
-If Stripe integration fails or for VIP/Internal testing.
-```sql
-UPDATE organizations 
-SET current_tier = 'certified' 
-WHERE slug = 'target-org-slug';
-```
+### 4.1 ADD_CERTIFIED_ORG
+
+Reflexively handled via `admin-tools` scripts (TBD).
 
 ### 4.2 PROVISION_SANDBOX
-New tenants need a clean sandbox ID.
-1. Add `SANDBOX_TENANT_ID` to Worker config.
-2. Verify isolation:
-   ```bash
-   npm run check-isolation --tenant=<id>
-   ```
+
+1. Edit `.env.moat` -> `SANDBOX_TENANT`.
+2. Redeploy.
 
 ---
 
