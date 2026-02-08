@@ -1,0 +1,17 @@
+# Render Blueprint Configuration
+services:
+  - type: worker
+    name: armageddon-worker
+    env: docker
+    rootDir: armageddon-core
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: SUPABASE_URL
+        value: https://qhjqselqpkfqjfpuxykb.supabase.co
+      # Key removed to fix Blueprint validation. Add manually in Dashboard.
+      - key: SIM_MODE
+        value: "true"
+      - key: SANDBOX_TENANT
+        value: armageddon-test
+      - key: TEMPORAL_ADDRESS
+        value: localhost:7233
