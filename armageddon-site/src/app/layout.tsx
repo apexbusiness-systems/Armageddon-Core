@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // METADATA
@@ -84,6 +85,7 @@ export default function RootLayout({
                         </div>
                     </div>
                 </div>
+                <Analytics />
             </body>
         </html>
     );
