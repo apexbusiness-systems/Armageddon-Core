@@ -40,6 +40,8 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
                 )}
             </AnimatePresence>
             <motion.button
+                role="button"
+                aria-label={isLoggedIn ? 'Logout' : 'Login'}
                 onClick={toggleAuth}
                 className={`
                     relative px-7 py-2.5 border backdrop-blur-md transition-all duration-300 text-sm tracking-[0.3em] uppercase
