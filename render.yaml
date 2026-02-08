@@ -8,8 +8,7 @@ services:
     envVars:
       - key: SUPABASE_URL
         value: https://qhjqselqpkfqjfpuxykb.supabase.co
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
+      # Key removed to fix Blueprint validation. Add manually in Dashboard.
       - key: SIM_MODE
         value: "true"
       - key: SANDBOX_TENANT
