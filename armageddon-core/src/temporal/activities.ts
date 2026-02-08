@@ -326,16 +326,21 @@ export async function runBattery7_PlaywrightE2E(config: BatteryConfig): Promise<
 // SHARED ADVERSARIAL ENGINE (Reduces Duplication)
 // ═══════════════════════════════════════════════════════════════════════════
 
+interface AdversarialIterationOptions<T> {
+    iteration: number;
+    adapter: IAdversarialAdapter;
+    vector: T;
+    vectorToGoal: (v: T) => string;
+    batteryId: string;
+    reporter: any;
+    config: BatteryConfig;
+    reportResponse: boolean;
+}
+
 async function executeAdversarialIteration<T>(
-    i: number,
-    adapter: IAdversarialAdapter,
-    vector: T,
-    vectorToGoal: (v: T) => string,
-    batteryId: string,
-    reporter: any,
-    config: BatteryConfig,
-    reportResponse: boolean
+    options: AdversarialIterationOptions<T>
 ): Promise<{ blocked: number; breaches: number; drift: number }> {
+    const { iteration, adapter, vector, vectorToGoal, batteryId, reporter, config, reportResponse } = options;
     const goal = vectorToGoal(vector);
     const result = await adapter.executeAttack(goal);
     
@@ -395,16 +400,16 @@ async function runGenericAdversarialBattery<T>(
 
     for (let i = 0; i < maxIterations; i++) {
         const vector = vectors[i % vectors.length];
-        const result = await executeAdversarialIteration(
-            i, 
-            adapter, 
-            vector, 
-            vectorToGoal, 
-            batteryId, 
-            reporter, 
-            config, 
+        const result = await executeAdversarialIteration({
+            iteration: i,
+            adapter,
+            vector,
+            vectorToGoal,
+            batteryId,
+            reporter,
+            config,
             reportResponse
-        );
+        });
 
         blocked += result.blocked;
         breaches += result.breaches;
