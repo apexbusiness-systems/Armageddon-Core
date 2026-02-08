@@ -18,8 +18,31 @@ async function connectWithRetry(): Promise<NativeConnection> {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            console.log(`[Worker] Connecting to Temporal at ${address} (attempt ${attempt}/${MAX_RETRIES})...`);
-            const connection = await NativeConnection.connect({ address });
+    console.log(`[Worker] Connecting to Temporal at ${address} (attempt ${attempt}/${MAX_RETRIES})...`);
+            
+            let tlsConfig = undefined;
+            if (process.env.TEMPORAL_CERT_PATH && process.env.TEMPORAL_KEY_PATH) {
+                const fs = require('fs');
+                tlsConfig = {
+                    clientCertPair: {
+                        crt: fs.readFileSync(process.env.TEMPORAL_CERT_PATH),
+                        key: fs.readFileSync(process.env.TEMPORAL_KEY_PATH),
+                    },
+                };
+                console.log('[Worker] mTLS Enabled via cert files.');
+            }
+
+                console.log('[Worker] mTLS Enabled via cert files.');
+            }
+
+            const connectionOptions: any = { address, tls: tlsConfig };
+            if (process.env.TEMPORAL_API_KEY) {
+                connectionOptions.apiKey = process.env.TEMPORAL_API_KEY; // Supported in newer SDKs
+                // Fallback/Alternative: Metadata if apiKey prop isn't enough, but usually it is.
+                console.log('[Worker] Using API Key authentication.');
+            }
+
+            const connection = await NativeConnection.connect(connectionOptions);
             console.log('[Worker] Connected to Temporal successfully.');
             return connection;
         } catch (err) {

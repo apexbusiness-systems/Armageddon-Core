@@ -68,7 +68,27 @@ async function getTemporalClient(): Promise<Client> {
     const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
     const namespace = process.env.TEMPORAL_NAMESPACE || 'default';
 
-    const connection = await Connection.connect({ address });
+    const connectionOptions: any = { address };
+
+    // Support mTLS for Temporal Cloud
+    if (process.env.TEMPORAL_CERT_PATH && process.env.TEMPORAL_KEY_PATH) {
+        const fs = require('fs'); // Dynamic require for Next.js edge compatibility if needed (though this is node runtime)
+        connectionOptions.tls = {
+            clientCertPair: {
+                crt: fs.readFileSync(process.env.TEMPORAL_CERT_PATH),
+                key: fs.readFileSync(process.env.TEMPORAL_KEY_PATH),
+            },
+        };
+    }
+
+        };
+    }
+
+    if (process.env.TEMPORAL_API_KEY) {
+        connectionOptions.apiKey = process.env.TEMPORAL_API_KEY;
+    }
+
+    const connection = await Connection.connect(connectionOptions);
 
     return new Client({
         connection,

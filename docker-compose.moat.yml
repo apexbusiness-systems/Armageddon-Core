@@ -18,6 +18,12 @@ services:
     environment:
       - NODE_ENV=production
       - SIM_MODE=true
+      # Map env vars to mounted paths
+      - TEMPORAL_CERT_PATH=/etc/temporal/certs/client.pem
+      - TEMPORAL_KEY_PATH=/etc/temporal/certs/client.key
+      - TEMPORAL_API_KEY
+    volumes:
+      - ./certs:/etc/temporal/certs:ro
     restart: always
     # Resource limits to mimic production constraints
     deploy:
