@@ -3,8 +3,8 @@ services:
   - type: worker
     name: armageddon-worker
     env: docker
-    rootDir: armageddon-core
-    dockerfilePath: Dockerfile
+    rootDir: .
+    dockerfilePath: armageddon-core/Dockerfile
     envVars:
       - key: SUPABASE_URL
         value: https://qhjqselqpkfqjfpuxykb.supabase.co

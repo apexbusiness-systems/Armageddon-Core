@@ -77,8 +77,8 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   worker:
     build:
-      context: ./armageddon-core
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: armageddon-core/Dockerfile
     container_name: armageddon-worker
     depends_on:
       temporal:

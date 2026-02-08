@@ -23,21 +23,22 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 WORKDIR /app
 
 # Install Python dependencies first (for layer caching)
-COPY requirements.txt ./
+COPY armageddon-core/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Node.js dependencies
-COPY package*.json ./
+COPY armageddon-core/package*.json ./
 RUN npm ci --only=production
 
 # Copy TypeScript config and source
-COPY tsconfig.json ./
-COPY src ./src
+COPY armageddon-core/tsconfig.json ./
+COPY armageddon-core/src ./src
 
 # Build TypeScript
 RUN npm run build && ls -la dist
 
 # Copy Python scripts for kinetic execution
+# Scripts are at repository root, so we copy from ./scripts
 COPY scripts ./scripts
 
 # Security: Create non-root user
