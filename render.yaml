@@ -1,3 +1,4 @@
+# Render Blueprint Configuration
 services:
   - type: worker
     name: armageddon-worker
