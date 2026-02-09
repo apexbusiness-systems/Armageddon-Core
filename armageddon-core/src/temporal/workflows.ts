@@ -154,10 +154,33 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
 
         // 4. Generate Final Report
         const report = await generateReport(state);
+        
+        // 5. Finalize run in database via reporter activity
+        await finalizeRunActivity({
+            runId: config.runId,
+            status: state.status as 'COMPLETED' | 'FAILED',
+            summary: {
+                grade: report.grade,
+                score: report.score,
+                batteries: report.batteries.length,
+                duration: report.meta.duration,
+            },
+        });
+        
         return report;
 
     } catch (err) {
         state.status = STATUS.FAILED;
+        // Try to finalize as failed even on error
+        try {
+            await finalizeRunActivity({
+                runId: config.runId,
+                status: 'FAILED',
+                summary: { error: err instanceof Error ? err.message : 'Unknown error' },
+            });
+        } catch {
+            // Ignore finalization errors
+        }
         throw err;
     }
 }

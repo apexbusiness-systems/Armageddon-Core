@@ -1,6 +1,7 @@
 import { Worker, NativeConnection } from '@temporalio/worker';
 import * as activities from './temporal/activities';
 import { safetyGuard } from './core/safety';
+import { TASK_QUEUE_LEVEL_7 } from '@armageddon/shared';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -29,9 +30,6 @@ async function connectWithRetry(): Promise<NativeConnection> {
                         key: fs.readFileSync(process.env.TEMPORAL_KEY_PATH),
                     },
                 };
-                console.log('[Worker] mTLS Enabled via cert files.');
-            }
-
                 console.log('[Worker] mTLS Enabled via cert files.');
             }
 
@@ -85,7 +83,7 @@ async function run() {
     const worker = await Worker.create({
         connection,
         namespace: process.env.TEMPORAL_NAMESPACE || 'default',
-        taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7',
+        taskQueue: process.env.TEMPORAL_TASK_QUEUE || TASK_QUEUE_LEVEL_7,
         workflowsPath: require.resolve('./temporal/workflows'),
         activities: activities.activities,
     });

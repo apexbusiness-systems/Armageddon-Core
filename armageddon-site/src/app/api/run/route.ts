@@ -1,4 +1,4 @@
-/**
+UBE/**
  * ═══════════════════════════════════════════════════════════════════════════
  * ARMAGEDDON LEVEL 7 — API ROUTE
  * POST /api/run — Start a certification run
@@ -9,7 +9,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Client, Connection } from '@temporalio/client';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import { checkRunEligibility } from '@armageddon/shared';
+import { checkRunEligibility, TASK_QUEUE_LEVEL_7, WORKFLOW_LEVEL_7 } from '@armageddon/shared';
+import { resolveCallerContext } from '@/lib/server/apexGate';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENV FLAG FOR ROLLBACK
+// ═══════════════════════════════════════════════════════════════════════════
+const APEXGATE_DISABLED = process.env.APEXGATE_DISABLED === 'true';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -81,9 +87,6 @@ async function getTemporalClient(): Promise<Client> {
         };
     }
 
-        };
-    }
-
     if (process.env.TEMPORAL_API_KEY) {
         connectionOptions.apiKey = process.env.TEMPORAL_API_KEY;
     }
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
     try {
         // Parse request body
         const body: RunRequest = await request.json();
-        const { organizationId, level = 7, iterations = 2500, batteries } = body;
+        let { organizationId, level = 7, iterations = 2500, batteries } = body;
 
         // Validate and sanitize batteries
         let validatedBatteries: string[] = ['B10', 'B11', 'B12', 'B13']; // Default: all batteries
@@ -139,23 +142,40 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             );
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        // STEP 1: Check eligibility (including battery customization)
-        // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 1: Auth + Org Resolution
+    // ═══════════════════════════════════════════════════════════════════
 
-        const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries);
+    if (!APEXGATE_DISABLED) {
+        const authResult = await resolveCallerContext(request);
 
-        if (!eligibility.eligible) {
+        if (!authResult.success) {
             return NextResponse.json(
-                {
-                    success: false,
-                    error: eligibility.reason || 'ACCESS_DENIED',
-                    upsellMessage: eligibility.upsellMessage,
-                    upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
-                },
-                { status: 403 }
+                { success: false, error: authResult.error },
+                { status: authResult.status }
             );
         }
+
+        organizationId = authResult.context.orgId;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2: Check eligibility (including battery customization)
+    // ═══════════════════════════════════════════════════════════════════
+
+    const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries);
+
+    if (!eligibility.eligible) {
+        return NextResponse.json(
+            {
+                success: false,
+                error: eligibility.reason || 'ACCESS_DENIED',
+                upsellMessage: eligibility.upsellMessage,
+                upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
+            },
+            { status: 403 }
+        );
+    }
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 2: Create run record
@@ -192,9 +212,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
 
         const client = await getTemporalClient();
 
-        const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+        const handle = await client.workflow.start(WORKFLOW_LEVEL_7, {
             workflowId,
-            taskQueue: 'armageddon-level7',
+            taskQueue: TASK_QUEUE_LEVEL_7,
             args: [{
                 runId,
                 organizationId,
