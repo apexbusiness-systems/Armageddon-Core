@@ -16,3 +16,5 @@ yarn-error.log*
 .env.moat.local
 certs/
 tsc_output/
+.vercel
+.env*.local
