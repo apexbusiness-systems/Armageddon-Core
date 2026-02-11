@@ -30,6 +30,7 @@ export class SafetyGuard {
     /prod/i,
     /production/i,
     /live/i,
+    /main/i,
     /\.com$/,
     /\.io$/,
   ];
@@ -73,10 +74,18 @@ export class SafetyGuard {
     }
 
     // CHECK 3: SANDBOX_TENANT must not match production patterns
+    this.assertNoProductionMatch(this.sandboxTenant, `SANDBOX_TENANT '${this.sandboxTenant}'`, ctx);
+  }
+
+  /**
+   * Asserts that a value does not match any production patterns.
+   * @throws SystemLockdownError if match found
+   */
+  private assertNoProductionMatch(value: string, label: string, contextSuffix: string = ''): void {
     for (const pattern of this.productionPatterns) {
-      if (pattern.test(this.sandboxTenant)) {
+      if (pattern.test(value)) {
         throw new SystemLockdownError(
-          `SANDBOX_TENANT '${this.sandboxTenant}' matches production pattern.${ctx} Aborting.`
+          `${label} matches production pattern '${pattern}'.${contextSuffix} Aborting.`
         );
       }
     }
@@ -102,7 +111,7 @@ export class SafetyGuard {
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(url);
-    } catch (e) {
+    } catch {
       throw new SystemLockdownError(`Invalid URL format: ${url}`);
     }
 
@@ -112,23 +121,7 @@ export class SafetyGuard {
       );
     }
 
-    const hostname = parsedUrl.hostname;
-
-    // CHECK 1: Production patterns (consistent with SANDBOX_TENANT checks)
-    for (const pattern of this.productionPatterns) {
-      if (pattern.test(hostname)) {
-        throw new SystemLockdownError(
-          `Target URL hostname '${hostname}' matches production pattern '${pattern}'. Refusing.`
-        );
-      }
-    }
-
-    // CHECK 2: Explicit 'main' indicator (often used for primary production branches/environments)
-    if (hostname.includes('main')) {
-      throw new SystemLockdownError(
-        `Target URL hostname '${hostname}' contains production indicator 'main'. Refusing.`
-      );
-    }
+    this.assertNoProductionMatch(parsedUrl.hostname, `Target URL hostname '${parsedUrl.hostname}'`);
   }
 }
 
