@@ -146,6 +146,7 @@ describe('CircuitBreaker', () => {
 
 describe('CircuitBreakerRegistry', () => {
     let registry: CircuitBreakerRegistry;
+    let providerCounter = 0;
 
     beforeEach(() => {
         registry = CircuitBreakerRegistry.getInstance();
@@ -167,7 +168,7 @@ describe('CircuitBreakerRegistry', () => {
     });
 
     it('should get or create provider-specific breakers', () => {
-        const providerId = 'test-provider-' + Math.random();
+        const providerId = `test-provider-${providerCounter++}`;
         const b1 = registry.getOrCreate(providerId);
         const b2 = registry.getOrCreate(providerId);
         const b3 = registry.getOrCreate('different-provider');
@@ -177,8 +178,8 @@ describe('CircuitBreakerRegistry', () => {
     });
 
     it('should calculate total cost across all provider breakers', () => {
-        const p1 = 'p1-' + Math.random();
-        const p2 = 'p2-' + Math.random();
+        const p1 = `p1-${providerCounter++}`;
+        const p2 = `p2-${providerCounter++}`;
         const b1 = registry.getOrCreate(p1);
         const b2 = registry.getOrCreate(p2);
 
@@ -191,7 +192,7 @@ describe('CircuitBreakerRegistry', () => {
     });
 
     it('should reset all breakers including global one', () => {
-        const p1 = 'p-reset-' + Math.random();
+        const p1 = `p-reset-${providerCounter++}`;
         const b1 = registry.getOrCreate(p1, { maxConsecutiveErrors: 1 });
         const global = registry.getGlobal();
 
