@@ -96,18 +96,38 @@ export class SafetyGuard {
 
   /**
    * Validates a target URL is not production.
-   * @throws SystemLockdownError if URL appears to be production
+   * @throws SystemLockdownError if URL appears to be production or invalid
    */
   public validateTarget(url: string): void {
-    const prodIndicators = ['prod', 'production', 'live', 'main'];
-    const lowerUrl = url.toLowerCase();
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch (e) {
+      throw new SystemLockdownError(`Invalid URL format: ${url}`);
+    }
 
-    for (const indicator of prodIndicators) {
-      if (lowerUrl.includes(indicator)) {
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      throw new SystemLockdownError(
+        `Target URL '${url}' uses forbidden protocol '${parsedUrl.protocol}'. Only http and https are allowed.`
+      );
+    }
+
+    const hostname = parsedUrl.hostname;
+
+    // CHECK 1: Production patterns (consistent with SANDBOX_TENANT checks)
+    for (const pattern of this.productionPatterns) {
+      if (pattern.test(hostname)) {
         throw new SystemLockdownError(
-          `Target URL '${url}' contains production indicator '${indicator}'. Refusing.`
+          `Target URL hostname '${hostname}' matches production pattern '${pattern}'. Refusing.`
         );
       }
+    }
+
+    // CHECK 2: Explicit 'main' indicator (often used for primary production branches/environments)
+    if (hostname.includes('main')) {
+      throw new SystemLockdownError(
+        `Target URL hostname '${hostname}' contains production indicator 'main'. Refusing.`
+      );
     }
   }
 }
