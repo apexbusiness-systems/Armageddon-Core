@@ -395,6 +395,7 @@ async function runGenericAdversarialBattery<T>(
     let blocked = 0;
     let breaches = 0;
     let totalDrift = 0;
+    let lastProgressUpdate: Promise<void> = Promise.resolve();
     
     // Risk Management: Cap iterations
     const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
@@ -417,7 +418,9 @@ async function runGenericAdversarialBattery<T>(
         totalDrift += result.drift;
 
         if ((i + 1) % 10 === 0) {
-            await reporter.upsertProgress({
+            // APEX-POWER: Fire-and-forget progress updates to avoid blocking the test loop.
+            // We keep track of the last update to ensure completion before battery exit.
+            lastProgressUpdate = reporter.upsertProgress({
                 batteryId,
                 currentIteration: i + 1,
                 totalIterations: maxIterations,
@@ -425,10 +428,12 @@ async function runGenericAdversarialBattery<T>(
                 breachCount: breaches,
                 driftScore: totalDrift / (i + 1),
                 status: 'RUNNING',
-            });
+            }).catch(err => console.error(`[${batteryId}] Progress update failed:`, err));
         }
     }
 
+    // Ensure final progress is synced before completing
+    await lastProgressUpdate;
     await reporter.pushEvent(batteryId, 'BATTERY_COMPLETED', { blocked, breaches });
 
     return {
