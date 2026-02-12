@@ -23,7 +23,7 @@ async function benchmark() {
     for (let i = 0; i < ITEMS; i++) {
         await pushEvent('B1', 'BREACH', { iteration: i });
     }
-    const baselineEnd = console.timeEnd('Baseline (Single Inserts)');
+    console.timeEnd('Baseline (Single Inserts)');
 
     // Optimized: Batched Inserts
     console.time(`Batched (Batch Size: ${BATCH_SIZE})`);
@@ -38,9 +38,9 @@ async function benchmark() {
     if (batch.length > 0) {
         await pushEvents('B1', batch);
     }
-    const batchedEnd = console.timeEnd(`Batched (Batch Size: ${BATCH_SIZE})`);
+    console.timeEnd(`Batched (Batch Size: ${BATCH_SIZE})`);
 
     console.log(`\nEstimated Improvement: ~${(ITEMS / (ITEMS / BATCH_SIZE)).toFixed(1)}x faster (theoretical)`);
 }
 
-benchmark().catch(console.error);
+void benchmark();
