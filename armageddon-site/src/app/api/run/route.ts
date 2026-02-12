@@ -89,6 +89,54 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         const body: RunRequest = await request.json();
         const { organizationId, level = 7, iterations = 2500, batteries } = body;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // AUTHENTICATION & AUTHORIZATION CHECK
+        // ═══════════════════════════════════════════════════════════════════
+
+        const authHeader = request.headers.get('Authorization');
+        if (!authHeader) {
+            return NextResponse.json(
+                { success: false, error: 'Missing Authorization header' },
+                { status: 401 }
+            );
+        }
+
+        const token = authHeader.replace('Bearer ', '');
+        const supabase = getSupabase();
+
+        // Verify user identity
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+        if (authError || !user) {
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized: Invalid token' },
+                { status: 401 }
+            );
+        }
+
+        if (!organizationId) {
+            return NextResponse.json(
+                { success: false, error: 'organizationId is required' },
+                { status: 400 }
+            );
+        }
+
+        // Verify organization membership
+        // Since we use service_role key in getSupabase(), we can query organization_members directly
+        const { data: membership, error: membershipError } = await supabase
+            .from('organization_members')
+            .select('role')
+            .eq('organization_id', organizationId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (membershipError || !membership) {
+            return NextResponse.json(
+                { success: false, error: 'Forbidden: You are not a member of this organization' },
+                { status: 403 }
+            );
+        }
+
         // Validate and sanitize batteries
         let validatedBatteries: string[] = ['B10', 'B11', 'B12', 'B13']; // Default: all batteries
         if (batteries && batteries.length > 0) {
@@ -110,13 +158,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             }
 
             validatedBatteries = uniqueBatteries;
-        }
-
-        if (!organizationId) {
-            return NextResponse.json(
-                { success: false, error: 'organizationId is required' },
-                { status: 400 }
-            );
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -141,7 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         // STEP 2: Create run record
         // ═══════════════════════════════════════════════════════════════════
 
-        const supabase = getSupabase();
+        // supabase client already initialized above
         const runId = uuidv4();
         const workflowId = `armageddon-${runId}`;
 
