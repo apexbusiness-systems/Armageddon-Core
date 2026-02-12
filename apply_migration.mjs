@@ -17,34 +17,53 @@ async function applyMigration() {
     console.log('📊 Applying Battery Selection migration...');
 
     // Read migration
-    const sql = fs.readFileSync('supabase/migrations/20260126_add_run_config.sql', 'utf-8');
+    const migrationPath = 'supabase/migrations/20260126_add_run_config.sql';
+    if (!fs.existsSync(migrationPath)) {
+        console.error(`❌ Error: Migration file not found at ${migrationPath}`);
+        return;
+    }
+    const sql = fs.readFileSync(migrationPath, 'utf-8');
 
-    // Execute via RPC (if available) or direct query
+    // Execute via RPC
     try {
-        // Method 1: Try via RPC
-        const { data } = await supabase.rpc('exec_sql', { sql });
-        // Log data if relevant or remove if unused, but avoiding unused var 'error' which wasn't flagged, but good practice.
-        if (data) console.log(data);
+        console.log('⏳ Executing SQL via RPC...');
+        const { data, error } = await supabase.rpc('exec_sql', { sql });
 
-        // Logic continues...
-        // ... (Simulating the rest of the function logic without full rewrite if possible, but cleaner to just fix the specific bits if I can target them. I'll rewrite the specific blocks)
+        if (error) {
+            // Check if it's because exec_sql is missing
+            if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+                console.warn('⚠️  RPC "exec_sql" not found in database.');
+            }
+            throw error;
+        }
+
+        console.log('✅ Migration SQL executed successfully via RPC.');
+        if (data) console.log('RPC Response:', data);
+
     } catch (err) {
-        console.error('❌ Migration failed:', err.message);
-        console.log('\n⚠️  Manual migration required. Run the following SQL in Supabase SQL Editor:');
+        console.error('❌ Migration execution failed:', err.message || err);
+        console.log('\n⚠️  Automated migration could not be completed.');
+        console.log('Please run the following SQL manually in the Supabase SQL Editor:');
         console.log('\n' + sql);
+        console.log('\n(Note: You can also use the "apply_migration.sql" file if you have psql access)');
     }
 
     // Verify
-    console.log('\n🔍 Verifying config column...');
-    const { error: verifyError } = await supabase
-        .from('armageddon_runs')
-        .select('config')
-        .limit(1);
+    console.log('\n🔍 Verifying "config" column in "armageddon_runs" table...');
+    try {
+        const { error: verifyError } = await supabase
+            .from('armageddon_runs')
+            .select('config')
+            .limit(1);
 
-    if (verifyError) {
-        console.log('⚠️  Verification check: Please verify manually in Supabase');
-    } else {
-        console.log('✅ Config column accessible!');
+        if (verifyError) {
+            console.error('❌ Verification check failed:', verifyError.message);
+            console.log('   Status: The migration may not have been applied successfully.');
+        } else {
+            console.log('✅ Verification successful! "config" column is accessible.');
+        }
+    } catch (err) {
+        console.error('❌ Verification failed with exception:', err.message);
     }
 }
 
