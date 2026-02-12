@@ -9,6 +9,8 @@
         "dev": "tsx watch src/worker.ts",
         "worker": "tsx src/worker.ts",
         "test": "vitest run",
+        "bench": "vitest bench",
+        "test:memory": "node --expose-gc --max-old-space-size=512 node_modules/vitest/vitest.mjs run --reporter=verbose",
         "typecheck": "tsc --noEmit",
         "lint": "eslint src --ext .ts"
     },

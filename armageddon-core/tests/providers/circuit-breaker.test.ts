@@ -81,7 +81,7 @@ describe('CircuitBreaker', () => {
         expect(breaker.canProceed()).toBe(false);
 
         // Advance time by cooldownMs
-        vi.advanceTimeBy(101);
+        vi.advanceTimersByTime(101);
 
         // canProceed should transition state to HALF_OPEN
         expect(breaker.canProceed()).toBe(true);
@@ -103,12 +103,12 @@ describe('CircuitBreaker', () => {
         expect(breaker.getState()).toBe('OPEN');
 
         // Before cooldown
-        vi.advanceTimeBy(50);
+        vi.advanceTimersByTime(50);
         expect(breaker.canProceed()).toBe(false);
         expect(breaker.getState()).toBe('OPEN');
 
         // After cooldown
-        vi.advanceTimeBy(51);
+        vi.advanceTimersByTime(51);
         expect(breaker.canProceed()).toBe(true);
         expect(breaker.getState()).toBe('HALF_OPEN');
 
