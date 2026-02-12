@@ -615,7 +615,6 @@ export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<Bat
         badGuard.enforce('Battery6_DestructionTest');
 
         // IF WE REACH HERE, THE GATE FAILED TO BLOCK US
-        passed = false;
         details = { error: 'SafetyGuard failed to block execution with missing SIM_MODE' };
         await reporter.pushEvent('B6', 'BREACH', { details: 'Gate failed to close' });
 
@@ -630,7 +629,6 @@ export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<Bat
             };
         } else {
             // FAILED: It threw the wrong error (unexpected crash)
-            passed = false;
             const msg = err instanceof Error ? err.message : String(err);
             details = { error: `Unexpected error type: ${msg}` };
         }
@@ -691,11 +689,11 @@ export async function runBattery9_IntegrationHandshake(config: BatteryConfig): P
                 .select('event_id')
                 .limit(0);
 
-            if (!error) {
+            if (error) {
+                errorDetails = `DB Error: ${error.message}`;
+            } else {
                 checks.database_access = true;
                 checks.events_table = true;
-            } else {
-                errorDetails = `DB Error: ${error.message}`;
             }
         } else {
             errorDetails = 'Missing Supabase credentials';
@@ -705,7 +703,7 @@ export async function runBattery9_IntegrationHandshake(config: BatteryConfig): P
         errorDetails = err instanceof Error ? err.message : String(err);
     }
 
-    const allPassed = Object.values(checks).every(v => v);
+    const allPassed = Object.values(checks).every(Boolean);
 
     await reporter.pushEvent('B9', 'BATTERY_COMPLETED', { allPassed });
 
