@@ -78,5 +78,8 @@ export async function runWorker() {
 
 // Run if executed directly (ESM top-level await)
 if (import.meta.url === `file://${process.argv[1]}`) {
-    await runWorker();
+    runWorker().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
 }
