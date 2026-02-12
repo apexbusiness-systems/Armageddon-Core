@@ -36,9 +36,7 @@ describe('Reporter Batching Performance', () => {
     }
   }, { iterations: 1 });
 
-  bench('Optimized: Batched pushEvents (1 database call)', async () => {
-    // Optimization: 100 events in 1 call = ~50ms total
-    // Expected improvement: 100x faster (5000ms -> 50ms)
+  bench('Batched pushEvents (Optimized)', async () => {
     const events = Array.from({ length: EVENT_COUNT }, (_, i) => ({
       batteryId: 'B1',
       eventType: 'ATTACK_BLOCKED' as const,
