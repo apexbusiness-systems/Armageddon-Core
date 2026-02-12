@@ -97,25 +97,7 @@ export async function runWorker() {
     await worker.run();
 }
 
-// Check if running directly (ESM context check)
-// In Node, we can check if file is executed directly.
-import { fileURLToPath } from 'url';
-
-// For CommonJS/ESM compatibility in TSX
-// This check might need adjustment depending on environment, but simple check works for now
-if (import.meta.url && process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop() || '')) {
-    // Only run if filename matches (rough check)
-    // Better: use explicit flag or different entry point.
-    // But for now, let's assume if it's main module.
-    // Actually, createWorker is exported, runWorker is exported.
-    // If run as script:
-    // await runWorker();
-}
-
-// Just run if executed directly:
+// Run if executed directly (ESM top-level await)
 if (import.meta.url === `file://${process.argv[1]}`) {
-     runWorker().catch(err => {
-         console.error(err);
-         process.exit(1);
-     });
+    await runWorker();
 }

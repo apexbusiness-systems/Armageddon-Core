@@ -73,12 +73,15 @@ describe('Temporal Client Connection', () => {
         const connection = await Connection.connect({
             address: process.env.TEMPORAL_ADDRESS || 'localhost:7233'
         });
-        // new Client({ connection }); // Disabled to satisfy SonarQube 'unused variable' rule
+        const client = new Client({ connection });
+        // Access a property to ensure it's initialized and satisfy SonarQube
+        const _ = client.workflow;
     });
 
     bench('cached connection (warm)', async () => {
         // Simulate singleton pattern
-        // const client = cachedTemporalClient; // Disabled to satisfy SonarQube 'unused variable' rule
-        // No-op to measure access time
+        const client = cachedTemporalClient;
+        // Access a property to ensure it's initialized and satisfy SonarQube
+        const _ = client.workflow;
     });
 });
