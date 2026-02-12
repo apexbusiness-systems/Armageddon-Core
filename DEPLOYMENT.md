@@ -1,8 +1,8 @@
 # ARMAGEDDON DEPLOYMENT PROTOCOL [LEVEL 8]
 
 > **CLASSIFICATION**: PROPRIETARY / INTERNAL
-> **VERSION**: 2.1.0 (Hybrid Cloud Edition)
-> **DATE**: 2026-02-08
+> **VERSION**: 2.1.1 (Hybrid Cloud Edition)
+> **DATE**: 2026-02-11
 
 ---
 
