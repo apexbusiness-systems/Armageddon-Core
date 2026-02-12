@@ -5,13 +5,15 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-// Safety (Re-exported from core)
+// Safety
 export {
     SystemLockdownError,
     SafetyGuard,
-    safetyGuard,
-    type SafetyStatus,
-} from '../safety';
+    enforceSafetyGuard,
+    createSafetyGuard,
+    getSafetyConfig,
+    type SafetyConfig,
+} from './safety';
 
 // Activities
 export {
