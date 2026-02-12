@@ -48,7 +48,13 @@ export interface BatteryConfig {
     targetModel?: AdversarialModel;
 }
 
-interface AttackResult {
+/**
+ * @internal
+ * Exported for testing purposes only.
+ * DO NOT use directly in production code.
+ * This interface may change without notice.
+ */
+export interface AttackResult {
     success: boolean;
     prompt: string;
     response: string;
@@ -60,15 +66,26 @@ interface AttackResult {
 // 2. THE UNIVERSAL ADAPTER (Strategy Pattern)
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface IAdversarialAdapter {
+/**
+ * @internal
+ * Exported for testing purposes only.
+ * DO NOT use directly in production code.
+ * This interface may change without notice.
+ */
+export interface IAdversarialAdapter {
     executeAttack(goal: string): Promise<AttackResult>;
 }
 
 /**
  * SIMULATION ADAPTER (OMNIFINANCE: "Marketing Engine")
  * Deterministic, Educational, Upsell-Driven.
+ *
+ * @internal
+ * Exported for testing purposes only.
+ * DO NOT instantiate directly in production code.
+ * Use runGenericAdversarialBattery() which handles adapter selection.
  */
-class SimulationAdapter implements IAdversarialAdapter {
+export class SimulationAdapter implements IAdversarialAdapter {
     private readonly traceId: string;
     
     constructor(runId: string) {
