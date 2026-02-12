@@ -120,3 +120,30 @@ Implemented Python bridge infrastructure for real Garak-based adversarial testin
 
 - **Compilation**: `npx tsc --noEmit` → **PASSED**
 - **Exit Code**: 0
+
+---
+
+## 2026-02-11 - Code Cleanup: Remove Deprecated Workflow File
+
+**Type:** Refactoring
+**Severity:** Low
+**Impact:** None (file already deprecated)
+
+### Changes
+- **Deleted:** `armageddon-core/src/core/engine/workflow.ts`
+  - File contained only deprecation comments
+  - Canonical workflow implementation exists at `src/temporal/workflows.ts`
+  - Zero active references in codebase
+
+### Rationale
+- Eliminates dead code and potential confusion
+- Workflow unification completed (runtime collision prevention)
+- All workflow logic centralized in Temporal directory
+
+### Migration Notes
+- No action required by consumers
+- `armageddon-site` already uses Temporal Client API
+- Worker registration uses `src/temporal/workflows.ts`
+
+**Verified by:** Google Jules (AI Coding Agent)
+**Risk Assessment:** Zero risk - file already inactive

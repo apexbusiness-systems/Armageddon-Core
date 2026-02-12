@@ -28,13 +28,11 @@ export class SimulationProvider implements ILLMProvider {
     readonly name = 'simulation' as const;
     readonly model = 'sim-001' as const;
     
-    private rng: SeedableRNG;
     private metrics: ProviderMetrics;
     private readonly seed: number;
 
     constructor(options?: Partial<ProviderOptions> & { seed?: number }) {
         this.seed = options?.seed || Date.now();
-        this.rng = new SeedableRNG(this.seed);
         this.metrics = this.createEmptyMetrics();
     }
 
@@ -133,7 +131,6 @@ export class SimulationProvider implements ILLMProvider {
     }
 
     reset(): void {
-        this.rng = new SeedableRNG(this.seed);
         this.metrics = this.createEmptyMetrics();
     }
 
