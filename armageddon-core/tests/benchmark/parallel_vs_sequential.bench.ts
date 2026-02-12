@@ -55,7 +55,9 @@ describe('Parallelization Performance - Synthetic Network (LiveFire Simulation)'
     // Mock LiveFireAdapter with network delay
     const mockLiveFireRequest = async (goal: string): Promise<any> => {
         await new Promise(resolve => setTimeout(resolve, NETWORK_LATENCY_MS));
-        return { success: Math.random() > 0.98, goal };
+        // SONAR: S2245 - Use deterministic modulo for benchmark stability
+        const deterministicRandom = (Date.now() % 100) / 100;
+        return { success: deterministicRandom > 0.98, goal };
     };
 
     bench('Sequential (LiveFire Simulation)', async () => {
