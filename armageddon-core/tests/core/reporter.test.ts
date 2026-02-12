@@ -62,6 +62,31 @@ describe('SupabaseReporter', () => {
     }));
   });
 
+  it('should push multiple events to armageddon_events', async () => {
+    const reporter = new SupabaseReporter('run-1');
+    const events = [
+        { eventType: 'BREACH' as const, payload: { p: 1 } },
+        { eventType: 'BREACH' as const, payload: { p: 2 } }
+    ];
+    await reporter.pushEvents('B1', events);
+
+    expect(mockFrom).toHaveBeenCalledWith('armageddon_events');
+    expect(mockInsert).toHaveBeenCalledWith([
+        expect.objectContaining({
+            runId: 'run-1',
+            batteryId: 'B1',
+            eventType: 'BREACH',
+            payload: { p: 1 }
+        }),
+        expect.objectContaining({
+            runId: 'run-1',
+            batteryId: 'B1',
+            eventType: 'BREACH',
+            payload: { p: 2 }
+        })
+    ]);
+  });
+
   it('should upsert progress', async () => {
     const reporter = new SupabaseReporter('run-1');
     await reporter.upsertProgress({
