@@ -500,10 +500,16 @@ async function runGenericAdversarialBattery<T>(
     // Sort results by original index before processing events
     results.sort((a, b) => a.index - b.index);
 
-    for (const { result } of results) {
-        if (result.event) {
-            await reporter.pushEvent(batteryId, result.event.type, result.event.payload);
-        }
+    const eventsToPush = results
+        .filter(r => r.result.event)
+        .map(r => ({
+            batteryId,
+            eventType: r.result.event!.type,
+            payload: r.result.event!.payload
+        }));
+
+    if (eventsToPush.length > 0) {
+        await reporter.pushEvents(eventsToPush);
     }
 
     // Ensure final progress is synced before completing

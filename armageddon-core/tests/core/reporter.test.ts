@@ -92,4 +92,18 @@ describe('SupabaseReporter', () => {
         summary: { score: 100 }
     }));
   });
+
+  it('should push multiple events in batch', async () => {
+    const reporter = new SupabaseReporter('run-1');
+    await reporter.pushEvents([
+        { batteryId: 'B1', eventType: 'ATTACK_BLOCKED', payload: { i: 1 } },
+        { batteryId: 'B1', eventType: 'BREACH', payload: { i: 2 } }
+    ]);
+
+    expect(mockFrom).toHaveBeenCalledWith('armageddon_events');
+    expect(mockInsert).toHaveBeenCalledWith([
+        expect.objectContaining({ batteryId: 'B1', eventType: 'ATTACK_BLOCKED', payload: { i: 1 } }),
+        expect.objectContaining({ batteryId: 'B1', eventType: 'BREACH', payload: { i: 2 } })
+    ]);
+  });
 });
