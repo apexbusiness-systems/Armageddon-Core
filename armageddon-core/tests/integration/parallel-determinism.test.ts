@@ -18,7 +18,6 @@ vi.mock('../../src/core/reporter', async () => {
     return {
         createReporter: () => ({
             pushEvent: vi.fn(),
-            pushEvents: vi.fn(),
             upsertProgress: vi.fn().mockResolvedValue(undefined),
             finalizeRun: vi.fn(),
         }),

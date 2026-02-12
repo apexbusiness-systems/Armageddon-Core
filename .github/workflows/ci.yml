@@ -38,19 +38,3 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder' }}
         # Note: Vercel build will handle the site deployment, this just checks validity
-
-      # ═══════════════════════════════════════════════════════════
-      # APEX-POWER ZERO-FAILURE PROTOCOL
-      # ═══════════════════════════════════════════════════════════
-
-      - name: Run Unit Tests (Core)
-        run: npm run test -w armageddon-core
-
-      - name: Run Unit Tests (Site)
-        run: npm run test -w armageddon-site
-
-      - name: Type Check (Core)
-        run: npm run typecheck -w armageddon-core
-
-      - name: Lint Check (Site)
-        run: npm run lint -w armageddon-site

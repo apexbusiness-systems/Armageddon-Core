@@ -13,10 +13,8 @@
 | **Moat Infrastructure**   | **ACTIVE** | `v2.1.0`      | Running via `docker-compose.moat.yml` |
 | **Kinetic Engine**        | **ONLINE** | `v2.1.0`      | Python Bridge Verified                |
 | **Temporal Server**       | **ONLINE** | `1.24.2`      | Local Cluster                         |
-| **Temporal SDK**          | **ONLINE** | `1.14.1`      | ✅ Version Aligned                    |
 | **Persistence**           | **ONLINE** | `Postgres 15` | Volume Mounted                        |
 | **Containment Interface** | **READY**  | `v2.0.0`      | Next.js 14                            |
-| **Health Monitor**        | **READY**  | `v1.0.0`      | ✅ Docker Health Checks Active        |
 
 ---
 

@@ -81,21 +81,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         const body: RunRequest = await request.json();
         const { organizationId, level = 7, iterations = 2500, batteries } = body;
 
-        // 2. Authentication & Authorization
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader) {
-            return NextResponse.json({ success: false, error: 'Unauthorized: Missing token' }, { status: 401 });
+        // 2. Organization-based Rate Limiting
+        if (organizationId && !orgLimiter.check(organizationId)) {
+            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+            return NextResponse.json(
+                { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
+                { status: 429 }
+            );
         }
 
-        const token = authHeader.split(' ')[1];
+        // Validate token
+        const authHeader = request.headers.get('Authorization');
+        const token = authHeader?.replace('Bearer ', '');
+
         if (!token) {
-            return NextResponse.json({ success: false, error: 'Unauthorized: Invalid token format' }, { status: 401 });
+             return NextResponse.json({ success: false, error: 'Unauthorized: Missing token' }, { status: 401 });
         }
 
         // Get singleton Supabase client
-        const supabase = getSupabase();
+        const supabase = getSupabaseServiceRole();
 
-        // Validate token
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
@@ -117,18 +122,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
                 return NextResponse.json({ success: false, error: 'Forbidden: You are not a member of this organization' }, { status: 403 });
             }
         } else {
-            return NextResponse.json(
+             return NextResponse.json(
                 { success: false, error: 'organizationId is required' },
                 { status: 400 }
-            );
-        }
-
-        // 3. Organization-based Rate Limiting
-        if (organizationId && !orgLimiter.check(organizationId)) {
-            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
-            return NextResponse.json(
-                { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
-                { status: 429 }
             );
         }
 
@@ -155,12 +151,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             validatedBatteries = uniqueBatteries;
         }
 
+        if (!organizationId) {
+            // Redundant check, already handled above, but keeping for safety/logic flow
+            return NextResponse.json(
+                { success: false, error: 'organizationId is required' },
+                { status: 400 }
+            );
+        }
+
         // ═══════════════════════════════════════════════════════════════════
         // STEP 1: Check eligibility (including battery customization)
         // ═══════════════════════════════════════════════════════════════════
-
-        // Get singleton Supabase client
-        const supabase = getSupabaseServiceRole();
 
         // Pass injected client for performance
         const eligibility = await checkRunEligibility(
