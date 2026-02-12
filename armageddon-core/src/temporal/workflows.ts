@@ -84,37 +84,30 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
         // We use Promise.allSettled to ensure that a single battery failure
         // does not crash the entire certification run.
 
-        const batteryPromises = [
-            // Baseline batteries (1-9)
-            runBattery1_ChaosStress(normalizedConfig),
-            runBattery2_ChaosEngine(normalizedConfig),
-            runBattery3_PromptInjection(normalizedConfig),
-            runBattery4_SecurityAuth(normalizedConfig),
-            runBattery5_FullUnit(normalizedConfig),
-            runBattery6_UnsafeGate(normalizedConfig),
-            runBattery7_PlaywrightE2E(normalizedConfig),
-            runBattery8_AssetSmoke(normalizedConfig),
-            runBattery9_IntegrationHandshake(normalizedConfig),
-
-            // God Mode batteries (10-13) - use normalized iterations
-            runBattery10_GoalHijack(normalizedConfig),
-            runBattery11_ToolMisuse(normalizedConfig),
-            runBattery12_MemoryPoison(normalizedConfig),
-            runBattery13_SupplyChain(normalizedConfig),
+        const batterySpecs = [
+            { id: BATTERY_IDS.B1, run: runBattery1_ChaosStress },
+            { id: BATTERY_IDS.B2, run: runBattery2_ChaosEngine },
+            { id: BATTERY_IDS.B3, run: runBattery3_PromptInjection },
+            { id: BATTERY_IDS.B4, run: runBattery4_SecurityAuth },
+            { id: BATTERY_IDS.B5, run: runBattery5_FullUnit },
+            { id: BATTERY_IDS.B6, run: runBattery6_UnsafeGate },
+            { id: BATTERY_IDS.B7, run: runBattery7_PlaywrightE2E },
+            { id: BATTERY_IDS.B8, run: runBattery8_AssetSmoke },
+            { id: BATTERY_IDS.B9, run: runBattery9_IntegrationHandshake },
+            { id: BATTERY_IDS.B10, run: runBattery10_GoalHijack },
+            { id: BATTERY_IDS.B11, run: runBattery11_ToolMisuse },
+            { id: BATTERY_IDS.B12, run: runBattery12_MemoryPoison },
+            { id: BATTERY_IDS.B13, run: runBattery13_SupplyChain },
         ];
 
         // Execute all concurrently with resilience
-        const settledResults = await Promise.allSettled(batteryPromises);
-
-        // Map settled results to BatteryResult format
-        const batteryIdList = [
-            BATTERY_IDS.B1, BATTERY_IDS.B2, BATTERY_IDS.B3,
-            BATTERY_IDS.B4, BATTERY_IDS.B5, BATTERY_IDS.B6,
-            BATTERY_IDS.B7, BATTERY_IDS.B8, BATTERY_IDS.B9,
-            BATTERY_IDS.B10, BATTERY_IDS.B11, BATTERY_IDS.B12, BATTERY_IDS.B13
-        ];
+        const settledResults = await Promise.allSettled(
+            batterySpecs.map(spec => spec.run(normalizedConfig))
+        );
 
         state.results = settledResults.map((result, index) => {
+            const batteryId = batterySpecs[index].id;
+
             if (result.status === 'fulfilled') {
                 return result.value;
             } else {
@@ -124,7 +117,7 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
                     : String(result.reason);
 
                 return {
-                    batteryId: batteryIdList[index],
+                    batteryId,
                     status: STATUS.FAILED,
                     iterations: 0,
                     blockedCount: 0,

@@ -8,6 +8,7 @@
 import { exec } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { createClient } from '@supabase/supabase-js';
 import {
     INJECTION_PATTERNS,
     ADVERSARIAL_PROMPTS,
@@ -16,7 +17,7 @@ import {
     SUPPLY_CHAIN_VECTORS
 } from './prompts';
 
-import { safetyGuard } from '../core/safety';
+import { safetyGuard, SafetyGuard, SystemLockdownError } from '../core/safety';
 import { createReporter } from '../core/reporter';
 import { hashString } from '../core/utils';
 import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial';
@@ -60,7 +61,7 @@ interface AttackResult {
 // 2. THE UNIVERSAL ADAPTER (Strategy Pattern)
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface IAdversarialAdapter {
+export interface IAdversarialAdapter {
     executeAttack(goal: string): Promise<AttackResult>;
 }
 
@@ -68,7 +69,7 @@ interface IAdversarialAdapter {
  * SIMULATION ADAPTER (OMNIFINANCE: "Marketing Engine")
  * Deterministic, Educational, Upsell-Driven.
  */
-class SimulationAdapter implements IAdversarialAdapter {
+export class SimulationAdapter implements IAdversarialAdapter {
     private readonly traceId: string;
     
     constructor(runId: string) {
@@ -110,10 +111,6 @@ class SimulationAdapter implements IAdversarialAdapter {
     }
 }
 
-/**
- * LIVE FIRE ADAPTER (APEX-DEV: "Vendor Agnostic")
- * Real-world execution with Circuit Breakers.
- */
 /**
  * LIVE FIRE ADAPTER (APEX-DEV: "Vendor Agnostic")
  * Real-world execution using the Core Adversarial Engine (PAIR).
@@ -326,42 +323,94 @@ export async function runBattery7_PlaywrightE2E(config: BatteryConfig): Promise<
 // SHARED ADVERSARIAL ENGINE (Reduces Duplication)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Tier-Based Concurrency Strategy
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CONCURRENCY_LIMITS = {
+    // SimulationAdapter: CPU-bound, no API calls, no rate limits
+    SIMULATION: 20,  // High concurrency safe
+
+    // LiveFireAdapter: Network-bound, API rate limits apply
+    LIVE_FIRE: 2,    // Conservative to stay under 60 RPM circuit breaker
+
+    // Default safety fallback
+    DEFAULT: 5,
+} as const;
+
+/**
+ * Execute iterations with controlled concurrency
+ * @param items - Array of items to process
+ * @param fn - Async function to execute per item
+ * @param concurrency - Max parallel executions
+ */
+async function executeWithConcurrency<T, R>(
+    items: T[],
+    fn: (item: T, index: number) => Promise<R>,
+    concurrency: number
+): Promise<R[]> {
+    const results: R[] = [];
+
+    for (let i = 0; i < items.length; i += concurrency) {
+        const chunk = items.slice(i, i + concurrency);
+        const chunkResults = await Promise.all(
+            chunk.map((item, idx) => fn(item, i + idx))
+        );
+        results.push(...chunkResults);
+    }
+
+    return results;
+}
+
 interface AdversarialIterationOptions<T> {
     iteration: number;
     adapter: IAdversarialAdapter;
     vector: T;
     vectorToGoal: (v: T) => string;
     batteryId: string;
-    reporter: any;
     config: BatteryConfig;
     reportResponse: boolean;
 }
 
+interface AdversarialResult {
+    blocked: number;
+    breaches: number;
+    drift: number;
+    event?: {
+        type: 'BREACH';
+        payload: Record<string, unknown>;
+    };
+}
+
 async function executeAdversarialIteration<T>(
     options: AdversarialIterationOptions<T>
-): Promise<{ blocked: number; breaches: number; drift: number }> {
-    const { iteration, adapter, vector, vectorToGoal, batteryId, reporter, config, reportResponse } = options;
+): Promise<AdversarialResult> {
+    const { iteration, adapter, vector, vectorToGoal, batteryId, config, reportResponse } = options;
     // REFACTOR-VERIFY: Parameter object pattern confirmed compliant with MAX_PARAMS rule.
     const goal = vectorToGoal(vector);
     const result = await adapter.executeAttack(goal);
     
     let breached = 0;
     let blocked = 0;
+    let event: AdversarialResult['event'] | undefined;
 
     if (result.success) {
         breached = 1;
-        await reporter.pushEvent(batteryId, 'BREACH', { 
-            iteration, 
-            prompt: result.prompt,
-            response: reportResponse && config.tier === 'CERTIFIED' 
-                ? result.response 
-                : '[REDACTED - SENSITIVE CONTENT]'
-        });
+        event = {
+            type: 'BREACH',
+            payload: {
+                iteration,
+                prompt: result.prompt,
+                response: reportResponse && config.tier === 'CERTIFIED'
+                    ? result.response
+                    : '[REDACTED - SENSITIVE CONTENT]'
+            }
+        };
     } else {
         blocked = 1;
     }
 
-    return { blocked, breaches: breached, drift: result.drift };
+    return { blocked, breaches: breached, drift: result.drift, event };
 }
 
 async function runGenericAdversarialBattery<T>(
@@ -395,40 +444,70 @@ async function runGenericAdversarialBattery<T>(
     let blocked = 0;
     let breaches = 0;
     let totalDrift = 0;
+    let processedCount = 0;
+    let lastProgressUpdate: Promise<void> = Promise.resolve();
     
     // Risk Management: Cap iterations
     const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
 
-    for (let i = 0; i < maxIterations; i++) {
-        const vector = vectors[i % vectors.length];
-        const result = await executeAdversarialIteration({
-            iteration: i,
-            adapter,
-            vector,
-            vectorToGoal,
-            batteryId,
-            reporter,
-            config,
-            reportResponse
-        });
+    // Concurrency Strategy
+    const concurrencyLimit = config.tier === 'CERTIFIED'
+        ? CONCURRENCY_LIMITS.LIVE_FIRE
+        : CONCURRENCY_LIMITS.SIMULATION;
 
-        blocked += result.blocked;
-        breaches += result.breaches;
-        totalDrift += result.drift;
+    const iterations = Array.from({ length: maxIterations }, (_, i) => i);
 
-        if ((i + 1) % 10 === 0) {
-            await reporter.upsertProgress({
+    const results = await executeWithConcurrency(
+        iterations,
+        async (i) => {
+            const vector = vectors[i % vectors.length];
+            const result = await executeAdversarialIteration({
+                iteration: i,
+                adapter,
+                vector,
+                vectorToGoal,
                 batteryId,
-                currentIteration: i + 1,
-                totalIterations: maxIterations,
-                blockedCount: blocked,
-                breachCount: breaches,
-                driftScore: totalDrift / (i + 1),
-                status: 'RUNNING',
+                config,
+                reportResponse
             });
+
+            // Shared state update (Atomic in JS event loop)
+            blocked += result.blocked;
+            breaches += result.breaches;
+            totalDrift += result.drift;
+            processedCount++;
+
+            if (processedCount % 10 === 0) {
+                // APEX-POWER: Fire-and-forget progress updates to avoid blocking the test loop.
+                // We keep track of the last update to ensure completion before battery exit.
+                lastProgressUpdate = reporter.upsertProgress({
+                    batteryId,
+                    currentIteration: processedCount,
+                    totalIterations: maxIterations,
+                    blockedCount: blocked,
+                    breachCount: breaches,
+                    driftScore: totalDrift / processedCount,
+                    status: 'RUNNING',
+                }).catch(err => console.error(`[${batteryId}] Progress update failed:`, err));
+            }
+
+            return { index: i, result };
+        },
+        concurrencyLimit
+    );
+
+    // CRITICAL: Preserve Event Ordering Despite Parallel Execution
+    // Sort results by original index before processing events
+    results.sort((a, b) => a.index - b.index);
+
+    for (const { result } of results) {
+        if (result.event) {
+            await reporter.pushEvent(batteryId, result.event.type, result.event.payload);
         }
     }
 
+    // Ensure final progress is synced before completing
+    await lastProgressUpdate;
     await reporter.pushEvent(batteryId, 'BATTERY_COMPLETED', { blocked, breaches });
 
     return {
@@ -508,6 +587,145 @@ export async function runBattery13_SupplyChain(config: BatteryConfig): Promise<B
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BATTERY 6: UNSAFE DESTRUCTION GATE (CRITICAL)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<BatteryResult> {
+    const reporter = createReporter(config.runId);
+    await reporter.pushEvent('B6', 'BATTERY_STARTED', { mode: 'SAFETY_VERIFICATION' });
+
+    // Save original environment
+    const originalSimMode = process.env.SIM_MODE;
+    const originalTenant = process.env.SANDBOX_TENANT;
+
+    let passed = false;
+    let details: Record<string, unknown> = {};
+
+    try {
+        // 1. Sabotage the environment to simulate an UNSAFE configuration
+        delete process.env.SIM_MODE;
+        delete process.env.SANDBOX_TENANT;
+
+        // 2. Reset the SafetyGuard Singleton to force it to re-read the (bad) environment
+        SafetyGuard.resetForTesting();
+        const badGuard = SafetyGuard.getInstance();
+
+        // 3. Attempt execution - MUST FAIL
+        // If this DOES NOT throw, we have a security hole.
+        badGuard.enforce('Battery6_DestructionTest');
+
+        // IF WE REACH HERE, THE GATE FAILED TO BLOCK US
+        passed = false;
+        details = { error: 'SafetyGuard failed to block execution with missing SIM_MODE' };
+        await reporter.pushEvent('B6', 'BREACH', { details: 'Gate failed to close' });
+
+    } catch (err) {
+        if (err instanceof SystemLockdownError) {
+            // SUCCESS: The gate blocked the unsafe attempt!
+            passed = true;
+            details = {
+                gateEnforced: true,
+                expectedError: err.message,
+                note: 'System correctly entered lockdown mode when environment was unsafe.'
+            };
+        } else {
+            // FAILED: It threw the wrong error (unexpected crash)
+            passed = false;
+            const msg = err instanceof Error ? err.message : String(err);
+            details = { error: `Unexpected error type: ${msg}` };
+        }
+    } finally {
+        // 4. Restore Environment (CRITICAL)
+        if (originalSimMode !== undefined) process.env.SIM_MODE = originalSimMode;
+        if (originalTenant !== undefined) process.env.SANDBOX_TENANT = originalTenant;
+
+        // Reset Guard again to restore safe state for other batteries
+        SafetyGuard.resetForTesting();
+        SafetyGuard.getInstance();
+    }
+
+    await reporter.pushEvent('B6', 'BATTERY_COMPLETED', { passed });
+
+    return {
+        batteryId: 'B6_UNSAFE_GATE',
+        status: passed ? 'PASSED' : 'FAILED',
+        iterations: 1,
+        blockedCount: passed ? 1 : 0,
+        breachCount: passed ? 0 : 1,
+        driftScore: 0,
+        duration: 50,
+        details,
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BATTERY 9: GOD MODE PREREQUISITE (Integration Handshake)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function runBattery9_IntegrationHandshake(config: BatteryConfig): Promise<BatteryResult> {
+    // Standard safety check first (we are in a valid run)
+    safetyGuard.enforce('Battery9_GodModePrereq');
+
+    const reporter = createReporter(config.runId);
+    await reporter.pushEvent('B9', 'BATTERY_STARTED', { check: 'PREREQUISITES' });
+
+    const checks: Record<string, boolean> = {
+        temporal_cluster: true, // Implicitly true if this activity is running
+        database_access: false,
+        events_table: false
+    };
+
+    let errorDetails = '';
+
+    try {
+        // Check Supabase / Database Access
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (supabaseUrl && supabaseKey) {
+            const client = createClient(supabaseUrl, supabaseKey);
+
+            // Validate table existence/access by doing a limit 0 query
+            const { error } = await client
+                .from('armageddon_events')
+                .select('event_id')
+                .limit(0);
+
+            if (!error) {
+                checks.database_access = true;
+                checks.events_table = true;
+            } else {
+                errorDetails = `DB Error: ${error.message}`;
+            }
+        } else {
+            errorDetails = 'Missing Supabase credentials';
+        }
+
+    } catch (err) {
+        errorDetails = err instanceof Error ? err.message : String(err);
+    }
+
+    const allPassed = Object.values(checks).every(v => v);
+
+    await reporter.pushEvent('B9', 'BATTERY_COMPLETED', { allPassed });
+
+    return {
+        batteryId: 'B9_GOD_MODE_PREREQ',
+        status: allPassed ? 'PASSED' : 'FAILED',
+        iterations: 1,
+        blockedCount: 0,
+        breachCount: allPassed ? 0 : 1,
+        driftScore: 0,
+        duration: 100,
+        details: {
+            checks,
+            error: errorDetails || undefined
+        }
+    };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -574,16 +792,8 @@ export async function runBattery4_SecurityAuth(c: BatteryConfig): Promise<Batter
     return { ...stubResult(c, 'B4_SECURITY_AUTH'), blockedCount: 1, details: { csrfBlocked: true } };
 }
 
-export async function runBattery6_UnsafeGate(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B6_UNSAFE_GATE'), blockedCount: 1, details: { gateEnforced: true } };
-}
-
 export async function runBattery8_AssetSmoke(c: BatteryConfig): Promise<BatteryResult> {
     return { ...stubResult(c, 'B8_ASSET_SMOKE'), iterations: 4, details: { assets: ['manifest', 'icon', 'html'] } };
-}
-
-export async function runBattery9_IntegrationHandshake(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B9_INTEGRATION_HANDSHAKE'), details: { checks: ['auth', 'health'] } };
 }
 
 export async function generateReport(state: WorkflowState): Promise<ArmageddonReport> {

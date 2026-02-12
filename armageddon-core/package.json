@@ -4,11 +4,14 @@
     "private": true,
     "description": "Armageddon Level 7 Certification Engine - Adversarial AI Testing Microservice",
     "main": "dist/index.js",
+    "bin": "./bin/armageddon.ts",
     "scripts": {
         "build": "tsc",
         "dev": "tsx watch src/worker.ts",
         "worker": "tsx src/worker.ts",
         "test": "vitest run",
+        "bench": "vitest bench",
+        "test:memory": "node --expose-gc --max-old-space-size=512 node_modules/vitest/vitest.mjs run --reporter=verbose",
         "typecheck": "tsc --noEmit",
         "lint": "eslint src --ext .ts"
     },
@@ -19,6 +22,8 @@
         "@temporalio/client": "^1.14.0",
         "@temporalio/worker": "^1.14.0",
         "@temporalio/workflow": "^1.14.0",
+        "commander": "^4.1.1",
+        "dotenv": "^17.2.4",
         "uuid": "^9.0.0"
     },
     "devDependencies": {

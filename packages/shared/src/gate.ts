@@ -97,13 +97,18 @@ function getSupabaseClient(): SupabaseClient {
 
 /**
  * Check if an organization is eligible to run a specific certification level.
+ * @param orgId - The organization ID
+ * @param requestedLevel - The requested certification level (1-7)
+ * @param batteries - Optional list of batteries to run
+ * @param supabaseClient - Optional injected Supabase client (for performance/testing)
  */
 export async function checkRunEligibility(
     orgId: string,
     requestedLevel: number,
-    batteries?: string[]
+    batteries?: string[],
+    supabaseClient?: SupabaseClient
 ): Promise<EligibilityResult> {
-    const supabase = getSupabaseClient();
+    const supabase = supabaseClient || getSupabaseClient();
     const DEFAULT_FAIL: EligibilityResult = {
         eligible: false,
         tier: 'free_dry',
@@ -246,9 +251,14 @@ const TIER_QUOTAS: Record<OrganizationTier, number> = {
 
 /**
  * Check if organization has remaining quota for this billing period.
+ * @param orgId - The organization ID
+ * @param supabaseClient - Optional injected Supabase client
  */
-export async function checkQuota(orgId: string): Promise<QuotaResult> {
-    const supabase = getSupabaseClient();
+export async function checkQuota(
+    orgId: string,
+    supabaseClient?: SupabaseClient
+): Promise<QuotaResult> {
+    const supabase = supabaseClient || getSupabaseClient();
 
     // Get organization tier
     const { data: org, error: orgError } = await supabase

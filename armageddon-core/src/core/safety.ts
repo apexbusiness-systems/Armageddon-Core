@@ -26,12 +26,18 @@ export class SafetyGuard {
 
   private readonly simMode: boolean;
   private readonly sandboxTenant: string | undefined;
-  private readonly productionPatterns = [
-    /prod/i,
-    /production/i,
-    /live/i,
-    /\.com$/,
-    /\.io$/,
+
+  // Confirmed Production Patterns (Phase 1)
+  private readonly productionPatterns: (RegExp | string)[] = [
+    /\.prod\./i,
+    /\.live\./i,
+    /production\./i,
+    /\.com$/i,      // Customer .com domains
+    /\.io$/i,       // Customer .io domains
+    /api\./i,       // API subdomains
+    'stripe.com',   // Payment processors
+    'aws.amazon.com',
+    'firebaseio.com'
   ];
 
   private constructor() {
@@ -73,10 +79,25 @@ export class SafetyGuard {
     }
 
     // CHECK 3: SANDBOX_TENANT must not match production patterns
+    this.assertNoProductionMatch(this.sandboxTenant, `SANDBOX_TENANT '${this.sandboxTenant}'`, ctx);
+  }
+
+  /**
+   * Asserts that a value does not match any production patterns.
+   * @throws SystemLockdownError if match found
+   */
+  private assertNoProductionMatch(value: string, label: string, contextSuffix: string = ''): void {
     for (const pattern of this.productionPatterns) {
-      if (pattern.test(this.sandboxTenant)) {
+      let matched = false;
+      if (pattern instanceof RegExp) {
+        matched = pattern.test(value);
+      } else if (typeof pattern === 'string') {
+        matched = value.includes(pattern);
+      }
+
+      if (matched) {
         throw new SystemLockdownError(
-          `SANDBOX_TENANT '${this.sandboxTenant}' matches production pattern.${ctx} Aborting.`
+          `${label} matches production pattern '${pattern}'.${contextSuffix} Aborting.`
         );
       }
     }
@@ -96,19 +117,23 @@ export class SafetyGuard {
 
   /**
    * Validates a target URL is not production.
-   * @throws SystemLockdownError if URL appears to be production
+   * @throws SystemLockdownError if URL appears to be production or invalid
    */
   public validateTarget(url: string): void {
-    const prodIndicators = ['prod', 'production', 'live', 'main'];
-    const lowerUrl = url.toLowerCase();
-
-    for (const indicator of prodIndicators) {
-      if (lowerUrl.includes(indicator)) {
-        throw new SystemLockdownError(
-          `Target URL '${url}' contains production indicator '${indicator}'. Refusing.`
-        );
-      }
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      throw new SystemLockdownError(`Invalid URL format: ${url}`);
     }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      throw new SystemLockdownError(
+        `Target URL '${url}' uses forbidden protocol '${parsedUrl.protocol}'. Only http and https are allowed.`
+      );
+    }
+
+    this.assertNoProductionMatch(parsedUrl.hostname, `Target URL hostname '${parsedUrl.hostname}'`);
   }
 }
 

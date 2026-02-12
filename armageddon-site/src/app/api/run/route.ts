@@ -7,7 +7,7 @@ UBE/**
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Client, Connection } from '@temporalio/client';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility, TASK_QUEUE_LEVEL_7, WORKFLOW_LEVEL_7 } from '@armageddon/shared';
 import { resolveCallerContext } from '@/lib/server/apexGate';
@@ -50,10 +50,16 @@ const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SUPABASE CLIENT
+// SUPABASE CLIENT (SINGLETON)
 // ═══════════════════════════════════════════════════════════════════════════
 
+let cachedSupabaseClient: SupabaseClient | null = null;
+
 function getSupabase() {
+    if (cachedSupabaseClient) {
+        return cachedSupabaseClient;
+    }
+
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -61,18 +67,30 @@ function getSupabase() {
         throw new Error('Missing Supabase credentials');
     }
 
-    return createClient(url, key, {
+    cachedSupabaseClient = createClient(url, key, {
         auth: { persistSession: false },
     });
+
+    return cachedSupabaseClient;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEMPORAL CLIENT
+// TEMPORAL CLIENT (SINGLETON + LAZY)
 // ═══════════════════════════════════════════════════════════════════════════
 
+let cachedTemporalClient: Client | null = null;
+let connectionPromise: Promise<Client> | null = null;
+
 async function getTemporalClient(): Promise<Client> {
-    const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
-    const namespace = process.env.TEMPORAL_NAMESPACE || 'default';
+    // Return cached client if available
+    if (cachedTemporalClient) {
+        return cachedTemporalClient;
+    }
+
+    // If connection is in progress, return that promise (prevents thundering herd)
+    if (connectionPromise) {
+        return connectionPromise;
+    }
 
     const connectionOptions: any = { address };
 
@@ -93,10 +111,24 @@ async function getTemporalClient(): Promise<Client> {
 
     const connection = await Connection.connect(connectionOptions);
 
-    return new Client({
-        connection,
-        namespace,
-    });
+        try {
+            const connection = await Connection.connect({ address });
+            const client = new Client({
+                connection,
+                namespace,
+            });
+
+            cachedTemporalClient = client;
+            return client;
+        } catch (error) {
+            console.error('Failed to connect to Temporal:', error);
+            throw error;
+        } finally {
+            connectionPromise = null; // Clear promise after success/failure
+        }
+    })();
+
+    return connectionPromise;
 }
 
 // ELIGIBILITY CHECK
@@ -181,7 +213,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         // STEP 2: Create run record
         // ═══════════════════════════════════════════════════════════════════
 
-        const supabase = getSupabase();
+        // Reuse the same supabase instance
         const runId = uuidv4();
         const workflowId = `armageddon-${runId}`;
 

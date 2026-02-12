@@ -105,7 +105,11 @@ async function startWorkflowApi(orgId: string, level: number, batteries: string[
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function DestructionConsole({ standalone = false, onStatusChange, status = 'idle' }: { readonly standalone?: boolean, readonly onStatusChange?: (status: Status) => void, readonly status?: Status }) {
+export default function DestructionConsole({
+    standalone = false,
+    onStatusChange,
+    status = 'idle'
+}: Readonly<DestructionConsoleProps>) {
     const [isRunning, setIsRunning] = useState(false);
     const [isComplete, setIsComplete] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
@@ -474,11 +478,11 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                 </motion.div>
 
                 <motion.div
-                    className="grid lg:grid-cols-2 gap-6 mb-8"
+                    className="grid lg:grid-cols-3 gap-6 mb-8"
                     initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    <div className="terminal flex flex-col h-[500px] border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm">
+                    <div className="lg:col-span-2 terminal flex flex-col h-[600px] border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm">
                         <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
                             <div className="flex items-center gap-3">
                                 <div className="flex gap-1" aria-hidden="true">
@@ -542,8 +546,8 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                         </div>
                     </div>
 
-                    <div className="flex flex-col h-[500px]">
-                        <div className="card-panel h-full border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm overflow-hidden flex flex-col">
+                    <div className="flex flex-col gap-6 h-[600px]">
+                        <div className="card-panel flex-1 border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm overflow-hidden flex flex-col">
                             <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
                                 <div className="flex items-center gap-3">
                                     <div className="grid grid-cols-2 gap-0.5" aria-hidden="true">
@@ -580,15 +584,6 @@ export default function DestructionConsole({ standalone = false, onStatusChange,
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </motion.div>
-
-                <motion.div
-                    className="flex justify-center w-full"
-                    initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.4 }}
-                >
-                    <div className="w-full max-w-3xl">
                         <LeaderboardWidget status={status} />
                     </div>
                 </motion.div>
