@@ -43,15 +43,8 @@ export class SupabaseReporter {
     private readonly client: SupabaseClient;
     private readonly runId: string;
 
-    constructor(runId: string) {
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!supabaseUrl || !supabaseKey) {
-            throw new Error('[Reporter] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
-        }
-
-        this.client = createClient(supabaseUrl, supabaseKey);
+    constructor(client: SupabaseClient, runId: string) {
+        this.client = client;
         this.runId = runId;
     }
 
@@ -153,5 +146,13 @@ export class SupabaseReporter {
  * Create a reporter instance for a run.
  */
 export function createReporter(runId: string): SupabaseReporter {
-    return new SupabaseReporter(runId);
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+        throw new Error('[Reporter] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
+    }
+
+    const client = createClient(supabaseUrl, supabaseKey);
+    return new SupabaseReporter(client, runId);
 }
