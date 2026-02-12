@@ -109,26 +109,19 @@ async function getTemporalClient(): Promise<Client> {
         connectionOptions.apiKey = process.env.TEMPORAL_API_KEY;
     }
 
-    const connection = await Connection.connect(connectionOptions);
+    try {
+        const connection = await Connection.connect(connectionOptions);
+        const client = new Client({
+            connection,
+            namespace: process.env.TEMPORAL_NAMESPACE || 'default', // Ensure namespace is used
+        });
 
-        try {
-            const connection = await Connection.connect({ address });
-            const client = new Client({
-                connection,
-                namespace,
-            });
-
-            cachedTemporalClient = client;
-            return client;
-        } catch (error) {
-            console.error('Failed to connect to Temporal:', error);
-            throw error;
-        } finally {
-            connectionPromise = null; // Clear promise after success/failure
-        }
-    })();
-
-    return connectionPromise;
+        cachedTemporalClient = client;
+        return client;
+    } catch (error) {
+        console.error('Failed to connect to Temporal:', error);
+        throw error;
+    }
 }
 
 // ELIGIBILITY CHECK

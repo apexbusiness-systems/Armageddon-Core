@@ -776,28 +776,36 @@ export interface ArmageddonReport {
     batteries: BatteryResult[];
 }
 
+
 // ═══════════════════════════════════════════════════════════════════════════
-// DIRECT EXPORTS (Required for Temporal proxyActivities)
+// FINALIZATION ACTIVITY
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function runBattery2_ChaosEngine(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B2_CHAOS_ENGINE'), details: { dedupeHitRate: 0.95 } };
+export interface FinalizeRunInput {
+    runId: string;
+    status: 'COMPLETED' | 'FAILED';
+    summary: {
+        grade?: string;
+        score?: number;
+        batteries?: number;
+        duration?: number;
+        error?: string;
+    };
 }
 
-export async function runBattery3_PromptInjection(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B3_PROMPT_INJECTION'), iterations: INJECTION_PATTERNS.length, blockedCount: INJECTION_PATTERNS.length };
+export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void> {
+    safetyGuard.enforce('FinalizeRun');
+    const reporter = createReporter(input.runId);
+    
+    await reporter.pushEvent('SYSTEM', 'RUN_COMPLETED', {
+        status: input.status,
+        summary: input.summary
+    });
+    
+    // In a real implementation, this might update a database record's final status
+    // For now, the event log is the source of truth.
+    console.log(`[Run ${input.runId}] Finalized: ${input.status}`, input.summary);
 }
-
-export async function runBattery4_SecurityAuth(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B4_SECURITY_AUTH'), blockedCount: 1, details: { csrfBlocked: true } };
-}
-
-export async function runBattery8_AssetSmoke(c: BatteryConfig): Promise<BatteryResult> {
-    return { ...stubResult(c, 'B8_ASSET_SMOKE'), iterations: 4, details: { assets: ['manifest', 'icon', 'html'] } };
-}
-
-export async function generateReport(state: WorkflowState): Promise<ArmageddonReport> {
-    return {
         meta: { timestamp: new Date().toISOString(), duration: Date.now() - state.startTime },
         status: state.status,
         grade: calculateGrade(state.results),

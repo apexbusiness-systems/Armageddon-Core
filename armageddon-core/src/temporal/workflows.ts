@@ -50,7 +50,8 @@ const {
     runBattery11_ToolMisuse,
     runBattery12_MemoryPoison,
     runBattery13_SupplyChain,
-    generateReport
+    generateReport,
+    finalizeRunActivity
 } = proxyActivities<typeof activities>({
     startToCloseTimeout: TIMEOUTS.START_TO_CLOSE,
 });
