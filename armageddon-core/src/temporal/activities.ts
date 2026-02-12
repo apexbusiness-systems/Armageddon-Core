@@ -17,7 +17,7 @@ import {
 } from './prompts';
 
 import { safetyGuard } from '../core/safety';
-import { createReporter, EventType } from '../core/reporter';
+import { createReporter } from '../core/reporter';
 import { hashString } from '../core/utils';
 import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial';
 import { runStressTest, StressTestConfig } from '../core/stress';
@@ -48,13 +48,7 @@ export interface BatteryConfig {
     targetModel?: AdversarialModel;
 }
 
-/**
- * @internal
- * Exported for testing purposes only.
- * DO NOT use directly in production code.
- * This interface may change without notice.
- */
-export interface AttackResult {
+interface AttackResult {
     success: boolean;
     prompt: string;
     response: string;
@@ -66,26 +60,15 @@ export interface AttackResult {
 // 2. THE UNIVERSAL ADAPTER (Strategy Pattern)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * @internal
- * Exported for testing purposes only.
- * DO NOT use directly in production code.
- * This interface may change without notice.
- */
-export interface IAdversarialAdapter {
+interface IAdversarialAdapter {
     executeAttack(goal: string): Promise<AttackResult>;
 }
 
 /**
  * SIMULATION ADAPTER (OMNIFINANCE: "Marketing Engine")
  * Deterministic, Educational, Upsell-Driven.
- *
- * @internal
- * Exported for testing purposes only.
- * DO NOT instantiate directly in production code.
- * Use runGenericAdversarialBattery() which handles adapter selection.
  */
-export class SimulationAdapter implements IAdversarialAdapter {
+class SimulationAdapter implements IAdversarialAdapter {
     private readonly traceId: string;
     
     constructor(runId: string) {
@@ -356,7 +339,7 @@ interface AdversarialIterationOptions<T> {
 
 async function executeAdversarialIteration<T>(
     options: AdversarialIterationOptions<T>
-): Promise<{ blocked: number; breaches: number; drift: number; event?: { eventType: EventType; payload: any } }> {
+): Promise<{ blocked: number; breaches: number; drift: number }> {
     const { iteration, adapter, vector, vectorToGoal, batteryId, reporter, config, reportResponse } = options;
     // REFACTOR-VERIFY: Parameter object pattern confirmed compliant with MAX_PARAMS rule.
     const goal = vectorToGoal(vector);
@@ -364,25 +347,21 @@ async function executeAdversarialIteration<T>(
     
     let breached = 0;
     let blocked = 0;
-    let event;
 
     if (result.success) {
         breached = 1;
-        event = {
-            eventType: 'BREACH' as EventType,
-            payload: {
-                iteration,
-                prompt: result.prompt,
-                response: reportResponse && config.tier === 'CERTIFIED'
-                    ? result.response
-                    : '[REDACTED - SENSITIVE CONTENT]'
-            }
-        };
+        await reporter.pushEvent(batteryId, 'BREACH', {
+            iteration,
+            prompt: result.prompt,
+            response: reportResponse && config.tier === 'CERTIFIED'
+                ? result.response
+                : '[REDACTED - SENSITIVE CONTENT]'
+        });
     } else {
         blocked = 1;
     }
 
-    return { blocked, breaches: breached, drift: result.drift, event };
+    return { blocked, breaches: breached, drift: result.drift };
 }
 
 async function runGenericAdversarialBattery<T>(
@@ -417,8 +396,6 @@ async function runGenericAdversarialBattery<T>(
     let breaches = 0;
     let totalDrift = 0;
     let lastProgressUpdate: Promise<void> = Promise.resolve();
-    let eventBuffer: Array<{ eventType: EventType; payload: any }> = [];
-    const BATCH_SIZE = 10;
     
     // Risk Management: Cap iterations
     const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
@@ -435,15 +412,6 @@ async function runGenericAdversarialBattery<T>(
             config,
             reportResponse
         });
-
-        if (result.event) {
-            eventBuffer.push(result.event);
-        }
-
-        if (eventBuffer.length >= BATCH_SIZE) {
-            await reporter.pushEvents(batteryId, eventBuffer);
-            eventBuffer = [];
-        }
 
         blocked += result.blocked;
         breaches += result.breaches;
@@ -462,11 +430,6 @@ async function runGenericAdversarialBattery<T>(
                 status: 'RUNNING',
             }).catch(err => console.error(`[${batteryId}] Progress update failed:`, err));
         }
-    }
-
-    // Flush any remaining events
-    if (eventBuffer.length > 0) {
-        await reporter.pushEvents(batteryId, eventBuffer);
     }
 
     // Ensure final progress is synced before completing
