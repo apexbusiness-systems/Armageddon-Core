@@ -6,7 +6,7 @@
  */
 
 import { Context } from '@temporalio/activity';
-import { enforceSafetyGuard } from './safety';
+import { safetyGuard } from '../safety';
 import { secureRandom } from '../utils';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -70,7 +70,7 @@ async function runAdversarialBattery(
     vectorToString: (v: any) => string,
     breachProbability: number
 ): Promise<BatteryResult> {
-    enforceSafetyGuard();
+    safetyGuard.enforce('AdversarialBattery');
 
     const cfg = { ...createDefaultConfig(runId), ...config };
     const startTime = Date.now();
