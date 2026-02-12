@@ -61,7 +61,7 @@ interface AttackResult {
 // 2. THE UNIVERSAL ADAPTER (Strategy Pattern)
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface IAdversarialAdapter {
+export interface IAdversarialAdapter {
     executeAttack(goal: string): Promise<AttackResult>;
 }
 
@@ -69,7 +69,7 @@ interface IAdversarialAdapter {
  * SIMULATION ADAPTER (OMNIFINANCE: "Marketing Engine")
  * Deterministic, Educational, Upsell-Driven.
  */
-class SimulationAdapter implements IAdversarialAdapter {
+export class SimulationAdapter implements IAdversarialAdapter {
     private readonly traceId: string;
     
     constructor(runId: string) {
@@ -323,42 +323,94 @@ export async function runBattery7_PlaywrightE2E(config: BatteryConfig): Promise<
 // SHARED ADVERSARIAL ENGINE (Reduces Duplication)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Tier-Based Concurrency Strategy
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CONCURRENCY_LIMITS = {
+    // SimulationAdapter: CPU-bound, no API calls, no rate limits
+    SIMULATION: 20,  // High concurrency safe
+
+    // LiveFireAdapter: Network-bound, API rate limits apply
+    LIVE_FIRE: 2,    // Conservative to stay under 60 RPM circuit breaker
+
+    // Default safety fallback
+    DEFAULT: 5,
+} as const;
+
+/**
+ * Execute iterations with controlled concurrency
+ * @param items - Array of items to process
+ * @param fn - Async function to execute per item
+ * @param concurrency - Max parallel executions
+ */
+async function executeWithConcurrency<T, R>(
+    items: T[],
+    fn: (item: T, index: number) => Promise<R>,
+    concurrency: number
+): Promise<R[]> {
+    const results: R[] = [];
+
+    for (let i = 0; i < items.length; i += concurrency) {
+        const chunk = items.slice(i, i + concurrency);
+        const chunkResults = await Promise.all(
+            chunk.map((item, idx) => fn(item, i + idx))
+        );
+        results.push(...chunkResults);
+    }
+
+    return results;
+}
+
 interface AdversarialIterationOptions<T> {
     iteration: number;
     adapter: IAdversarialAdapter;
     vector: T;
     vectorToGoal: (v: T) => string;
     batteryId: string;
-    reporter: any;
     config: BatteryConfig;
     reportResponse: boolean;
 }
 
+interface AdversarialResult {
+    blocked: number;
+    breaches: number;
+    drift: number;
+    event?: {
+        type: 'BREACH';
+        payload: Record<string, unknown>;
+    };
+}
+
 async function executeAdversarialIteration<T>(
     options: AdversarialIterationOptions<T>
-): Promise<{ blocked: number; breaches: number; drift: number }> {
-    const { iteration, adapter, vector, vectorToGoal, batteryId, reporter, config, reportResponse } = options;
+): Promise<AdversarialResult> {
+    const { iteration, adapter, vector, vectorToGoal, batteryId, config, reportResponse } = options;
     // REFACTOR-VERIFY: Parameter object pattern confirmed compliant with MAX_PARAMS rule.
     const goal = vectorToGoal(vector);
     const result = await adapter.executeAttack(goal);
     
     let breached = 0;
     let blocked = 0;
+    let event: AdversarialResult['event'] | undefined;
 
     if (result.success) {
         breached = 1;
-        await reporter.pushEvent(batteryId, 'BREACH', {
-            iteration,
-            prompt: result.prompt,
-            response: reportResponse && config.tier === 'CERTIFIED'
-                ? result.response
-                : '[REDACTED - SENSITIVE CONTENT]'
-        });
+        event = {
+            type: 'BREACH',
+            payload: {
+                iteration,
+                prompt: result.prompt,
+                response: reportResponse && config.tier === 'CERTIFIED'
+                    ? result.response
+                    : '[REDACTED - SENSITIVE CONTENT]'
+            }
+        };
     } else {
         blocked = 1;
     }
 
-    return { blocked, breaches: breached, drift: result.drift };
+    return { blocked, breaches: breached, drift: result.drift, event };
 }
 
 async function runGenericAdversarialBattery<T>(
@@ -392,40 +444,65 @@ async function runGenericAdversarialBattery<T>(
     let blocked = 0;
     let breaches = 0;
     let totalDrift = 0;
+    let processedCount = 0;
     let lastProgressUpdate: Promise<void> = Promise.resolve();
     
     // Risk Management: Cap iterations
     const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
 
-    for (let i = 0; i < maxIterations; i++) {
-        const vector = vectors[i % vectors.length];
-        const result = await executeAdversarialIteration({
-            iteration: i,
-            adapter,
-            vector,
-            vectorToGoal,
-            batteryId,
-            reporter,
-            config,
-            reportResponse
-        });
+    // Concurrency Strategy
+    const concurrencyLimit = config.tier === 'CERTIFIED'
+        ? CONCURRENCY_LIMITS.LIVE_FIRE
+        : CONCURRENCY_LIMITS.SIMULATION;
 
-        blocked += result.blocked;
-        breaches += result.breaches;
-        totalDrift += result.drift;
+    const iterations = Array.from({ length: maxIterations }, (_, i) => i);
 
-        if ((i + 1) % 10 === 0) {
-            // APEX-POWER: Fire-and-forget progress updates to avoid blocking the test loop.
-            // We keep track of the last update to ensure completion before battery exit.
-            lastProgressUpdate = reporter.upsertProgress({
+    const results = await executeWithConcurrency(
+        iterations,
+        async (i) => {
+            const vector = vectors[i % vectors.length];
+            const result = await executeAdversarialIteration({
+                iteration: i,
+                adapter,
+                vector,
+                vectorToGoal,
                 batteryId,
-                currentIteration: i + 1,
-                totalIterations: maxIterations,
-                blockedCount: blocked,
-                breachCount: breaches,
-                driftScore: totalDrift / (i + 1),
-                status: 'RUNNING',
-            }).catch(err => console.error(`[${batteryId}] Progress update failed:`, err));
+                config,
+                reportResponse
+            });
+
+            // Shared state update (Atomic in JS event loop)
+            blocked += result.blocked;
+            breaches += result.breaches;
+            totalDrift += result.drift;
+            processedCount++;
+
+            if (processedCount % 10 === 0) {
+                // APEX-POWER: Fire-and-forget progress updates to avoid blocking the test loop.
+                // We keep track of the last update to ensure completion before battery exit.
+                lastProgressUpdate = reporter.upsertProgress({
+                    batteryId,
+                    currentIteration: processedCount,
+                    totalIterations: maxIterations,
+                    blockedCount: blocked,
+                    breachCount: breaches,
+                    driftScore: totalDrift / processedCount,
+                    status: 'RUNNING',
+                }).catch(err => console.error(`[${batteryId}] Progress update failed:`, err));
+            }
+
+            return { index: i, result };
+        },
+        concurrencyLimit
+    );
+
+    // CRITICAL: Preserve Event Ordering Despite Parallel Execution
+    // Sort results by original index before processing events
+    results.sort((a, b) => a.index - b.index);
+
+    for (const { result } of results) {
+        if (result.event) {
+            await reporter.pushEvent(batteryId, result.event.type, result.event.payload);
         }
     }
 
