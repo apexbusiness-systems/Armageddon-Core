@@ -3,8 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import 'dotenv/config';
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://qhjqselqpkfqjfpuxykb.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+    console.error('❌ Error: SUPABASE_URL is required');
+    process.exit(1);
+}
 
 if (!supabaseKey) {
     console.error('❌ Error: SUPABASE_SERVICE_ROLE_KEY is required');
