@@ -35,24 +35,13 @@ describe('Reporter Batching Performance', () => {
     }
   }, { iterations: 1 });
 
-  bench('Batched pushEvents (Proposed)', async () => {
-    // Note: We are testing against the intended API even if not yet implemented
-    // This will fail to compile or run until Step 2 is done,
-    // but we can also use a temporary mock/cast if we want to run it now.
+  bench('Batched pushEvents (Optimized)', async () => {
     const events = Array.from({ length: EVENT_COUNT }, (_, i) => ({
       batteryId: 'B1',
       eventType: 'ATTACK_BLOCKED' as any,
       payload: { iteration: i }
     }));
 
-    // We cast to any here because pushEvents doesn't exist yet
-    if ((reporter as any).pushEvents) {
-        await (reporter as any).pushEvents(events);
-    } else {
-        // Fallback simulation for baseline if pushEvents not yet there
-        // This allows us to establish a baseline before the method exists
-        const rows = events.map(e => ({ ...e, runId: TEST_RUN_ID, timestamp: new Date().toISOString() }));
-        await mockInsert(rows);
-    }
+    await reporter.pushEvents(events);
   }, { iterations: 1 });
 });
