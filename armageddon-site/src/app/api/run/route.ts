@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Client, Connection } from '@temporalio/client';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility } from '@armageddon/shared';
 
@@ -44,16 +44,10 @@ const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SUPABASE CLIENT (SINGLETON)
+// SUPABASE CLIENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-let cachedSupabaseClient: SupabaseClient | null = null;
-
 function getSupabase() {
-    if (cachedSupabaseClient) {
-        return cachedSupabaseClient;
-    }
-
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -61,54 +55,25 @@ function getSupabase() {
         throw new Error('Missing Supabase credentials');
     }
 
-    cachedSupabaseClient = createClient(url, key, {
+    return createClient(url, key, {
         auth: { persistSession: false },
     });
-
-    return cachedSupabaseClient;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEMPORAL CLIENT (SINGLETON + LAZY)
+// TEMPORAL CLIENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-let cachedTemporalClient: Client | null = null;
-let connectionPromise: Promise<Client> | null = null;
-
 async function getTemporalClient(): Promise<Client> {
-    // Return cached client if available
-    if (cachedTemporalClient) {
-        return cachedTemporalClient;
-    }
+    const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
+    const namespace = process.env.TEMPORAL_NAMESPACE || 'default';
 
-    // If connection is in progress, return that promise (prevents thundering herd)
-    if (connectionPromise) {
-        return connectionPromise;
-    }
+    const connection = await Connection.connect({ address });
 
-    // Create new connection
-    connectionPromise = (async () => {
-        const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
-        const namespace = process.env.TEMPORAL_NAMESPACE || 'default';
-
-        try {
-            const connection = await Connection.connect({ address });
-            const client = new Client({
-                connection,
-                namespace,
-            });
-
-            cachedTemporalClient = client;
-            return client;
-        } catch (error) {
-            console.error('Failed to connect to Temporal:', error);
-            throw error;
-        } finally {
-            connectionPromise = null; // Clear promise after success/failure
-        }
-    })();
-
-    return connectionPromise;
+    return new Client({
+        connection,
+        namespace,
+    });
 }
 
 // ELIGIBILITY CHECK
@@ -158,16 +123,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         // STEP 1: Check eligibility (including battery customization)
         // ═══════════════════════════════════════════════════════════════════
 
-        // Get singleton Supabase client
-        const supabase = getSupabase();
-
-        // Pass injected client for performance
-        const eligibility = await checkRunEligibility(
-            organizationId,
-            level,
-            validatedBatteries,
-            supabase
-        );
+        const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries);
 
         if (!eligibility.eligible) {
             return NextResponse.json(
@@ -185,7 +141,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         // STEP 2: Create run record
         // ═══════════════════════════════════════════════════════════════════
 
-        // Reuse the same supabase instance
+        const supabase = getSupabase();
         const runId = uuidv4();
         const workflowId = `armageddon-${runId}`;
 
