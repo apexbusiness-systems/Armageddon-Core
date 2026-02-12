@@ -39,7 +39,6 @@ export class CircuitBreaker {
     private requestTimestamps: number[] = [];
     private consecutiveErrors: number = 0;
     private lastTripTime: number = 0;
-    private parent?: CircuitBreaker;
 
     constructor(
         config: Partial<CircuitBreakerConfig> = {},
@@ -50,19 +49,10 @@ export class CircuitBreaker {
         this.metrics = this.createEmptyMetrics();
     }
 
-    setParent(parent: CircuitBreaker): void {
-        this.parent = parent;
-    }
-
     /**
      * Check if a request can proceed
      */
     canProceed(): boolean {
-        // Check parent circuit state first
-        if (this.parent && !this.parent.canProceed()) {
-            return false;
-        }
-
         // Check circuit state
         if (this.state === 'OPEN') {
             // Check if cooldown expired
@@ -101,12 +91,6 @@ export class CircuitBreaker {
      * Record a successful request
      */
     recordSuccess(inputTokens: number, outputTokens: number, latencyMs: number): void {
-        const sanitizedLatencyMs = Math.max(0, latencyMs);
-
-        if (this.parent) {
-            this.parent.recordSuccess(inputTokens, outputTokens, sanitizedLatencyMs);
-        }
-
         this.requestTimestamps.push(Date.now());
         this.consecutiveErrors = 0;
         
@@ -120,7 +104,7 @@ export class CircuitBreaker {
         this.metrics.totalTokens += inputTokens + outputTokens;
         this.metrics.totalCostUSD += cost;
         this.metrics.avgLatencyMs = 
-            (this.metrics.avgLatencyMs * (this.metrics.totalCalls - 1) + sanitizedLatencyMs) / this.metrics.totalCalls;
+            (this.metrics.avgLatencyMs * (this.metrics.totalCalls - 1) + latencyMs) / this.metrics.totalCalls;
         this.metrics.lastCallAt = new Date();
     }
 
@@ -128,10 +112,6 @@ export class CircuitBreaker {
      * Record a failed request
      */
     recordError(): void {
-        if (this.parent) {
-            this.parent.recordError();
-        }
-
         this.consecutiveErrors++;
         this.metrics.errorCount++;
         this.metrics.lastCallAt = new Date();
@@ -231,9 +211,7 @@ export class CircuitBreakerRegistry {
 
     getOrCreate(providerId: string, config?: Partial<CircuitBreakerConfig>): CircuitBreaker {
         if (!this.breakers.has(providerId)) {
-            const breaker = new CircuitBreaker(config);
-            breaker.setParent(this.globalBreaker);
-            this.breakers.set(providerId, breaker);
+            this.breakers.set(providerId, new CircuitBreaker(config));
         }
         return this.breakers.get(providerId)!;
     }

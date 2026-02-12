@@ -8,6 +8,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 describe('SupabaseReporter', () => {
+  const originalEnv = process.env;
   let mockInsert: Mock;
   let mockUpsert: Mock;
   let mockUpdate: Mock;
@@ -15,6 +16,10 @@ describe('SupabaseReporter', () => {
   let mockClient: any;
 
   beforeEach(() => {
+    process.env = { ...originalEnv };
+    process.env.SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-key';
+
     mockInsert = vi.fn().mockResolvedValue({ error: null });
     mockUpsert = vi.fn().mockResolvedValue({ error: null });
     mockUpdate = vi.fn().mockResolvedValue({ error: null });
@@ -33,9 +38,12 @@ describe('SupabaseReporter', () => {
     mockClient = {
       from: mockFrom,
     };
+
+    (createClient as Mock).mockReturnValue(mockClient);
   });
 
   afterEach(() => {
+    process.env = originalEnv;
     vi.clearAllMocks();
   });
 

@@ -78,10 +78,8 @@ export class SupabaseReporter {
      */
     async pushEvents(
         batteryId: string,
-        events: Array<{ eventType: EventType; payload?: Record<string, unknown> }>
+        events: { eventType: EventType; payload?: Record<string, unknown> }[]
     ): Promise<void> {
-        if (events.length === 0) return;
-
         const rows: ArmageddonEvent[] = events.map(e => ({
             runId: this.runId,
             batteryId,

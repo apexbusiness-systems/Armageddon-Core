@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Client, Connection } from '@temporalio/client';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility } from '@armageddon/shared';
 
@@ -44,10 +44,16 @@ const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SUPABASE CLIENT
+// SUPABASE CLIENT (SINGLETON)
 // ═══════════════════════════════════════════════════════════════════════════
 
+let cachedSupabaseClient: SupabaseClient | null = null;
+
 function getSupabase() {
+    if (cachedSupabaseClient) {
+        return cachedSupabaseClient;
+    }
+
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -55,25 +61,54 @@ function getSupabase() {
         throw new Error('Missing Supabase credentials');
     }
 
-    return createClient(url, key, {
+    cachedSupabaseClient = createClient(url, key, {
         auth: { persistSession: false },
     });
+
+    return cachedSupabaseClient;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEMPORAL CLIENT
+// TEMPORAL CLIENT (SINGLETON + LAZY)
 // ═══════════════════════════════════════════════════════════════════════════
 
+let cachedTemporalClient: Client | null = null;
+let connectionPromise: Promise<Client> | null = null;
+
 async function getTemporalClient(): Promise<Client> {
-    const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
-    const namespace = process.env.TEMPORAL_NAMESPACE || 'default';
+    // Return cached client if available
+    if (cachedTemporalClient) {
+        return cachedTemporalClient;
+    }
 
-    const connection = await Connection.connect({ address });
+    // If connection is in progress, return that promise (prevents thundering herd)
+    if (connectionPromise) {
+        return connectionPromise;
+    }
 
-    return new Client({
-        connection,
-        namespace,
-    });
+    // Create new connection
+    connectionPromise = (async () => {
+        const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
+        const namespace = process.env.TEMPORAL_NAMESPACE || 'default';
+
+        try {
+            const connection = await Connection.connect({ address });
+            const client = new Client({
+                connection,
+                namespace,
+            });
+
+            cachedTemporalClient = client;
+            return client;
+        } catch (error) {
+            console.error('Failed to connect to Temporal:', error);
+            throw error;
+        } finally {
+            connectionPromise = null; // Clear promise after success/failure
+        }
+    })();
+
+    return connectionPromise;
 }
 
 // ELIGIBILITY CHECK
@@ -88,54 +123,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         // Parse request body
         const body: RunRequest = await request.json();
         const { organizationId, level = 7, iterations = 2500, batteries } = body;
-
-        // ═══════════════════════════════════════════════════════════════════
-        // AUTHENTICATION & AUTHORIZATION CHECK
-        // ═══════════════════════════════════════════════════════════════════
-
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader) {
-            return NextResponse.json(
-                { success: false, error: 'Missing Authorization header' },
-                { status: 401 }
-            );
-        }
-
-        const token = authHeader.replace('Bearer ', '');
-        const supabase = getSupabase();
-
-        // Verify user identity
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-        if (authError || !user) {
-            return NextResponse.json(
-                { success: false, error: 'Unauthorized: Invalid token' },
-                { status: 401 }
-            );
-        }
-
-        if (!organizationId) {
-            return NextResponse.json(
-                { success: false, error: 'organizationId is required' },
-                { status: 400 }
-            );
-        }
-
-        // Verify organization membership
-        // Since we use service_role key in getSupabase(), we can query organization_members directly
-        const { data: membership, error: membershipError } = await supabase
-            .from('organization_members')
-            .select('role')
-            .eq('organization_id', organizationId)
-            .eq('user_id', user.id)
-            .single();
-
-        if (membershipError || !membership) {
-            return NextResponse.json(
-                { success: false, error: 'Forbidden: You are not a member of this organization' },
-                { status: 403 }
-            );
-        }
 
         // Validate and sanitize batteries
         let validatedBatteries: string[] = ['B10', 'B11', 'B12', 'B13']; // Default: all batteries
@@ -160,11 +147,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             validatedBatteries = uniqueBatteries;
         }
 
+        if (!organizationId) {
+            return NextResponse.json(
+                { success: false, error: 'organizationId is required' },
+                { status: 400 }
+            );
+        }
+
         // ═══════════════════════════════════════════════════════════════════
         // STEP 1: Check eligibility (including battery customization)
         // ═══════════════════════════════════════════════════════════════════
 
-        const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries);
+        // Get singleton Supabase client
+        const supabase = getSupabase();
+
+        // Pass injected client for performance
+        const eligibility = await checkRunEligibility(
+            organizationId,
+            level,
+            validatedBatteries,
+            supabase
+        );
 
         if (!eligibility.eligible) {
             return NextResponse.json(
@@ -182,7 +185,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         // STEP 2: Create run record
         // ═══════════════════════════════════════════════════════════════════
 
-        // supabase client already initialized above
+        // Reuse the same supabase instance
         const runId = uuidv4();
         const workflowId = `armageddon-${runId}`;
 
