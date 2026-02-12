@@ -1,8 +1,13 @@
+import 'dotenv/config';
 
 const ENDPOINT = 'http://localhost:3000/api/run';
 export const config = { endpoint: ENDPOINT };
 // This secret is for local verification loop
-const secret = '6f7679a4675ad424e30873f5f5a45db2c90e79cdaa57101f8a60c54';
+const secret = process.env.ARMAGEDDON_VERIFICATION_SECRET || '';
+
+if (!secret) {
+    console.warn('⚠️ Warning: ARMAGEDDON_VERIFICATION_SECRET is not set. Using empty string for authorization.');
+}
 
 console.log('🚀 Verifying Armageddon Backend...');
 console.log(`Target: ${ENDPOINT}`);
