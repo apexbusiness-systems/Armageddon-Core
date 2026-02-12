@@ -23,7 +23,7 @@ async function connectWithRetry(): Promise<NativeConnection> {
             
             let tlsConfig = undefined;
             if (process.env.TEMPORAL_CERT_PATH && process.env.TEMPORAL_KEY_PATH) {
-                const fs = require('fs');
+                const fs = require('node:fs');
                 tlsConfig = {
                     clientCertPair: {
                         crt: fs.readFileSync(process.env.TEMPORAL_CERT_PATH),

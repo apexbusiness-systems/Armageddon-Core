@@ -1,7 +1,7 @@
 
 const forge = require('node-forge');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const certsDir = path.join(__dirname, '../certs');
 if (!fs.existsSync(certsDir)) {
