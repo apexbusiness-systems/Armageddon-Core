@@ -81,6 +81,35 @@ export class SupabaseReporter {
     }
 
     /**
+     * Push multiple events to armageddon_events table in a single batch.
+     */
+    async pushEvents(
+        events: Array<{
+            batteryId: string;
+            eventType: EventType;
+            payload?: Record<string, unknown>;
+        }>
+    ): Promise<void> {
+        if (events.length === 0) return;
+
+        const rows: ArmageddonEvent[] = events.map(e => ({
+            runId: this.runId,
+            batteryId: e.batteryId,
+            eventType: e.eventType,
+            payload: e.payload,
+            timestamp: new Date().toISOString(),
+        }));
+
+        const { error } = await this.client
+            .from('armageddon_events')
+            .insert(rows);
+
+        if (error) {
+            console.error(`[Reporter] Failed to push ${events.length} events:`, error);
+        }
+    }
+
+    /**
      * Upsert progress to armageddon_runs table (every N iterations).
      */
     async upsertProgress(progress: Omit<RunProgress, 'runId' | 'updatedAt'>): Promise<void> {

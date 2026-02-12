@@ -125,6 +125,20 @@ async function getTemporalClient(): Promise<Client> {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// RATE LIMITERS (MODULE-LEVEL SINGLETONS)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ipLimiter = new RateLimiter({
+    intervalMs: 60 * 1000, // 1 minute
+    limit: 10,             // 10 requests per minute per IP
+});
+
+const orgLimiter = new RateLimiter({
+    intervalMs: 60 * 1000, // 1 minute
+    limit: 5,              // 5 runs per minute per organization
+});
+
 // ELIGIBILITY CHECK
 // Using centralized checkRunEligibility from armageddon-core/src/core/monetization/gate.ts
 
@@ -134,10 +148,29 @@ async function getTemporalClient(): Promise<Client> {
 
 export async function POST(request: NextRequest): Promise<NextResponse<RunResponse>> {
     try {
+        // 1. IP-based Rate Limiting (Pre-parsing)
+        const ip = request.headers.get('x-forwarded-for') || 'unknown';
+        if (!ipLimiter.check(ip)) {
+            console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
+            return NextResponse.json(
+                { success: false, error: 'Too many requests. Please try again in a minute.' },
+                { status: 429 }
+            );
+        }
+
         // Parse request body
         const body: RunRequest = await request.json();
         const supabase = getSupabase();
         let { organizationId, level = 7, iterations = 2500, batteries } = body;
+
+        // 2. Organization-based Rate Limiting
+        if (organizationId && !orgLimiter.check(organizationId)) {
+            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+            return NextResponse.json(
+                { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
+                { status: 429 }
+            );
+        }
 
         // Validate and sanitize batteries
         let validatedBatteries: string[] = ['B10', 'B11', 'B12', 'B13']; // Default: all batteries

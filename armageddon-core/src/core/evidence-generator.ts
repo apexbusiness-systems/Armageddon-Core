@@ -4,7 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ArmageddonReport, BatteryResult } from '../temporal/activities';
+import { ArmageddonReport } from '../temporal/activities';
 
 export interface EvidenceOptions {
     seed: number;
@@ -26,9 +26,9 @@ Issued by: APEX Business Systems Ltd.
 const LEGAL_HEADER_MD = `> **Legal Notice:** This certification is valid only for the specific build, configuration, and environment tested at the time of this run. It does not constitute SOC 2, ISO, or compliance certification, nor does it guarantee breach prevention.`;
 
 export class EvidenceGenerator {
-    private report: ArmageddonReport;
-    private runId: string;
-    private options: EvidenceOptions;
+    private readonly report: ArmageddonReport;
+    private readonly runId: string;
+    private readonly options: EvidenceOptions;
 
     constructor(report: ArmageddonReport, runId: string, options: EvidenceOptions) {
         this.report = report;
@@ -39,11 +39,11 @@ export class EvidenceGenerator {
     private parseBatteryId(fullId: string): { id: number; name: string } {
         // Format: "B1_CHAOS_STRESS" -> id: 1, name: "Chaos Stress"
         // Format: "B10_GOAL_HIJACK" -> id: 10, name: "Goal Hijack"
-        const match = fullId.match(/^B(\d+)_(.+)$/);
+        const match = /^B(\d+)_(.+)$/.exec(fullId);
         if (match) {
             return {
-                id: parseInt(match[1], 10),
-                name: match[2].replace(/_/g, ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())
+                id: Number.parseInt(match[1], 10),
+                name: match[2].replaceAll('_', ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase())
             };
         }
         return { id: 0, name: fullId };

@@ -114,8 +114,5 @@ if (import.meta.url && process.argv[1] && import.meta.url.endsWith(process.argv[
 
 // Just run if executed directly:
 if (import.meta.url === `file://${process.argv[1]}`) {
-     runWorker().catch(err => {
-         console.error(err);
-         process.exit(1);
-     });
+    await runWorker();
 }

@@ -4,8 +4,8 @@ import { Connection, Client } from '@temporalio/client';
 import { createArmageddonWorker } from '../src/worker';
 import { EvidenceGenerator } from '../src/core/evidence-generator';
 import { v4 as uuidv4 } from 'uuid';
-import * as path from 'path';
-import * as fs from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
@@ -30,9 +30,9 @@ program
   .option('--no-worker', 'Skip starting a local worker (use external)')
   .action(async (options) => {
     const runId = uuidv4();
-    const seed = parseInt(options.seed, 10);
+    const seed = Number.parseInt(options.seed, 10);
     const mode = options.mode;
-    const iterations = parseInt(options.iterations, 10);
+    const iterations = Number.parseInt(options.iterations, 10);
 
     console.log(`[CLI] Starting Armageddon Run ${runId}`);
     console.log(`[CLI] Mode: ${mode}, Seed: ${seed}`);
@@ -164,7 +164,7 @@ program
             grade: reportJson.grade,
             score: reportJson.score,
             batteries: reportJson.batteries.map((b: any) => ({
-                batteryId: b.full_id || `B${b.id}_${b.name.replace(/ /g, '_').toUpperCase()}`,
+                batteryId: b.full_id || `B${b.id}_${b.name.replaceAll(' ', '_').toUpperCase()}`,
                 status: b.status,
                 iterations: b.tests_run,
                 blockedCount: b.blocked,
