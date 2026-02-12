@@ -98,10 +98,10 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
-// Run if executed directly (ESM top-level await)
-if (import.meta.url === `file://${process.argv[1]}`) {
-    runWorker().catch(err => {
-        console.error(err);
-        process.exit(1);
-    });
+// Run if executed directly (ESM top-level await replaced with IIFE for CJS compat)
+if (require.main === module) {
+   runWorker().catch((err) => {
+       console.error(err);
+       process.exit(1);
+   });
 }

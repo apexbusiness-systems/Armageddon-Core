@@ -6,8 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "next lint"
   },
   "dependencies": {
     "@armageddon/shared": "*",
