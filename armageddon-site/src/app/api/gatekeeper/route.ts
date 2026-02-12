@@ -1,32 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { resolveCallerContext } from '@/lib/server/apexGate';
 
 export async function POST(request: NextRequest) {
-    const authHeader = request.headers.get('Authorization');
+    const authResult = await resolveCallerContext(request);
+
+    if (!authResult.success) {
+        return NextResponse.json({
+            eligible: false,
+            tier: 'free_dry',
+            reason: 'AUTH_REQUIRED',
+            upgradeUrl: '/pricing?upgrade=verified',
+        }, { status: 401 });
+    }
+
+    const { context } = authResult;
     
-    if (authHeader) {
-        const token = authHeader.replace('Bearer ', '');
-        const supabase = createClient(
+    // Admin override check
+    if (context.tier === 'certified' && process.env.ADMIN_EMAIL) {
+        const anonClient = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
         );
         
-        const { data: { user } } = await supabase.auth.getUser(token);
+        const { data: { user } } = await anonClient.auth.getUser(request.headers.get('Authorization')?.replace('Bearer ', ''));
         
-        // Secure Admin Verification via Environment Variable
-        if (user && user.email && process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL) {
-             return NextResponse.json({
+        if (user?.email === process.env.ADMIN_EMAIL) {
+            return NextResponse.json({
                 eligible: true,
-                tier: 'verified',
+                tier: 'certified',
                 reason: 'ADMIN_OVERRIDE'
             });
         }
     }
 
-    // Default Fallback
     return NextResponse.json({
-        eligible: false,
-        tier: 'free',
-        reason: 'LEVEL_7_ACCESS_REQUIRED'
+        eligible: true,
+        tier: context.tier,
+        orgId: context.orgId,
+        reason: 'AUTHENTICATED'
     });
 }

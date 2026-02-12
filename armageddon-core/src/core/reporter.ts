@@ -148,6 +148,7 @@ export class SupabaseReporter {
 
         if (error) {
             console.error('[Reporter] Failed to finalize run:', error);
+            throw new Error(`Failed to finalize run: ${error.message}`);
         }
     }
 }
