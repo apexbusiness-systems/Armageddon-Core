@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@armageddon/shared": "*",
@@ -32,8 +33,8 @@
     "@types/autocannon": "^7.12.7",
     "autocannon": "^8.0.0",
     "autoprefixer": "^10.4.16",
-    "eslint": "9.39.2",
-    "eslint-config-next": "16.1.6",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.1.0",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.0",
     "vitest": "^4.0.18"
