@@ -10,7 +10,7 @@ vi.mock('@supabase/supabase-js', () => ({
 describe('Reporter Batching Performance', () => {
   const TEST_RUN_ID = 'bench-run-123';
   const EVENT_COUNT = 100;
-  const LATENCY_MS = 50;
+  const LATENCY_MS = 50; // Simulates 50ms database round-trip
 
   // Setup environment for Reporter
   process.env.SUPABASE_URL = 'https://example.supabase.co';
@@ -29,7 +29,8 @@ describe('Reporter Batching Performance', () => {
 
   const reporter = new SupabaseReporter(TEST_RUN_ID);
 
-  bench('Sequential pushEvent (N+1)', async () => {
+  bench('Unoptimized: Sequential pushEvent (N database calls)', async () => {
+    // Baseline: 100 events x 50ms = ~5000ms total
     for (let i = 0; i < EVENT_COUNT; i++) {
       await reporter.pushEvent('B1', 'ATTACK_BLOCKED', { iteration: i });
     }
@@ -38,7 +39,7 @@ describe('Reporter Batching Performance', () => {
   bench('Batched pushEvents (Optimized)', async () => {
     const events = Array.from({ length: EVENT_COUNT }, (_, i) => ({
       batteryId: 'B1',
-      eventType: 'ATTACK_BLOCKED' as any,
+      eventType: 'ATTACK_BLOCKED' as const,
       payload: { iteration: i }
     }));
 
