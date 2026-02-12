@@ -1,4 +1,4 @@
-UBE/**
+/**
  * ═══════════════════════════════════════════════════════════════════════════
  * ARMAGEDDON LEVEL 7 — API ROUTE
  * POST /api/run — Start a certification run
@@ -92,11 +92,12 @@ async function getTemporalClient(): Promise<Client> {
         return connectionPromise;
     }
 
+    const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
     const connectionOptions: any = { address };
 
     // Support mTLS for Temporal Cloud
     if (process.env.TEMPORAL_CERT_PATH && process.env.TEMPORAL_KEY_PATH) {
-        const fs = require('fs'); // Dynamic require for Next.js edge compatibility if needed (though this is node runtime)
+        const fs = require('node:fs'); // Dynamic require for Next.js edge compatibility if needed (though this is node runtime)
         connectionOptions.tls = {
             clientCertPair: {
                 crt: fs.readFileSync(process.env.TEMPORAL_CERT_PATH),
@@ -135,6 +136,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
     try {
         // Parse request body
         const body: RunRequest = await request.json();
+        const supabase = getSupabase();
         let { organizationId, level = 7, iterations = 2500, batteries } = body;
 
         // Validate and sanitize batteries

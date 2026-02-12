@@ -16,7 +16,7 @@ export interface AuthResult {
 
 export async function resolveCallerContext(req: NextRequest): Promise<AuthResult> {
     // Mock implementation for build success
-    // TODO: Implement actual JWT/Supabase auth verification
+    // NOTE: Mock implementation for build success. Actual JWT/Auth verification to be implemented.
     
     const authHeader = req.headers.get('Authorization');
     

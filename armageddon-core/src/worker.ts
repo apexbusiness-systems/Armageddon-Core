@@ -99,7 +99,7 @@ export async function runWorker() {
 
 // Check if running directly (ESM context check)
 // In Node, we can check if file is executed directly.
-import { fileURLToPath } from 'url';
+// import { fileURLToPath } from 'url';
 
 // For CommonJS/ESM compatibility in TSX
 // This check might need adjustment depending on environment, but simple check works for now
