@@ -34,7 +34,7 @@ export function getSafetyConfig(): SafetyConfig {
 /**
  * Guard function that enforces simulation mode and sandbox tenant.
  * MUST be called at the start of every workflow and activity.
- * 
+ *
  * @throws SystemLockdownError if safety requirements not met
  */
 export function enforceSafetyGuard(): void {
