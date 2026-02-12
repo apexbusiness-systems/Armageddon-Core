@@ -13,3 +13,8 @@ yarn-debug.log*
 yarn-error.log*
 
 .env.moat
+.env.moat.local
+certs/
+tsc_output/
+.vercel
+.env*.local
