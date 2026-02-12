@@ -26,13 +26,18 @@ export class SafetyGuard {
 
   private readonly simMode: boolean;
   private readonly sandboxTenant: string | undefined;
-  private readonly productionPatterns = [
-    /prod/i,
-    /production/i,
-    /live/i,
-    /main/i,
-    /\.com$/,
-    /\.io$/,
+
+  // Confirmed Production Patterns (Phase 1)
+  private readonly productionPatterns: (RegExp | string)[] = [
+    /\.prod\./i,
+    /\.live\./i,
+    /production\./i,
+    /\.com$/i,      // Customer .com domains
+    /\.io$/i,       // Customer .io domains
+    /api\./i,       // API subdomains
+    'stripe.com',   // Payment processors
+    'aws.amazon.com',
+    'firebaseio.com'
   ];
 
   private constructor() {
@@ -83,7 +88,14 @@ export class SafetyGuard {
    */
   private assertNoProductionMatch(value: string, label: string, contextSuffix: string = ''): void {
     for (const pattern of this.productionPatterns) {
-      if (pattern.test(value)) {
+      let matched = false;
+      if (pattern instanceof RegExp) {
+        matched = pattern.test(value);
+      } else if (typeof pattern === 'string') {
+        matched = value.includes(pattern);
+      }
+
+      if (matched) {
         throw new SystemLockdownError(
           `${label} matches production pattern '${pattern}'.${contextSuffix} Aborting.`
         );
