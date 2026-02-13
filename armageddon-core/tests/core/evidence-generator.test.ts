@@ -47,7 +47,7 @@ describe('EvidenceGenerator', () => {
     const mockOptions: EvidenceOptions = {
         seed: 12345,
         mode: 'TEST_MODE',
-        targetUrl: 'http://localhost:3000'
+        targetUrl: 'https://example.com'
     };
 
     let generator: EvidenceGenerator;
@@ -122,7 +122,7 @@ describe('EvidenceGenerator', () => {
 
     describe('saveTo', () => {
         it('should create directories and write files', async () => {
-            const outputDir = '/tmp/test-output';
+            const outputDir = 'test-output';
             const evidenceDir = path.join(outputDir, 'evidence');
 
             await generator.saveTo(outputDir);
