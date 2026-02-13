@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import React from 'react';
+import type { ComponentPropsWithoutRef, PropsWithChildren } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import BatteryCard from '@/components/BatteryCard';
@@ -6,35 +8,29 @@ import { Battery } from '@armageddon/shared';
 
 // Mock framer-motion to render children directly without animation wrappers interfering
 vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({
-      children,
-      className,
-      onClick,
-      onMouseEnter,
-      onMouseLeave,
-      // Filter out framer-motion props to avoid React warnings
-      initial,
-      whileInView,
-      viewport,
-      transition,
-      animate,
-      exit,
-      ...props
-    }: any) => (
-      <div
-        className={className}
-        onClick={onClick}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        data-testid={props['data-testid'] || 'motion-div'}
-        {...props}
-      >
-        {children}
-      </div>
-    ),
-  },
-  AnimatePresence: ({ children }: any) => <>{children}</>,
+  motion: new Proxy(
+    {},
+    {
+      get: (
+        _target: Record<string, unknown>,
+        prop: string
+      ): React.ForwardRefExoticComponent<ComponentPropsWithoutRef<'div'>> => {
+        const MotionComponent = React.forwardRef<
+          HTMLElement,
+          Record<string, unknown>
+        >((props, ref) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { initial, whileInView, viewport, transition, animate, exit, ...rest } = props;
+          return React.createElement(prop, { ...rest, ref });
+        });
+        MotionComponent.displayName = `Motion${String(prop)}`;
+        return MotionComponent as React.ForwardRefExoticComponent<
+          ComponentPropsWithoutRef<'div'>
+        >;
+      },
+    }
+  ),
+  AnimatePresence: ({ children }: PropsWithChildren<unknown>) => <>{children}</>,
 }));
 
 const mockBattery: Battery = {
