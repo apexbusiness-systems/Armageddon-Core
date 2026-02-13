@@ -155,13 +155,40 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         // STEP 1: Check eligibility (including battery customization)
         // ═══════════════════════════════════════════════════════════════════
 
-        // Pass injected client for performance
-        const eligibility = await checkRunEligibility(
-            organizationId,
-            level,
-            validatedBatteries,
-            supabase
-        );
+        // Get singleton Supabase client
+        const supabase = getSupabase();
+
+        // Special handling for Demo/Dry Run
+        let eligibility;
+        if (organizationId === 'demo-org-id') {
+             eligibility = { eligible: true, tier: 'free_dry' as const, requestedLevel: level };
+
+             // Ensure demo organization exists
+             const { data: org, error: orgFetchError } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('id', 'demo-org-id')
+                .single();
+
+             if (!org) {
+                 await supabase
+                    .from('organizations')
+                    .insert({
+                        id: 'demo-org-id',
+                        name: 'Demo Organization',
+                        slug: 'demo',
+                        current_tier: 'free_dry'
+                    });
+             }
+        } else {
+             // Pass injected client for performance
+             eligibility = await checkRunEligibility(
+                organizationId,
+                level,
+                validatedBatteries,
+                supabase
+             );
+        }
 
         if (!eligibility.eligible) {
             return NextResponse.json(
