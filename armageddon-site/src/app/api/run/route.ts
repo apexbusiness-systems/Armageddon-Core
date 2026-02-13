@@ -6,11 +6,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Client, Connection } from '@temporalio/client';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility } from '@armageddon/shared';
 import { RateLimiter } from '@/lib/rate-limit';
+import { getSupabaseServiceRole } from '@/lib/supabase';
+import { getTemporalClient } from '@/lib/temporal';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -43,74 +43,6 @@ const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
     verified: [1, 2, 3, 4, 5, 6],
     certified: [1, 2, 3, 4, 5, 6, 7],
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SUPABASE CLIENT (SINGLETON)
-// ═══════════════════════════════════════════════════════════════════════════
-
-let cachedSupabaseClient: SupabaseClient | null = null;
-
-function getSupabase() {
-    if (cachedSupabaseClient) {
-        return cachedSupabaseClient;
-    }
-
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!url || !key) {
-        throw new Error('Missing Supabase credentials');
-    }
-
-    cachedSupabaseClient = createClient(url, key, {
-        auth: { persistSession: false },
-    });
-
-    return cachedSupabaseClient;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TEMPORAL CLIENT (SINGLETON + LAZY)
-// ═══════════════════════════════════════════════════════════════════════════
-
-let cachedTemporalClient: Client | null = null;
-let connectionPromise: Promise<Client> | null = null;
-
-async function getTemporalClient(): Promise<Client> {
-    // Return cached client if available
-    if (cachedTemporalClient) {
-        return cachedTemporalClient;
-    }
-
-    // If connection is in progress, return that promise (prevents thundering herd)
-    if (connectionPromise) {
-        return connectionPromise;
-    }
-
-    // Create new connection
-    connectionPromise = (async () => {
-        const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
-        const namespace = process.env.TEMPORAL_NAMESPACE || 'default';
-
-        try {
-            const connection = await Connection.connect({ address });
-            const client = new Client({
-                connection,
-                namespace,
-            });
-
-            cachedTemporalClient = client;
-            return client;
-        } catch (error) {
-            console.error('Failed to connect to Temporal:', error);
-            throw error;
-        } finally {
-            connectionPromise = null; // Clear promise after success/failure
-        }
-    })();
-
-    return connectionPromise;
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RATE LIMITERS (MODULE-LEVEL SINGLETONS)
@@ -149,21 +81,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         const body: RunRequest = await request.json();
         const { organizationId, level = 7, iterations = 2500, batteries } = body;
 
-        // 2. Authentication & Authorization
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader) {
-            return NextResponse.json({ success: false, error: 'Unauthorized: Missing token' }, { status: 401 });
+        // 3. Organization-based Rate Limiting
+        if (organizationId && !orgLimiter.check(organizationId)) {
+            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+            return NextResponse.json(
+                { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
+                { status: 429 }
+            );
         }
 
-        const token = authHeader.split(' ')[1];
+        // Validate token
+        const authHeader = request.headers.get('Authorization');
+        const token = authHeader?.replace('Bearer ', '');
+
         if (!token) {
-            return NextResponse.json({ success: false, error: 'Unauthorized: Invalid token format' }, { status: 401 });
+             return NextResponse.json({ success: false, error: 'Unauthorized: Missing token' }, { status: 401 });
         }
 
         // Get singleton Supabase client
-        const supabase = getSupabase();
+        const supabase = getSupabaseServiceRole();
 
-        // Validate token
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
@@ -185,18 +122,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
                 return NextResponse.json({ success: false, error: 'Forbidden: You are not a member of this organization' }, { status: 403 });
             }
         } else {
-            return NextResponse.json(
+             return NextResponse.json(
                 { success: false, error: 'organizationId is required' },
                 { status: 400 }
-            );
-        }
-
-        // 3. Organization-based Rate Limiting
-        if (organizationId && !orgLimiter.check(organizationId)) {
-            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
-            return NextResponse.json(
-                { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
-                { status: 429 }
             );
         }
 
@@ -337,7 +265,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         );
     }
 
-    const supabase = getSupabase();
+    const supabase = getSupabaseServiceRole();
 
     const { data: run, error } = await supabase
         .from('armageddon_runs')
