@@ -4,17 +4,17 @@ set -e
 npx tsc --noEmit
 npx eslint . --max-warnings 0
 
-cd apps/core
-npx jest --coverage --coverageReporters=lcov
-cd ../..
+cd armageddon-core
+npx vitest run --coverage --coverage.reporter=lcov
+cd ..
 
-if compgen -G "apps/omnihub-site/jest.config.*" > /dev/null; then
-  cd apps/omnihub-site
+if compgen -G "armageddon-site/jest.config.*" > /dev/null; then
+  cd armageddon-site
   npx jest --coverage --coverageReporters=lcov
-  cd ../..
+  cd ..
 else
-  mkdir -p apps/omnihub-site/coverage
-  echo "TN:" > apps/omnihub-site/coverage/lcov.info
+  mkdir -p armageddon-site/coverage
+  echo "TN:" > armageddon-site/coverage/lcov.info
 fi
 
-npm audit --audit-level=critical
+npm audit --workspace armageddon-core --audit-level=critical

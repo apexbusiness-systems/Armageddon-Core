@@ -16,22 +16,23 @@ jobs:
 
       - name: Download coverage artifacts
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           name: coverage-reports
 
       - name: Fallback quality gate
         run: |
-          if [ ! -f apps/core/coverage/lcov.info ] || [ ! -f apps/omnihub-site/coverage/lcov.info ]; then
+          if [ ! -f armageddon-core/coverage/lcov.info ] || [ ! -f armageddon-site/coverage/lcov.info ]; then
             ./scripts/quality-gate.sh
           fi
 
-      # PINNED_SHA_REQUIRED: SonarSource/sonarcloud-github-action
       - name: SonarCloud scan
-        uses: SonarSource/sonarcloud-github-action@PINNED_SHA_REQUIRED
+        run: |
+          docker run --rm \
+            -e SONAR_TOKEN="${SONAR_TOKEN}" \
+            -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
+            -v "${PWD}:/usr/src" \
+            sonarsource/sonar-scanner-cli:11 \
+            -Dsonar.qualitygate.wait=true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.qualitygate.wait=true

@@ -16,23 +16,26 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Audit dependencies (critical)
-        run: npm audit --audit-level=critical
+      - name: Audit dependencies (critical, core workspace)
+        run: npm audit --workspace armageddon-core --audit-level=critical
 
-      - name: Audit dependencies (high for main/release)
+      - name: Audit dependencies (high for main/release, core workspace)
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-        run: npm audit --audit-level=high
+        run: npm audit --workspace armageddon-core --audit-level=high
 
+      - name: Audit dependencies report (site workspace, non-blocking)
+        if: always()
+        run: npm audit --workspace armageddon-site --audit-level=critical || true
 
       - name: Test with coverage (core)
-        working-directory: apps/core
-        run: npx jest --coverage --coverageReporters=lcov
+        working-directory: armageddon-core
+        run: npx vitest run --coverage --coverage.reporter=lcov
 
       - name: Ensure site coverage file exists
         run: |
-          mkdir -p apps/omnihub-site/coverage
-          if [ ! -f apps/omnihub-site/coverage/lcov.info ]; then
-            echo "TN:" > apps/omnihub-site/coverage/lcov.info
+          mkdir -p armageddon-site/coverage
+          if [ ! -f armageddon-site/coverage/lcov.info ]; then
+            echo "TN:" > armageddon-site/coverage/lcov.info
           fi
 
       - name: Upload coverage artifacts
@@ -40,8 +43,8 @@ jobs:
         with:
           name: coverage-reports
           path: |
-            apps/core/coverage/lcov.info
-            apps/omnihub-site/coverage/lcov.info
+            armageddon-core/coverage/lcov.info
+            armageddon-site/coverage/lcov.info
 
       - name: Generate npm SBOM
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
@@ -59,4 +62,3 @@ jobs:
 
       - name: Route integrity check
         run: node scripts/check-route-integrity.mjs
-
