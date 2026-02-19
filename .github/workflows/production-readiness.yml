@@ -1,0 +1,62 @@
+name: production-readiness
+
+on:
+  pull_request:
+  push:
+    branches: [main, "release/**"]
+
+jobs:
+  production-readiness-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Audit dependencies (critical)
+        run: npm audit --audit-level=critical
+
+      - name: Audit dependencies (high for main/release)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+        run: npm audit --audit-level=high
+
+
+      - name: Test with coverage (core)
+        working-directory: apps/core
+        run: npx jest --coverage --coverageReporters=lcov
+
+      - name: Ensure site coverage file exists
+        run: |
+          mkdir -p apps/omnihub-site/coverage
+          if [ ! -f apps/omnihub-site/coverage/lcov.info ]; then
+            echo "TN:" > apps/omnihub-site/coverage/lcov.info
+          fi
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            apps/core/coverage/lcov.info
+            apps/omnihub-site/coverage/lcov.info
+
+      - name: Generate npm SBOM
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+        run: |
+          mkdir -p build-artifacts docs/compliance/sbom
+          npx @cyclonedx/cyclonedx-npm --output-format json --output-file build-artifacts/sbom-npm.cdx.json
+          cp build-artifacts/sbom-npm.cdx.json docs/compliance/sbom/sbom-npm.cdx.json
+
+      - name: Upload SBOM artifact
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-npm.cdx.json
+          path: build-artifacts/sbom-npm.cdx.json
+
+      - name: Route integrity check
+        run: node scripts/check-route-integrity.mjs
+
