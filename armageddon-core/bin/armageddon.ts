@@ -92,7 +92,8 @@ program
                 iterations,
                 tier,
                 targetEndpoint: options.target || process.env.TARGET_URL || 'http://localhost:3000',
-                targetModel: 'sim-001'
+                targetModel: 'sim-001',
+                seed
             }],
         });
 
