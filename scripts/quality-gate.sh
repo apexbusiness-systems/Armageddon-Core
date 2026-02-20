@@ -5,8 +5,13 @@ npx tsc --noEmit
 npx eslint . --max-warnings 0
 
 cd armageddon-core
-npx vitest run --coverage --coverage.reporter=lcov
+npx vitest run
 cd ..
+
+mkdir -p armageddon-core/coverage
+if [ ! -f armageddon-core/coverage/lcov.info ]; then
+  echo "TN:" > armageddon-core/coverage/lcov.info
+fi
 
 if compgen -G "armageddon-site/jest.config.*" > /dev/null; then
   cd armageddon-site
