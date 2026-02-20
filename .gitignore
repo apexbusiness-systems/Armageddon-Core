@@ -13,3 +13,8 @@ yarn-debug.log*
 yarn-error.log*
 
 .env.moat
+.env
+.env.*
+!.env.example
+!.env.*.example
+
