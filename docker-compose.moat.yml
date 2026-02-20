@@ -18,13 +18,12 @@ services:
     environment:
       - NODE_ENV=production
       - SIM_MODE=true
-    # Docker Compose native health check
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/ready"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      # Map env vars to mounted paths
+      - TEMPORAL_CERT_PATH=/etc/temporal/certs/client.pem
+      - TEMPORAL_KEY_PATH=/etc/temporal/certs/client.key
+      - TEMPORAL_API_KEY
+    volumes:
+      - ./certs:/etc/temporal/certs:ro
     restart: always
     # Resource limits to mimic production constraints
     deploy:

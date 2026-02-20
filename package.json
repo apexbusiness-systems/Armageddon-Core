@@ -1,5 +1,6 @@
 {
   "private": true,
+  "version": "2.1.1",
   "workspaces": [
     "armageddon-core",
     "armageddon-site",
@@ -12,6 +13,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "node-forge": "^1.3.3"
   }
 }

@@ -2,8 +2,8 @@
 
 > **CLASSIFICATION**: INTERNAL EYES ONLY
 > **SEVERITY**: CRITICAL
-> **VERSION**: 2.1.0 ("Kinetic Moat")
-> **LAST UPDATED**: 2026-02-08
+> **VERSION**: 2.1.1 ("Kinetic Moat")
+> **LAST UPDATED**: 2026-02-11
 
 ---
 
