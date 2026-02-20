@@ -7,17 +7,7 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  sonarcloud-disabled:
-    if: ${{ vars.ENABLE_SONARCLOUD != 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: SonarCloud disabled notice
-        run: |
-          echo "## SonarCloud scan skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "Set repository variable ENABLE_SONARCLOUD=true after Sonar project+token are ready." >> "$GITHUB_STEP_SUMMARY"
-
   sonarcloud-gate:
-    if: ${{ vars.ENABLE_SONARCLOUD == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,10 +26,10 @@ jobs:
         run: |
           npm run test -w armageddon-core
           mkdir -p armageddon-core/coverage armageddon-site/coverage
-          if [[ ! -f armageddon-core/coverage/lcov.info ]]; then
+          if [ ! -f armageddon-core/coverage/lcov.info ]; then
             echo "TN:" > armageddon-core/coverage/lcov.info
           fi
-          if [[ ! -f armageddon-site/coverage/lcov.info ]]; then
+          if [ ! -f armageddon-site/coverage/lcov.info ]; then
             echo "TN:" > armageddon-site/coverage/lcov.info
           fi
 
