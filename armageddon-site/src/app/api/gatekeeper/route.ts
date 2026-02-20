@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+<<<<<<< fix/pr-33-cleanup-v2
 import { createClient } from '@supabase/supabase-js';
 import { resolveCallerContext } from '@/lib/server/apexGate';
+=======
+import { getSupabaseAnon } from '@/lib/supabase';
+>>>>>>> main
 
 export async function POST(request: NextRequest) {
     const authResult = await resolveCallerContext(request);
@@ -16,12 +20,18 @@ export async function POST(request: NextRequest) {
 
     const { context } = authResult;
     
+<<<<<<< fix/pr-33-cleanup-v2
     // Admin override check
     if (context.tier === 'certified' && process.env.ADMIN_EMAIL) {
         const anonClient = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL || '',
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
         );
+=======
+    if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const supabase = getSupabaseAnon();
+>>>>>>> main
         
         const { data: { user } } = await anonClient.auth.getUser(request.headers.get('Authorization')?.replace('Bearer ', ''));
         
