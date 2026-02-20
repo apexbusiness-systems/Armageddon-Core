@@ -9,10 +9,6 @@ on:
 jobs:
   sonarcloud-gate:
     runs-on: ubuntu-latest
-    env:
-      SONAR_HOST_URL: https://sonarcloud.io
-      SONAR_PROJECT_KEY: armageddon-core
-      SONAR_ORGANIZATION: apexbusiness-systems
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,44 +22,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: SonarCloud preflight (token + project access)
-        id: sonar_preflight
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${SONAR_TOKEN:-}" ]]; then
-            echo "can_scan=false" >> "$GITHUB_OUTPUT"
-            echo "reason=SONAR_TOKEN is not configured." >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          response="$(curl -sS -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/components/show?component=${SONAR_PROJECT_KEY}&organization=${SONAR_ORGANIZATION}" || true)"
-
-          if [[ -z "${response}" ]] || [[ "${response}" == *'"errors"'* ]]; then
-            echo "can_scan=false" >> "$GITHUB_OUTPUT"
-            echo "reason=SonarCloud project access check failed for ${SONAR_ORGANIZATION}/${SONAR_PROJECT_KEY}." >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "can_scan=true" >> "$GITHUB_OUTPUT"
-          echo "reason=Preflight passed." >> "$GITHUB_OUTPUT"
-
       - name: Generate coverage inputs
-        if: steps.sonar_preflight.outputs.can_scan == 'true'
         run: |
           npm run test -w armageddon-core
           mkdir -p armageddon-core/coverage armageddon-site/coverage
-          if [[ ! -f armageddon-core/coverage/lcov.info ]]; then
+          if [ ! -f armageddon-core/coverage/lcov.info ]; then
             echo "TN:" > armageddon-core/coverage/lcov.info
           fi
-          if [[ ! -f armageddon-site/coverage/lcov.info ]]; then
+          if [ ! -f armageddon-site/coverage/lcov.info ]; then
             echo "TN:" > armageddon-site/coverage/lcov.info
           fi
 
       - name: SonarCloud scan
-        if: steps.sonar_preflight.outputs.can_scan == 'true'
         run: |
           docker run --rm \
             -e SONAR_TOKEN="${SONAR_TOKEN}" \
@@ -74,10 +44,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: SonarCloud scan skipped
-        if: steps.sonar_preflight.outputs.can_scan != 'true'
-        run: |
-          echo "### SonarCloud scan skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Reason: ${{ steps.sonar_preflight.outputs.reason }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- To enable, ensure SONAR_TOKEN has access to ${SONAR_ORGANIZATION}/${SONAR_PROJECT_KEY}." >> "$GITHUB_STEP_SUMMARY"
