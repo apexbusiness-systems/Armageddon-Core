@@ -103,3 +103,7 @@ Source code, attack patterns, and testing methodologies are proprietary to **APE
 Unauthorized reproduction or reverse engineering is strictly prohibited.
 
 _Copyright © 2026 APEX Business Systems Ltd. All rights reserved._
+
+
+## Legal & Authorized Use
+See [ACCEPTABLE_USE.md](./ACCEPTABLE_USE.md).
