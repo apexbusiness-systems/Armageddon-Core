@@ -28,8 +28,7 @@ jobs:
         run: npm audit --workspace armageddon-site --audit-level=critical || true
 
       - name: Test (core)
-        working-directory: armageddon-core
-        run: npx vitest run
+        run: npm run test -w armageddon-core
 
       - name: Ensure core coverage file exists
         run: |

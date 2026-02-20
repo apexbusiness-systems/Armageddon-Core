@@ -24,7 +24,7 @@ jobs:
 
       - name: Generate coverage inputs
         run: |
-          npx vitest run --root armageddon-core
+          npm run test -w armageddon-core
           mkdir -p armageddon-core/coverage armageddon-site/coverage
           if [ ! -f armageddon-core/coverage/lcov.info ]; then
             echo "TN:" > armageddon-core/coverage/lcov.info

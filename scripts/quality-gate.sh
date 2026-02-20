@@ -4,9 +4,7 @@ set -e
 npx tsc --noEmit
 npx eslint . --max-warnings 0
 
-cd armageddon-core
-npx vitest run
-cd ..
+npm run test -w armageddon-core
 
 mkdir -p armageddon-core/coverage
 if [ ! -f armageddon-core/coverage/lcov.info ]; then
