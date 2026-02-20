@@ -7,7 +7,7 @@ npx eslint . --max-warnings 0
 npm run test -w armageddon-core
 
 mkdir -p armageddon-core/coverage
-if [ ! -f armageddon-core/coverage/lcov.info ]; then
+if [[ ! -f armageddon-core/coverage/lcov.info ]]; then
   echo "TN:" > armageddon-core/coverage/lcov.info
 fi
 
