@@ -99,9 +99,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         }
 
         // Get singleton Supabase client
-        const supabase = getSupabaseServiceRole();
+        const serviceSupabase = getSupabaseServiceRole();
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        const { data: { user }, error: authError } = await serviceSupabase.auth.getUser(token);
 
         if (authError || !user) {
             console.warn(`[Security] Invalid token: ${authError?.message}`);
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
 
         // Verify organization membership
         if (organizationId) {
-            const { data: membership, error: membershipError } = await supabase
+            const { data: membership, error: membershipError } = await serviceSupabase
                 .from('organization_members')
                 .select('role')
                 .eq('organization_id', organizationId)
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             organizationId,
             level,
             validatedBatteries,
-            supabase
+            serviceSupabase
         );
 
         if (!eligibility.eligible) {
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         const runId = uuidv4();
         const workflowId = `armageddon-${runId}`;
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await serviceSupabase
             .from('armageddon_runs')
             .insert({
                 id: runId,
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         });
 
         // Update run with workflow_run_id
-        await supabase
+        await serviceSupabase
             .from('armageddon_runs')
             .update({
                 workflow_run_id: handle.firstExecutionRunId,
