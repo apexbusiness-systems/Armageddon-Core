@@ -1,0 +1,3 @@
+{
+  "note": "SBOM generation requires @cyclonedx/cyclonedx-npm in CI. Local generation blocked by registry access in this environment."
+}

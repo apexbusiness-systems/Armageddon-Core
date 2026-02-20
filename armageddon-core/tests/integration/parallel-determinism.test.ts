@@ -44,7 +44,7 @@ describe('Parallel Execution Determinism', () => {
         expect(result1.status).toBe(result2.status);
     });
 
-    it('should maintain 98% block rate with parallel execution', async () => {
+    it('should maintain 98% block rate with parallel execution', { timeout: 60000 }, async () => {
         const config: BatteryConfig = {
             runId: 'statistical-test',
             iterations: 1000,
@@ -66,5 +66,5 @@ describe('Parallel Execution Determinism', () => {
         // So 90% block rate is a likely outcome.
         expect(blockRate).toBeGreaterThan(80);
         expect(blockRate).toBeLessThanOrEqual(100);
-    }, { timeout: 60000 });
+    });
 });

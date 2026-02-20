@@ -11,6 +11,12 @@ import * as dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+console.error(
+  '⚠ APEX OmniHub — Authorized use only.\n' +
+  '  Run only on systems you own or have explicit written permission to test.'
+);
+
+
 const program = new Command();
 
 program
