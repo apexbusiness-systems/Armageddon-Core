@@ -18,10 +18,10 @@
     "dependencies": {
         "@armageddon/shared": "*",
         "@supabase/supabase-js": "^2.39.0",
-        "@temporalio/activity": "^1.14.0",
-        "@temporalio/client": "^1.14.0",
-        "@temporalio/worker": "^1.14.0",
-        "@temporalio/workflow": "^1.14.0",
+        "@temporalio/activity": "^1.14.1",
+        "@temporalio/client": "^1.14.1",
+        "@temporalio/worker": "^1.14.1",
+        "@temporalio/workflow": "^1.14.1",
         "commander": "^4.1.1",
         "dotenv": "^17.2.4",
         "uuid": "^9.0.0"

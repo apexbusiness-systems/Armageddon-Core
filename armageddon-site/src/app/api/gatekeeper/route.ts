@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAnon } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('Authorization');
     
     if (authHeader) {
         const token = authHeader.replace('Bearer ', '');
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-        );
+        const supabase = getSupabaseAnon();
         
         const { data: { user } } = await supabase.auth.getUser(token);
         

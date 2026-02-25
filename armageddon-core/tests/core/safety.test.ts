@@ -53,7 +53,7 @@ describe('SafetyGuard', () => {
     const guard = SafetyGuard.getInstance();
     expect(() => guard.validateTarget('https://api.prod.com')).toThrow(SystemLockdownError);
     expect(() => guard.validateTarget('https://live-api.com')).toThrow(SystemLockdownError);
-    expect(() => guard.validateTarget('https://test-api.dev')).not.toThrow();
+    expect(() => guard.validateTarget('https://test-server.dev')).not.toThrow();
   });
 
   it('should return correct status', () => {

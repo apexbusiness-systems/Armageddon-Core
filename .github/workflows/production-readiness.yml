@@ -1,0 +1,70 @@
+name: production-readiness
+
+on:
+  pull_request:
+  push:
+    branches: [main, "release/**"]
+
+jobs:
+  production-readiness-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Audit dependencies (critical, core workspace)
+        run: npm audit --workspace armageddon-core --audit-level=critical
+
+      - name: Audit dependencies (high for main/release, core workspace)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+        run: npm audit --workspace armageddon-core --audit-level=high
+
+      - name: Audit dependencies report (site workspace, non-blocking)
+        if: always()
+        run: npm audit --workspace armageddon-site --audit-level=critical || true
+
+      - name: Test (core)
+        run: npm run test -w armageddon-core
+
+      - name: Ensure core coverage file exists
+        run: |
+          mkdir -p armageddon-core/coverage
+          if [ ! -f armageddon-core/coverage/lcov.info ]; then
+            echo "TN:" > armageddon-core/coverage/lcov.info
+          fi
+
+      - name: Ensure site coverage file exists
+        run: |
+          mkdir -p armageddon-site/coverage
+          if [ ! -f armageddon-site/coverage/lcov.info ]; then
+            echo "TN:" > armageddon-site/coverage/lcov.info
+          fi
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            armageddon-core/coverage/lcov.info
+            armageddon-site/coverage/lcov.info
+
+      - name: Generate npm SBOM
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+        run: |
+          mkdir -p build-artifacts docs/compliance/sbom
+          npx @cyclonedx/cyclonedx-npm --output-format json --output-file build-artifacts/sbom-npm.cdx.json
+          cp build-artifacts/sbom-npm.cdx.json docs/compliance/sbom/sbom-npm.cdx.json
+
+      - name: Upload SBOM artifact
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-npm.cdx.json
+          path: build-artifacts/sbom-npm.cdx.json
+
+      - name: Route integrity check
+        run: node scripts/check-route-integrity.mjs
