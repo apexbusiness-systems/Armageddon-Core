@@ -1,9 +1,14 @@
 node_modules
 .git
-.env
 .DS_Store
 dist
 coverage
 .next
 armageddon-site/.next
 *.tsbuildinfo
+
+# Secrets — NEVER include in Docker build context
+.env
+.env.*
+.env.moat
+.env.local

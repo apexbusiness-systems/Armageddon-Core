@@ -12,4 +12,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Moat secrets
 .env.moat
+
+# Bulky/sensitive artifacts — tracked assets belong in releases, not VCS
+*.zip
+audit_log.md
+optimization-report.md
