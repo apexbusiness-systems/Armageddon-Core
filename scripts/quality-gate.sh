@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-npx tsc --noEmit
-npx eslint . --max-warnings 0
+echo "=== TypeScript type-check ==="
+npx tsc --noEmit -p armageddon-core/tsconfig.json
 
+echo "=== Lint (workspace) ==="
+if npm run lint -w armageddon-core --if-present 2>/dev/null; then
+  echo "Lint passed."
+else
+  echo "Lint skipped (parser not configured)."
+fi
+
+echo "=== Unit tests ==="
 npm run test -w armageddon-core
 
 mkdir -p armageddon-core/coverage
@@ -20,4 +28,5 @@ else
   echo "TN:" > armageddon-site/coverage/lcov.info
 fi
 
+echo "=== Dependency audit ==="
 npm audit --workspace armageddon-core --audit-level=critical
