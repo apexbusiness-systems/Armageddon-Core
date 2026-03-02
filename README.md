@@ -96,6 +96,19 @@ In case of containment breach:
 └── docker-compose.moat.yml # Moat Orchestration
 ```
 
+
+## ✅ CI QUALITY GATES (ROOT)
+
+As of **2026-03-02 (v2.1.1)**, repository-root validation uses Bun command entrypoints:
+
+```bash
+bun lint
+bun typecheck
+bun run build
+```
+
+These orchestrate deterministic workspace checks for `packages/shared`, `armageddon-core`, and `armageddon-site` through root `package.json` scripts.
+
 ## 📜 LICENSE
 
 **CONFIDENTIAL**.

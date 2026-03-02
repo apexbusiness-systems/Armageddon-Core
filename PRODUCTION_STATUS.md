@@ -1,7 +1,7 @@
 # ARMAGEDDON PRODUCTION STATUS
 
 > **DASHBOARD**: LIVE
-> **LAST UPDATED**: 2026-02-08
+> **LAST UPDATED**: 2026-03-02
 > **OPERATOR**: PROPRIETARY MOAT
 
 ---
@@ -10,8 +10,8 @@
 
 | Component                 | Status     | Version       | Notes                                 |
 | :------------------------ | :--------- | :------------ | :------------------------------------ |
-| **Moat Infrastructure**   | **ACTIVE** | `v2.1.0`      | Running via `docker-compose.moat.yml` |
-| **Kinetic Engine**        | **ONLINE** | `v2.1.0`      | Python Bridge Verified                |
+| **Moat Infrastructure**   | **ACTIVE** | `v2.1.1`      | Running via `docker-compose.moat.yml` |
+| **Kinetic Engine**        | **ONLINE** | `v2.1.1`      | Python Bridge Verified                |
 | **Temporal Server**       | **ONLINE** | `1.24.2`      | Local Cluster                         |
 | **Temporal SDK**          | **ONLINE** | `1.14.0`      | ⚠️ Registry Limit (Target: 1.24.2)    |
 | **Persistence**           | **ONLINE** | `Postgres 15` | Volume Mounted                        |
@@ -35,6 +35,7 @@
 | :--------- | :------- | :------------------------- | :---------------------------------- |
 | 2026-02-08 | SEV-2    | Render Blueprint Failure   | Pivot to Proprietary Moat (Success) |
 | 2026-02-08 | SEV-3    | Docker Build Context Drift | Fixed via Root Context Build        |
+| 2026-03-02 | SEV-4    | Root Bun CI script drift   | Standardized root lint/typecheck/build gates |
 
 ---
 
