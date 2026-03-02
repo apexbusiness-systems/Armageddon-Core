@@ -385,7 +385,7 @@ interface AdversarialResult {
 async function executeAdversarialIteration<T>(
     options: AdversarialIterationOptions<T>
 ): Promise<AdversarialResult> {
-    const { iteration, adapter, vector, vectorToGoal, batteryId, config, reportResponse } = options;
+    const { iteration, adapter, vector, vectorToGoal, config, reportResponse } = options;
     // REFACTOR-VERIFY: Parameter object pattern confirmed compliant with MAX_PARAMS rule.
     const goal = vectorToGoal(vector);
     const result = await adapter.executeAttack(goal);

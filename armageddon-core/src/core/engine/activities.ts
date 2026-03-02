@@ -61,13 +61,15 @@ async function simulateAttack(probability: number = 0.0001): Promise<boolean> {
  * Shared logic for running an adversarial battery.
  * Reduces code duplication and cognitive complexity.
  */
+type AdversarialVector = string | { type?: string; tool?: string; package?: string; payload?: unknown; content?: string };
+
 async function runAdversarialBattery(
     runId: string,
     batteryId: string,
     batteryName: string,
-    vectors: string[] | { type?: string; tool?: string; package?: string; payload?: unknown; content?: string }[],
+    vectors: AdversarialVector[],
     config: Partial<BatteryConfig>,
-    vectorToString: (v: any) => string,
+    vectorToString: (v: AdversarialVector) => string,
     breachProbability: number
 ): Promise<BatteryResult> {
     enforceSafetyGuard();

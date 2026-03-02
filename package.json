@@ -8,7 +8,19 @@
   "scripts": {
     "postinstall": "npm run build -w @armageddon/shared",
     "certify:armageddon": "npm run build -w @armageddon/shared && npm run build -w armageddon-core && npm run typecheck -w armageddon-core && npm run build -w armageddon-site && npm run lint -w armageddon-site",
-    "validate:all": "npm ci && npm run certify:armageddon"
+    "validate:all": "npm ci && npm run certify:armageddon",
+    "lint": "npm run lint:shared && npm run lint:core && npm run lint:site",
+    "typecheck": "npm run typecheck:shared && npm run typecheck:core && npm run typecheck:site",
+    "build": "npm run build:shared && npm run build:core && npm run build:site",
+    "lint:shared": "npm --prefix packages/shared run lint",
+    "lint:core": "npm --prefix armageddon-core run lint",
+    "lint:site": "npm --prefix armageddon-site run lint",
+    "typecheck:shared": "npm --prefix packages/shared run typecheck",
+    "typecheck:core": "npm --prefix armageddon-core run typecheck",
+    "typecheck:site": "npm --prefix armageddon-site run typecheck",
+    "build:shared": "npm --prefix packages/shared run build",
+    "build:core": "npm --prefix armageddon-core run build",
+    "build:site": "npm --prefix armageddon-site run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1",
