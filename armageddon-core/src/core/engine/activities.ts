@@ -78,7 +78,8 @@ async function runAdversarialBattery(
     batteryName: string,
     vectors: AdversarialVector[],
     config: Partial<BatteryConfig>,
-    vectorToString: (v: unknown) => string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vectorToString: (v: any) => string,
     breachProbability: number
 ): Promise<BatteryResult> {
     enforceSafetyGuard();
