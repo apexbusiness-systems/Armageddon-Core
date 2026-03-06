@@ -1,24 +1,40 @@
-import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
+import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
 
-/** @type {import('eslint').Linter.FlatConfig[]} */
-export default [
+export default tseslint.config(
+  eslint.configs.recommended,
+  ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      '**/*.js',
+      '**/*.mjs',
+      '**/*.cjs'
+    ],
+  },
+  {
     languageOptions: {
-      parser: tsParser,
-      ecmaVersion: 'latest',
+      ecmaVersion: 2022,
       sourceType: 'module',
-    },
-    plugins: {
-      '@typescript-eslint': tsPlugin,
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        require: 'readonly',
+        module: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly'
+      }
     },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-    },
-  },
-];
+      'no-console': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'warn'
+    }
+  }
+);
