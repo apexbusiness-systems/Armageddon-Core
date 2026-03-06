@@ -11,16 +11,26 @@ IMAGE_NAME="armageddon-worker"
 WORKER_CONTAINER="armageddon-worker-moat"
 HEALTH_TIMEOUT=120  # seconds to wait for worker healthcheck
 
-log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$1"; }
-die() { log "❌ FATAL: $1"; exit 1; }
+log() {
+    local message="$1"
+    printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$message"
+    return 0
+}
+
+die() {
+    local message="$1"
+    log "❌ FATAL: $message"
+    exit 1
+    return 0
+}
 
 # ─── 1. PRE-FLIGHT CHECKS ────────────────────────────────────────────────
 log "🔐 Checking security posture..."
 command -v docker >/dev/null 2>&1 || die "Docker CLI not found in PATH."
 docker info >/dev/null 2>&1       || die "Docker daemon is not running."
-[ -f ".env.moat" ]                || die ".env.moat NOT FOUND. Copy from .env.moat.example first."
-[ -f "$COMPOSE_FILE" ]            || die "$COMPOSE_FILE not found in repo root."
-[ -f "$DOCKERFILE" ]              || die "$DOCKERFILE not found."
+[[ -f ".env.moat" ]]              || die ".env.moat NOT FOUND. Copy from .env.moat.example first."
+[[ -f "$COMPOSE_FILE" ]]          || die "$COMPOSE_FILE not found in repo root."
+[[ -f "$DOCKERFILE" ]]            || die "$DOCKERFILE not found."
 
 # ─── 2. VERSIONING ───────────────────────────────────────────────────────
 GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "nogit")
@@ -41,7 +51,7 @@ docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 # ─── 5. HEALTHCHECK WAIT ────────────────────────────────────────────────
 log "⏳ Waiting for worker healthcheck (timeout: ${HEALTH_TIMEOUT}s)..."
 elapsed=0
-while [ "$elapsed" -lt "$HEALTH_TIMEOUT" ]; do
+while [[ "$elapsed" -lt "$HEALTH_TIMEOUT" ]]; do
     status=$(docker inspect --format='{{.State.Health.Status}}' "$WORKER_CONTAINER" 2>/dev/null || echo "missing")
     case "$status" in
         healthy)
@@ -58,7 +68,7 @@ while [ "$elapsed" -lt "$HEALTH_TIMEOUT" ]; do
     esac
 done
 
-if [ "$elapsed" -ge "$HEALTH_TIMEOUT" ]; then
+if [[ "$elapsed" -ge "$HEALTH_TIMEOUT" ]]; then
     die "Worker did not become healthy within ${HEALTH_TIMEOUT}s. Last status: $status"
 fi
 

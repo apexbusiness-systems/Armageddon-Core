@@ -4,15 +4,18 @@
 -- Usage: psql -h <host> -U temporal -d temporal -f apply_migration.sql
 -- ═══════════════════════════════════════════════════════════════════════════
 \set ON_ERROR_STOP on
+\set TARGET_TABLE 'armageddon_runs'
 
 -- ─── PRE-FLIGHT: verify target table exists ─────────────────────────────
 DO $$
+DECLARE
+    tbl_name CONSTANT text := 'armageddon_runs';
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name = 'armageddon_runs'
+        WHERE table_schema = 'public' AND table_name = tbl_name
     ) THEN
-        RAISE EXCEPTION 'PRE-FLIGHT FAILED: table "armageddon_runs" does not exist. Aborting migration.';
+        RAISE EXCEPTION 'PRE-FLIGHT FAILED: table "%" does not exist. Aborting migration.', tbl_name;
     END IF;
 END
 $$;
@@ -33,11 +36,12 @@ COMMENT ON COLUMN armageddon_runs.config IS 'Run configuration including battery
 -- ─── POST-MIGRATION VERIFICATION ──────────────────────────────────────
 DO $$
 DECLARE
+    tbl_name CONSTANT text := 'armageddon_runs';
     col_exists boolean;
 BEGIN
     SELECT EXISTS (
         SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'armageddon_runs' AND column_name = 'config'
+        WHERE table_name = tbl_name AND column_name = 'config'
     ) INTO col_exists;
 
     IF NOT col_exists THEN

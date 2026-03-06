@@ -7,7 +7,11 @@ set -euo pipefail
 
 COMPOSE_FILE="docker-compose.moat.yml"
 
-log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$1"; }
+log() {
+    local message="$1"
+    printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$message"
+    return 0
+}
 
 log "🚨 ACTIVATING KILL SWITCH..."
 
@@ -21,7 +25,7 @@ for arg in "$@"; do
 done
 
 # Shutdown: --volumes removes named volumes (postgres_data) for full wipe
-if [ "$REMOVE_VOLUMES" = true ]; then
+if [[ "$REMOVE_VOLUMES" = true ]]; then
     log "🗑️  Full wipe requested — removing containers AND volumes."
     docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans
 else
@@ -31,7 +35,7 @@ fi
 
 # Verify no Moat containers remain
 remaining=$(docker ps -a --filter "name=armageddon-" --filter "name=-moat" --format "{{.Names}}" 2>/dev/null || true)
-if [ -n "$remaining" ]; then
+if [[ -n "$remaining" ]]; then
     log "⚠️  Residual containers detected, force-removing: $remaining"
     echo "$remaining" | xargs -r docker rm -f
 fi
