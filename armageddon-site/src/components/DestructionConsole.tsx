@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import Image from 'next/image';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import LockdownModal from './paywall/LockdownModal';
@@ -402,7 +403,14 @@ export default function DestructionConsole({
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-4 relative z-20">
-                        <img src="/wordmark.png" alt="ARMAGEDDON LEVEL 7" className="w-full max-w-[29rem] h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow" />
+                        <Image
+                            src="/wordmark.png"
+                            alt="ARMAGEDDON LEVEL 7"
+                            width={464}
+                            height={120}
+                            priority
+                            className="w-full max-w-[29rem] h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow"
+                        />
                     </div>
 
                     <div className="mt-[calc(2rem+2cm)] mb-6 relative">

@@ -61,11 +61,22 @@ async function simulateAttack(probability: number = 0.0001): Promise<boolean> {
  * Shared logic for running an adversarial battery.
  * Reduces code duplication and cognitive complexity.
  */
+type AdversarialVector = string | { type?: string; tool?: string; package?: string; payload?: unknown; content?: string };
+
+function formatAdversarialVector(vector: AdversarialVector): string {
+    if (typeof vector === 'string') {
+        return vector;
+    }
+
+    const serialized = JSON.stringify(vector);
+    return serialized ?? Object.prototype.toString.call(vector);
+}
+
 async function runAdversarialBattery(
     runId: string,
     batteryId: string,
     batteryName: string,
-    vectors: string[] | { type?: string; tool?: string; package?: string; payload?: unknown; content?: string }[],
+    vectors: AdversarialVector[],
     config: Partial<BatteryConfig>,
     vectorToString: (v: unknown) => string,
     breachProbability: number
@@ -206,8 +217,9 @@ export async function runBattery11ToolMisuse(
         vectors,
         config,
         (v) => {
-             const isSql = sqlPayloads.includes(v as string);
-             return `${isSql ? 'SQL' : 'API'} exploit: ${v}`;
+             const normalized = formatAdversarialVector(v);
+             const isSql = typeof v === 'string' && sqlPayloads.includes(v);
+             return `${isSql ? 'SQL' : 'API'} exploit: ${normalized}`;
         },
         0.00003
     );
@@ -239,7 +251,7 @@ export async function runBattery12MemoryPoison(
         'MEMORY_POISON',
         vectors,
         config,
-        (v) => `Memory poisoning: ${v}`,
+        (v) => `Memory poisoning: ${formatAdversarialVector(v)}`,
         0.00002
     );
 }
@@ -275,7 +287,7 @@ export async function runBattery13SupplyChain(
         'SUPPLY_CHAIN',
         vectors,
         config,
-        (v) => `Supply chain attack: ${v}`,
+        (v) => `Supply chain attack: ${formatAdversarialVector(v)}`,
         0.00004
     );
 }
