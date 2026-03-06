@@ -636,7 +636,6 @@ export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<Bat
         badGuard.enforce('Battery6_DestructionTest');
 
         // IF WE REACH HERE, THE GATE FAILED TO BLOCK US
-        details = { error: 'SafetyGuard failed to block execution with missing SIM_MODE' };
         await reporter.pushEvent('B6', 'BREACH', { details: 'Gate failed to close' });
 
     } catch (err) {
