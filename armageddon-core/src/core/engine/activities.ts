@@ -67,7 +67,7 @@ async function runAdversarialBattery(
     batteryName: string,
     vectors: string[] | { type?: string; tool?: string; package?: string; payload?: unknown; content?: string }[],
     config: Partial<BatteryConfig>,
-    vectorToString: (v: any) => string,
+    vectorToString: (v: unknown) => string,
     breachProbability: number
 ): Promise<BatteryResult> {
     enforceSafetyGuard();

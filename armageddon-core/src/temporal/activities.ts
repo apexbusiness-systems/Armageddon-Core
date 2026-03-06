@@ -385,7 +385,7 @@ interface AdversarialResult {
 async function executeAdversarialIteration<T>(
     options: AdversarialIterationOptions<T>
 ): Promise<AdversarialResult> {
-    const { iteration, adapter, vector, vectorToGoal, batteryId, config, reportResponse } = options;
+    const { iteration, adapter, vector, vectorToGoal, config, reportResponse } = options;
     // REFACTOR-VERIFY: Parameter object pattern confirmed compliant with MAX_PARAMS rule.
     const goal = vectorToGoal(vector);
     const result = await adapter.executeAttack(goal);
@@ -636,7 +636,6 @@ export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<Bat
         badGuard.enforce('Battery6_DestructionTest');
 
         // IF WE REACH HERE, THE GATE FAILED TO BLOCK US
-        details = { error: 'SafetyGuard failed to block execution with missing SIM_MODE' };
         await reporter.pushEvent('B6', 'BREACH', { details: 'Gate failed to close' });
 
     } catch (err) {
