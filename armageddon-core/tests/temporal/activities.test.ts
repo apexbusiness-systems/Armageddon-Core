@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { runBattery5_FullUnit } from '../../src/temporal/activities';
 import { execFile } from 'node:child_process';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
@@ -48,7 +49,7 @@ describe('runBattery5_FullUnit', () => {
     process.env = originalEnv;
   });
 
-  it('should call execFile with npm (or cmd.exe on Windows) when tier is FREE', async () => {
+  it('should call execFile with absolute npm path (or cmd.exe on Windows) when tier is FREE', async () => {
     const config = {
       runId: 'test-run',
       iterations: 1,
@@ -62,16 +63,18 @@ describe('runBattery5_FullUnit', () => {
     const isWin = os.platform() === 'win32';
 
     if (isWin) {
-        expect(firstCall[0]).toBe('cmd.exe');
-        expect(firstCall[1]).toContain('npm');
+        expect(firstCall[0]).toBe('C:\\Windows\\System32\\cmd.exe');
+        expect(firstCall[1]).toContain('/c');
+        expect(firstCall[1][1]).toContain('npm.cmd');
     } else {
-        expect(firstCall[0]).toBe('npm');
+        const expectedNpm = path.join(path.dirname(process.execPath), 'npm');
+        expect(firstCall[0]).toBe(expectedNpm);
         expect(firstCall[1]).toEqual(['run', 'test', '--', '--reporter=json']);
     }
     expect(firstCall[2].shell).toBe(false);
   });
 
-  it('should call execFile with docker run when tier is CERTIFIED', async () => {
+  it('should call execFile with absolute docker path when tier is CERTIFIED', async () => {
     const config = {
       runId: 'test-run',
       iterations: 1,
@@ -82,7 +85,10 @@ describe('runBattery5_FullUnit', () => {
 
     expect(execFile).toHaveBeenCalled();
     const firstCall = (execFile as Mock).mock.calls[0];
-    expect(firstCall[0]).toBe('docker');
+    const isWin = os.platform() === 'win32';
+    const expectedDocker = isWin ? 'docker.exe' : '/usr/bin/docker';
+
+    expect(firstCall[0]).toBe(expectedDocker);
     expect(firstCall[1]).toContain('run');
     expect(firstCall[1]).toContain('--rm');
     expect(firstCall[2].shell).toBe(false);
