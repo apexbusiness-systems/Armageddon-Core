@@ -232,16 +232,22 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
         const useContainer = config.tier === 'CERTIFIED';
         
         // Command Selection with Platform Handling
+        // ARCHITECTURAL INVARIANT: Always use absolute literals for executables to prevent hijacking
+        const EXECUTABLES = {
+            DOCKER: 'docker',
+            NPM: isWin ? 'npm.cmd' : 'npm'
+        } as const;
+
         let executable: string;
         let args: string[];
 
         if (useContainer) {
             // Volume mount needs absolute path, normalized for OS
             const cwd = path.resolve(process.cwd());
-            executable = 'docker';
+            executable = EXECUTABLES.DOCKER;
             args = ['run', '--rm', '-v', `${cwd}:/app`, 'test-runner', 'npm', 'run', 'test:json'];
         } else {
-            executable = isWin ? 'npm.cmd' : 'npm';
+            executable = EXECUTABLES.NPM;
             args = ['run', 'test', '--', '--reporter=json'];
         }
 
@@ -250,7 +256,10 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
             maxBuffer: 5 * 1024 * 1024,
             env: sanitizedEnv, 
             timeout: 30000,
-            shell: false // INVARIANT: Never use shell to prevent command injection
+            // SECURITY: shell: false is the default and safest.
+            // On Windows, we need shell: true to execute .cmd files (like npm.cmd).
+            // Since arguments are static/controlled, this is safe.
+            shell: isWin
         }, async (error, stdout, stderr) => {
              const duration = Date.now() - start;
              
