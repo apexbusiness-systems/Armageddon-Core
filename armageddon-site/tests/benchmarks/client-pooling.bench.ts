@@ -6,7 +6,7 @@
  */
 
 import { describe, bench } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Connection, Client } from '@temporalio/client';
 
 // Mock env vars if not present
@@ -15,8 +15,8 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 process.env.TEMPORAL_ADDRESS = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
 
 // Cached clients for "warm" tests
-let cachedSupabaseClient: any = null;
-let cachedTemporalClient: any = null;
+let cachedSupabaseClient: SupabaseClient | null = null;
+let cachedTemporalClient: Client | null = null;
 
 // Setup cached clients
 cachedSupabaseClient = createClient(
@@ -43,7 +43,7 @@ cachedSupabaseClient = createClient(
 
 Connection.connect = async () => {
     await new Promise(resolve => setTimeout(resolve, 10)); // Simulate 10ms latency
-    return {} as any;
+    return {} as unknown as Connection;
 };
 
 // Setup warm temporal client
@@ -63,7 +63,7 @@ describe('Supabase Client Creation', () => {
 
     bench('reused client (warm)', async () => {
         // Simulate pooled client
-        const client = cachedSupabaseClient;
+        const client = cachedSupabaseClient!;
         const _ = client.auth;
     });
 });
@@ -80,7 +80,7 @@ describe('Temporal Client Connection', () => {
 
     bench('cached connection (warm)', async () => {
         // Simulate singleton pattern
-        const client = cachedTemporalClient;
+        const client = cachedTemporalClient!;
         // Access a property to ensure it's initialized and satisfy SonarQube
         const _ = client.workflow;
     });
