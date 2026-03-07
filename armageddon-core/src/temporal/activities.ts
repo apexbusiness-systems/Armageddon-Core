@@ -18,7 +18,7 @@ import {
 } from './prompts';
 
 import { safetyGuard, SafetyGuard, SystemLockdownError } from '../core/safety';
-import { createReporter } from '../core/reporter';
+import { createReporter, EventType } from '../core/reporter';
 import { hashString } from '../core/utils';
 import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial';
 import { runStressTest, StressTestConfig } from '../core/stress';
@@ -515,13 +515,22 @@ async function runGenericAdversarialBattery<T>(
     // Sort results by original index before processing events
     results.sort((a, b) => a.index - b.index);
 
-    const eventsToPush = results
-        .filter(r => r.result.event)
-        .map(r => ({
-            batteryId,
-            eventType: r.result.event!.type,
-            payload: r.result.event!.payload
-        }));
+    const eventsToPush: Array<{
+        batteryId: string;
+        eventType: EventType;
+        payload?: Record<string, unknown>;
+    }> = [];
+
+    for (let i = 0; i < results.length; i++) {
+        const event = results[i].result.event;
+        if (event) {
+            eventsToPush.push({
+                batteryId,
+                eventType: event.type as EventType,
+                payload: event.payload
+            });
+        }
+    }
 
     if (eventsToPush.length > 0) {
         await reporter.pushEvents(eventsToPush);
