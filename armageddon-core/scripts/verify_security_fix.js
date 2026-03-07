@@ -4,7 +4,7 @@
  * correctly prevents shell command injection.
  */
 
-const { execFile, exec } = require('node:child_process');
+const { execFile } = require('node:child_process');
 const assert = require('node:assert');
 
 // Scenario: Attempt to inject a shell command via an argument
@@ -31,12 +31,11 @@ async function verifyFix() {
     // We try to run node and pass it an argument that would be malicious if evaluated by a shell.
     const maliciousArg = '"; console.log("INJECTED"); //';
 
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
         // We expect node to fail to parse this as a script, but NOT to print "INJECTED"
         execFile('node', ['-e', `console.log("SAFE"); ${maliciousArg}`], { shell: false }, (error, stdout) => {
             if (stdout.includes('INJECTED')) {
-                console.error('✗ VULNERABILITY DETECTED: Command injection successful!');
-                process.exit(1);
+                reject(new Error('VULNERABILITY DETECTED: Command injection successful!'));
             } else {
                 console.log('✓ Command injection blocked: Shell did not evaluate malicious argument');
                 resolve();
@@ -53,6 +52,6 @@ async function verifyFix() {
 }
 
 verifyFix().catch(err => {
-    console.error('Verification failed:', err);
-    process.exit(1);
+    console.error('Verification failed:', err.message);
+    process.exitCode = 1;
 });
