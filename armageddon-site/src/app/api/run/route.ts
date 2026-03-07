@@ -68,7 +68,8 @@ const orgLimiter = new RateLimiter({
 export async function POST(request: NextRequest): Promise<NextResponse<RunResponse>> {
     try {
         // 1. IP-based Rate Limiting (Pre-parsing)
-        const ip = request.headers.get('x-forwarded-for') || 'unknown';
+        // Securely identify client IP via Next.js request.ip (handles trusted proxies)
+        const ip = request.ip || 'unknown';
         if (!ipLimiter.check(ip)) {
             console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
             return NextResponse.json(
