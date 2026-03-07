@@ -5,7 +5,7 @@
 // AUDIT SCORE: 100/100 (VERIFIED)
 // DATE: 2026-02-06
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
@@ -208,11 +208,11 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B5', 'BATTERY_STARTED', { mode: 'ISOLATED_EXECUTION' });
 
+    // APEX-DEV: "Portable & Secure"
+    // Dynamic Path Resolution for OS Agnosticism (Windows/Linux/Mac)
+    const isWin = os.platform() === 'win32';
+
     return new Promise((resolve) => {
-        // APEX-DEV: "Portable & Secure"
-        // Dynamic Path Resolution for OS Agnosticism (Windows/Linux/Mac)
-        const isWin = os.platform() === 'win32';
-        
         // Strict Whitelist for PATH
         const safePath = isWin 
             ? process.env.PATH // Windows PATH is complex, inherit but warn in audit log
@@ -232,18 +232,25 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
         const useContainer = config.tier === 'CERTIFIED';
         
         // Command Selection with Platform Handling
-        let command = 'npm run test -- --reporter=json';
+        let executable: string;
+        let args: string[];
+
         if (useContainer) {
             // Volume mount needs absolute path, normalized for OS
             const cwd = path.resolve(process.cwd());
-            command = `docker run --rm -v "${cwd}:/app" test-runner npm run test:json`;
+            executable = 'docker';
+            args = ['run', '--rm', '-v', `${cwd}:/app`, 'test-runner', 'npm', 'run', 'test:json'];
+        } else {
+            executable = isWin ? 'npm.cmd' : 'npm';
+            args = ['run', 'test', '--', '--reporter=json'];
         }
 
-        exec(command, {
+        execFile(executable, args, {
             cwd: process.cwd(),
             maxBuffer: 5 * 1024 * 1024,
             env: sanitizedEnv, 
-            timeout: 30000 
+            timeout: 30000,
+            shell: false // INVARIANT: Never use shell to prevent command injection
         }, async (error, stdout, stderr) => {
              const duration = Date.now() - start;
              
