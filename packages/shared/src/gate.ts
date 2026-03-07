@@ -75,7 +75,11 @@ const TIER_FEATURES: Record<OrganizationTier, {
 // SUPABASE CLIENT
 // ═══════════════════════════════════════════════════════════════════════════
 
+let supabaseInstance: SupabaseClient | null = null;
+
 function getSupabaseClient(): SupabaseClient {
+    if (supabaseInstance) return supabaseInstance;
+
     // Attempt standard env var then Next.js public env var
     const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -86,9 +90,11 @@ function getSupabaseClient(): SupabaseClient {
         );
     }
 
-    return createClient(url, serviceKey, {
+    supabaseInstance = createClient(url, serviceKey, {
         auth: { persistSession: false },
     });
+
+    return supabaseInstance;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
