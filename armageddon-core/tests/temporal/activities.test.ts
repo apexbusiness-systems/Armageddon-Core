@@ -48,7 +48,7 @@ describe('runBattery5_FullUnit', () => {
     process.env = originalEnv;
   });
 
-  it('should call execFile with npm when tier is FREE', async () => {
+  it('should call execFile with npm (or cmd.exe on Windows) when tier is FREE', async () => {
     const config = {
       runId: 'test-run',
       iterations: 1,
@@ -60,8 +60,14 @@ describe('runBattery5_FullUnit', () => {
     expect(execFile).toHaveBeenCalled();
     const firstCall = (execFile as Mock).mock.calls[0];
     const isWin = os.platform() === 'win32';
-    expect(firstCall[0]).toBe(isWin ? 'npm.cmd' : 'npm');
-    expect(firstCall[1]).toEqual(['run', 'test', '--', '--reporter=json']);
+
+    if (isWin) {
+        expect(firstCall[0]).toBe('cmd.exe');
+        expect(firstCall[1]).toContain('npm');
+    } else {
+        expect(firstCall[0]).toBe('npm');
+        expect(firstCall[1]).toEqual(['run', 'test', '--', '--reporter=json']);
+    }
     expect(firstCall[2].shell).toBe(false);
   });
 
