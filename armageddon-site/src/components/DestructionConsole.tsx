@@ -87,6 +87,21 @@ interface ArmageddonRun {
     results: RunResults;
 }
 
+interface RunResponse {
+    success: boolean;
+    runId?: string;
+    workflowId?: string;
+    error?: string;
+    upsellMessage?: string;
+    upgradeUrl?: string;
+}
+
+interface GatekeeperResponse {
+    eligible: boolean;
+    tier: string;
+    reason: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS (Extracted to reduce Component Complexity)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -97,7 +112,7 @@ async function startWorkflowApi(orgId: string, level: number, batteries: string[
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ organizationId: orgId, level, batteries }),
     });
-    const data = await res.json();
+    const data = (await res.json()) as RunResponse;
     return { ok: res.ok, status: res.status, data };
 }
 
@@ -147,7 +162,7 @@ export default function DestructionConsole({
                     method: 'POST',
                     headers
                 });
-                const data = await res.json();
+                const data = (await res.json()) as GatekeeperResponse;
                 if (data.tier) {
                     setCanCustomize(data.tier !== 'free_dry');
                 }
