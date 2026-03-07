@@ -281,20 +281,24 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
             shell: false // INVARIANT: Never use shell to prevent command injection
         };
 
-        // ARCHITECTURAL INVARIANT: Use literal strings for executables to pass SonarCloud security checks.
-        // On Windows, we need 'npm.cmd' but execFile with shell:false will fail.
-        // We bypass this by explicitly checking the platform.
+        // ARCHITECTURAL INVARIANT: Use absolute paths for executables to satisfy SonarCloud S4036.
+        // This prevents searching the PATH environment variable.
+        const nodeDir = path.dirname(process.execPath);
+        const absoluteNpm = path.join(nodeDir, isWin ? 'npm.cmd' : 'npm');
+
         if (useContainer) {
             const cwd = path.resolve(process.cwd());
             const args = ['run', '--rm', '-v', `${cwd}:/app`, 'test-runner', 'npm', 'run', 'test:json'];
-            execFile('docker', args, execOptions, handleExecResult);
+            // SonarCloud: Use absolute path for docker. Usually /usr/bin/docker on Linux.
+            const dockerPath = isWin ? 'docker.exe' : '/usr/bin/docker';
+            execFile(dockerPath, args, execOptions, handleExecResult);
         } else if (isWin) {
-            const args = ['/c', 'npm', 'run', 'test', '--', '--reporter=json'];
-            // Use cmd.exe on Windows to safely run npm without enabling the shell for the entire command.
-            execFile('cmd.exe', args, execOptions, handleExecResult);
+            const args = ['/c', absoluteNpm, 'run', 'test', '--', '--reporter=json'];
+            // Use absolute path for cmd.exe on Windows.
+            execFile('C:\\Windows\\System32\\cmd.exe', args, execOptions, handleExecResult);
         } else {
             const args = ['run', 'test', '--', '--reporter=json'];
-            execFile('npm', args, execOptions, handleExecResult);
+            execFile(absoluteNpm, args, execOptions, handleExecResult);
         }
     });
 }
