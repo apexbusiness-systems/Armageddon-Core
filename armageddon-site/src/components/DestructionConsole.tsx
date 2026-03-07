@@ -249,7 +249,7 @@ export default function DestructionConsole({
         try {
             const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries);
 
-            if (!ok) {
+            if (!ok || !data.runId) {
                 if (status === 403) {
                     handleTrapTrigger();
                     return;
