@@ -84,18 +84,17 @@ export class NativeHttpStressTester {
         const maxVUs = config.maxVirtualUsers || 100;
         
         const startTime = Date.now();
-        const activeRequests: Promise<void>[] = [];
+        const activeRequests = new Set<Promise<void>>();
         
         console.log(`[StressTest] Starting ${config.arrivalRate} RPS for ${config.duration}`);
 
         while (Date.now() - startTime < durationMs) {
             // Limit concurrent requests
-            if (activeRequests.length < maxVUs) {
-                const request = this.makeRequest(targetUrl).then(() => {
-                    const idx = activeRequests.indexOf(request);
-                    if (idx > -1) activeRequests.splice(idx, 1);
+            if (activeRequests.size < maxVUs) {
+                const request: Promise<void> = this.makeRequest(targetUrl).then(() => {
+                    activeRequests.delete(request);
                 });
-                activeRequests.push(request);
+                activeRequests.add(request);
             }
             
             await new Promise(r => setTimeout(r, interval));
