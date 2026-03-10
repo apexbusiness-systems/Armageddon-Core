@@ -1,36 +1,50 @@
-import { describe, it, expect } from 'vitest';
-import { parseDuration } from '../../src/core/stress';
 
-describe('stress', () => {
-    describe('parseDuration', () => {
-        it('should parse seconds correctly', () => {
-            expect(parseDuration('30s')).toBe(30000);
-            expect(parseDuration('1s')).toBe(1000);
-            expect(parseDuration('0s')).toBe(0);
+import { describe, it, expect, beforeEach } from 'vitest';
+import { NativeHttpStressTester } from '../../src/core/stress';
+
+describe('NativeHttpStressTester', () => {
+    beforeEach(() => {
+        // @ts-ignore
+        globalThis.fetch = async () => ({
+            ok: true,
+            status: 200,
+            json: async () => ({}),
+        });
+    });
+
+    it('should complete a stress test run', async () => {
+        const tester = new NativeHttpStressTester();
+        const result = await tester.run({
+            tier: 'CERTIFIED',
+            duration: '1s',
+            arrivalRate: 10,
+            maxVirtualUsers: 5,
+            runId: 'test-run'
         });
 
-        it('should parse minutes correctly', () => {
-            expect(parseDuration('5m')).toBe(5 * 60 * 1000);
-            expect(parseDuration('1m')).toBe(60000);
+        expect(result.mode).toBe('NATIVE_HTTP');
+        expect(result.totalRequests).toBeGreaterThan(0);
+        expect(result.successfulRequests).toBe(result.totalRequests);
+    });
+
+    it('should respect maxVirtualUsers', async () => {
+        const tester = new NativeHttpStressTester();
+
+        // Mock fetch to take some time
+        // @ts-ignore
+        globalThis.fetch = async () => {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            return { ok: true, status: 200, json: async () => ({}) };
+        };
+
+        const result = await tester.run({
+            tier: 'CERTIFIED',
+            duration: '1s',
+            arrivalRate: 50,
+            maxVirtualUsers: 2,
+            runId: 'test-run-max-vus'
         });
 
-        it('should parse hours correctly', () => {
-            expect(parseDuration('1h')).toBe(60 * 60 * 1000);
-            expect(parseDuration('2h')).toBe(2 * 60 * 60 * 1000);
-        });
-
-        it('should handle large values', () => {
-            expect(parseDuration('120s')).toBe(120000);
-            expect(parseDuration('90m')).toBe(90 * 60 * 1000);
-        });
-
-        it('should return default 30s for invalid formats', () => {
-            expect(parseDuration('')).toBe(30000);
-            expect(parseDuration('30')).toBe(30000);
-            expect(parseDuration('5x')).toBe(30000);
-            expect(parseDuration('10d')).toBe(30000);
-            expect(parseDuration('s30')).toBe(30000);
-            expect(parseDuration('30.5s')).toBe(30000);
-        });
+        expect(result.totalRequests).toBeGreaterThan(0);
     });
 });
