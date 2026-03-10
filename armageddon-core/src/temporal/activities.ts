@@ -5,7 +5,7 @@
 // AUDIT SCORE: 100/100 (VERIFIED)
 // DATE: 2026-02-06
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
@@ -18,7 +18,7 @@ import {
 } from './prompts';
 
 import { safetyGuard, SafetyGuard, SystemLockdownError } from '../core/safety';
-import { createReporter } from '../core/reporter';
+import { createReporter, EventType } from '../core/reporter';
 import { hashString } from '../core/utils';
 import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial';
 import { runStressTest, StressTestConfig } from '../core/stress';
@@ -208,11 +208,11 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B5', 'BATTERY_STARTED', { mode: 'ISOLATED_EXECUTION' });
 
+    // APEX-DEV: "Portable & Secure"
+    // Dynamic Path Resolution for OS Agnosticism (Windows/Linux/Mac)
+    const isWin = os.platform() === 'win32';
+
     return new Promise((resolve) => {
-        // APEX-DEV: "Portable & Secure"
-        // Dynamic Path Resolution for OS Agnosticism (Windows/Linux/Mac)
-        const isWin = os.platform() === 'win32';
-        
         // Strict Whitelist for PATH
         const safePath = isWin 
             ? process.env.PATH // Windows PATH is complex, inherit but warn in audit log
@@ -231,59 +231,75 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
         // Certified runs in Docker (Container). Free runs in Process (Sanitized).
         const useContainer = config.tier === 'CERTIFIED';
         
-        // Command Selection with Platform Handling
-        let command = 'npm run test -- --reporter=json';
-        if (useContainer) {
-            // Volume mount needs absolute path, normalized for OS
-            const cwd = path.resolve(process.cwd());
-            command = `docker run --rm -v "${cwd}:/app" test-runner npm run test:json`;
-        }
+        // APEX-DEV: Callback logic for execution results
+        const handleExecResult = async (error: Error | null, stdout: string, stderr: string) => {
+            const duration = Date.now() - start;
 
-        exec(command, {
+            let passed = 0;
+            let parseError = false;
+
+            try {
+                if (stdout) {
+                   const result = JSON.parse(stdout);
+                   passed = result.numPassedTests || 0;
+                }
+            } catch {
+                parseError = true;
+                console.error("[B5] JSON Parse Failure");
+            }
+
+            // Logic: If error exists OR 0 tests passed, it's a FAIL.
+            const status = (error || passed === 0) ? 'FAILED' : 'PASSED';
+
+            if (status === 'FAILED') {
+               await reporter.pushEvent('B5', 'RUN_FAILED', { error: stderr || "Suite failed or timed out" });
+            } else {
+               await reporter.pushEvent('B5', 'BATTERY_COMPLETED', { passed });
+            }
+
+            resolve({
+                batteryId: 'B5_FULL_UNIT',
+                status,
+                iterations: passed,
+                blockedCount: 0,
+                breachCount: error ? 1 : 0,
+                driftScore: error ? 1 : 0,
+                duration,
+                details: {
+                    isolation: useContainer ? 'CONTAINER' : 'PROCESS_SANITIZED',
+                    platform: os.platform(),
+                    parsed_correctly: !parseError
+                },
+            });
+        };
+
+        const execOptions = {
             cwd: process.cwd(),
             maxBuffer: 5 * 1024 * 1024,
             env: sanitizedEnv, 
-            timeout: 30000 
-        }, async (error, stdout, stderr) => {
-             const duration = Date.now() - start;
-             
-             let passed = 0;
-             let parseError = false;
+            timeout: 30000,
+            shell: false // INVARIANT: Never use shell to prevent command injection
+        };
 
-             try {
-                 if (stdout) {
-                    const result = JSON.parse(stdout);
-                    passed = result.numPassedTests || 0;
-                 }
-             } catch {
-                 parseError = true;
-                 console.error("[B5] JSON Parse Failure");
-             }
+        // ARCHITECTURAL INVARIANT: Use absolute paths for executables to satisfy SonarCloud S4036.
+        // This prevents searching the PATH environment variable.
+        const nodeDir = path.dirname(process.execPath);
+        const absoluteNpm = path.join(nodeDir, isWin ? 'npm.cmd' : 'npm');
 
-             // Logic: If error exists OR 0 tests passed, it's a FAIL.
-             const status = (error || passed === 0) ? 'FAILED' : 'PASSED';
-             
-             if (status === 'FAILED') {
-                await reporter.pushEvent('B5', 'RUN_FAILED', { error: stderr || "Suite failed or timed out" });
-             } else {
-                await reporter.pushEvent('B5', 'BATTERY_COMPLETED', { passed });
-             }
-
-             resolve({
-                 batteryId: 'B5_FULL_UNIT',
-                 status,
-                 iterations: passed,
-                 blockedCount: 0,
-                 breachCount: error ? 1 : 0,
-                 driftScore: error ? 1 : 0,
-                 duration,
-                 details: { 
-                     isolation: useContainer ? 'CONTAINER' : 'PROCESS_SANITIZED',
-                     platform: os.platform(),
-                     parsed_correctly: !parseError
-                 },
-             });
-         });
+        if (useContainer) {
+            const cwd = path.resolve(process.cwd());
+            const args = ['run', '--rm', '-v', `${cwd}:/app`, 'test-runner', 'npm', 'run', 'test:json'];
+            // SonarCloud: Use absolute path for docker. Usually /usr/bin/docker on Linux.
+            const dockerPath = isWin ? 'docker.exe' : '/usr/bin/docker';
+            execFile(dockerPath, args, execOptions, handleExecResult);
+        } else if (isWin) {
+            const args = ['/c', absoluteNpm, 'run', 'test', '--', '--reporter=json'];
+            // Use absolute path for cmd.exe on Windows.
+            execFile('C:\\Windows\\System32\\cmd.exe', args, execOptions, handleExecResult);
+        } else {
+            const args = ['run', 'test', '--', '--reporter=json'];
+            execFile(absoluteNpm, args, execOptions, handleExecResult);
+        }
     });
 }
 
@@ -385,7 +401,7 @@ interface AdversarialResult {
 async function executeAdversarialIteration<T>(
     options: AdversarialIterationOptions<T>
 ): Promise<AdversarialResult> {
-    const { iteration, adapter, vector, vectorToGoal, batteryId, config, reportResponse } = options;
+    const { iteration, adapter, vector, vectorToGoal, config, reportResponse } = options;
     // REFACTOR-VERIFY: Parameter object pattern confirmed compliant with MAX_PARAMS rule.
     const goal = vectorToGoal(vector);
     const result = await adapter.executeAttack(goal);
@@ -515,13 +531,22 @@ async function runGenericAdversarialBattery<T>(
     // Sort results by original index before processing events
     results.sort((a, b) => a.index - b.index);
 
-    const eventsToPush = results
-        .filter(r => r.result.event)
-        .map(r => ({
-            batteryId,
-            eventType: r.result.event!.type,
-            payload: r.result.event!.payload
-        }));
+    const eventsToPush: Array<{
+        batteryId: string;
+        eventType: EventType;
+        payload?: Record<string, unknown>;
+    }> = [];
+
+    for (let i = 0; i < results.length; i++) {
+        const event = results[i].result.event;
+        if (event) {
+            eventsToPush.push({
+                batteryId,
+                eventType: event.type as EventType,
+                payload: event.payload
+            });
+        }
+    }
 
     if (eventsToPush.length > 0) {
         await reporter.pushEvents(eventsToPush);
@@ -636,7 +661,6 @@ export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<Bat
         badGuard.enforce('Battery6_DestructionTest');
 
         // IF WE REACH HERE, THE GATE FAILED TO BLOCK US
-        details = { error: 'SafetyGuard failed to block execution with missing SIM_MODE' };
         await reporter.pushEvent('B6', 'BREACH', { details: 'Gate failed to close' });
 
     } catch (err) {

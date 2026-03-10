@@ -14,7 +14,9 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Config options here
+    experimental: {
+        serverComponentsExternalPackages: ['@temporalio/client', '@temporalio/worker', '@temporalio/activity'],
+    },
 };
 
 export default withPWA(nextConfig);

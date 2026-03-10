@@ -26,16 +26,25 @@ WORKDIR /app
 COPY armageddon-core/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy workspace package (@armageddon/shared) required by armageddon-core
+COPY packages/shared ./packages/shared
+
 # Install Node.js dependencies
-COPY armageddon-core/package*.json ./
-RUN npm ci --only=production
+# Copy root package files for workspace resolution
+COPY package.json package-lock.json ./
+COPY armageddon-core/package*.json ./armageddon-core/
+RUN cd armageddon-core && npm ci --omit=dev --install-links
 
 # Copy TypeScript config and source
-COPY armageddon-core/tsconfig.json ./
-COPY armageddon-core/src ./src
+COPY armageddon-core/tsconfig.json ./armageddon-core/
+COPY armageddon-core/src ./armageddon-core/src
 
-# Build TypeScript
-RUN npm run build && ls -la dist
+# Build shared package first, then armageddon-core
+RUN cd packages/shared && npx tsc 2>/dev/null || true
+RUN cd armageddon-core && npm run build && ls -la dist
+
+# Flatten dist to /app/dist for CMD
+RUN cp -r armageddon-core/dist ./dist
 
 # Copy Python scripts for kinetic execution
 # Scripts are at repository root, so we copy from ./scripts

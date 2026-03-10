@@ -27,7 +27,7 @@ try:
         icon_layers[0].save(
             target_ico,
             format="ICO",
-            sizes=[l.size for l in icon_layers],
+            sizes=[layer.size for layer in icon_layers],
             append_images=icon_layers[1:],
         )
         print(f"Created optimized favicon.ico with sizes: {sizes}")

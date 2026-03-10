@@ -49,7 +49,7 @@ export interface StressTestResult {
  * Parse duration string to milliseconds
  * Shared by both NativeHttpStressTester and SimulatedStressTester
  */
-function parseDuration(duration: string): number {
+export function parseDuration(duration: string): number {
     const durationRegex = /^(\d+)([smh])$/;
     const match = durationRegex.exec(duration);
     if (!match) return 30000; // Default 30s
