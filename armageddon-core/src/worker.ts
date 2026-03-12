@@ -1,6 +1,8 @@
 import { Worker, NativeConnection } from '@temporalio/worker';
 import * as activities from './temporal/activities';
 import { safetyGuard } from './core/safety';
+import { TASK_QUEUE_LEVEL_7 } from '@armageddon/shared';
+import * as fs from 'node:fs';
 import { HealthServer } from './infrastructure/health';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -26,8 +28,28 @@ async function connectWithRetry(): Promise<NativeConnection> {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            console.log(`[Worker] Connecting to Temporal at ${address} (attempt ${attempt}/${MAX_RETRIES})...`);
-            const connection = await NativeConnection.connect({ address });
+    console.log(`[Worker] Connecting to Temporal at ${address} (attempt ${attempt}/${MAX_RETRIES})...`);
+            
+            let tlsConfig = undefined;
+            if (process.env.TEMPORAL_CERT_PATH && process.env.TEMPORAL_KEY_PATH) {
+                tlsConfig = {
+                    clientCertPair: {
+                        crt: fs.readFileSync(process.env.TEMPORAL_CERT_PATH),
+                        key: fs.readFileSync(process.env.TEMPORAL_KEY_PATH),
+                    },
+                };
+                console.log('[Worker] mTLS Enabled via cert files.');
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const connectionOptions: any = { address, tls: tlsConfig };
+            if (process.env.TEMPORAL_API_KEY) {
+                connectionOptions.apiKey = process.env.TEMPORAL_API_KEY; // Supported in newer SDKs
+                // Fallback/Alternative: Metadata if apiKey prop isn't enough, but usually it is.
+                console.log('[Worker] Using API Key authentication.');
+            }
+
+            const connection = await NativeConnection.connect(connectionOptions);
             console.log('[Worker] Connected to Temporal successfully.');
             healthServer.setTemporalConnected(true);
             return connection;
@@ -73,7 +95,7 @@ export async function createArmageddonWorker(): Promise<Worker> {
     const worker = await Worker.create({
         connection,
         namespace: process.env.TEMPORAL_NAMESPACE || 'default',
-        taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7',
+        taskQueue: process.env.TEMPORAL_TASK_QUEUE || TASK_QUEUE_LEVEL_7,
         workflowsPath: require.resolve('./temporal/workflows'),
         activities: activities.activities,
     });
@@ -90,18 +112,10 @@ export async function runWorker() {
     await worker.run();
 }
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('[Worker] SIGTERM received. Initiating graceful shutdown...');
-    healthServer.setWorkerState('DRAINING');
-    healthServer.stop();
-    process.exit(0);
-});
-
-// Run if executed directly (ESM top-level await replaced with IIFE for CJS compat)
-if (require.main === module) {
-   runWorker().catch((err) => {
-       console.error(err);
-       process.exit(1);
-   });
+// Run if executed directly (ESM top-level await)
+if (import.meta.url === `file://${process.argv[1]}`) {
+    runWorker().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
 }

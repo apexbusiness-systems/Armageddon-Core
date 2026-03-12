@@ -26,22 +26,27 @@ WORKDIR /app
 COPY armageddon-core/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy workspace package (@armageddon/shared) required by armageddon-core
-COPY packages/shared ./packages/shared
-
-# Install Node.js dependencies
-# Copy root package files for workspace resolution
+# Install ALL dependencies first to get tsc
 COPY package.json package-lock.json ./
+COPY packages/shared/package*.json ./packages/shared/
 COPY armageddon-core/package*.json ./armageddon-core/
-RUN cd armageddon-core && npm ci --omit=dev --install-links
+RUN npm ci --ignore-scripts
+
+# Build shared package
+COPY packages/shared ./packages/shared
+RUN npm run build -w @armageddon/shared
 
 # Copy TypeScript config and source
 COPY armageddon-core/tsconfig.json ./armageddon-core/
 COPY armageddon-core/src ./armageddon-core/src
 
 # Build shared package first, then armageddon-core
+# They use the root devDependencies currently installed
 RUN cd packages/shared && npx tsc 2>/dev/null || true
 RUN cd armageddon-core && npm run build && ls -la dist
+
+# NOW strip devDependencies from armageddon-core
+RUN cd armageddon-core && npm ci --omit=dev --install-links --ignore-scripts
 
 # Flatten dist to /app/dist for CMD
 RUN cp -r armageddon-core/dist ./dist

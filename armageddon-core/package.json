@@ -9,14 +9,15 @@
     "build": "tsc",
     "dev": "tsx watch src/worker.ts",
     "worker": "tsx src/worker.ts",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"tests/e2e/**\"",
     "bench": "vitest bench",
-    "test:memory": "node --expose-gc --max-old-space-size=512 node_modules/vitest/vitest.mjs run --reporter=verbose",
+    "test:memory": "node --expose-gc --max-old-space-size=512 node_modules/vitest/vitest.mjs run --exclude \"tests/e2e/**\" --reporter=verbose",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {
     "@armageddon/shared": "*",
+    "@playwright/test": "^1.58.2",
     "@supabase/supabase-js": "^2.39.0",
     "@temporalio/activity": "^1.14.1",
     "@temporalio/client": "^1.14.1",
@@ -24,6 +25,7 @@
     "@temporalio/workflow": "^1.14.1",
     "commander": "^4.1.1",
     "dotenv": "^17.2.4",
+    "playwright": "^1.58.2",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

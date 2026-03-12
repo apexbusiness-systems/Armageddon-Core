@@ -1,24 +1,46 @@
-# apply_migration.mjs Verification
+# Migration Script Verification — Launch Checklist
 
-## Status: ✅ ALREADY CLEAN
+> **CLASSIFICATION**: INTERNAL | **Last Updated**: 2026-02-25
 
-The file was reviewed on February 21, 2025 and found to be production-ready:
+---
 
-- ✅ Explicit error handling with try/catch
-- ✅ Graceful RPC missing detection
-- ✅ No unused variables (data and error both used)
-- ✅ Clear console logging with status indicators
-- ✅ No placeholder comments
+## Pre-Migration Checklist
 
-## Lint Check
+- [ ] **Backup**: Snapshot the target database (`pg_dump -Fc armageddon > backup_$(date +%Y%m%d).dump`)
+- [ ] **Read the SQL**: Review `apply_migration.sql` for correctness. Verify `IF NOT EXISTS` guards.
+- [ ] **Dry Run**: Execute against a staging/local database first:
+  ```bash
+  psql -h localhost -U temporal -d temporal -f apply_migration.sql
+  ```
+- [ ] **Verify Transaction Safety**: Confirm `BEGIN`/`COMMIT` wrapping in the SQL file.
+- [ ] **Check Pre-flight**: The script will abort if `armageddon_runs` table does not exist.
+
+## Execution
+
+```bash
+# Production (use .env.moat credentials)
+source .env.moat
+psql -h $POSTGRES_HOST -U $POSTGRES_USER -d temporal -f apply_migration.sql
 ```
-npx eslint apply_migration.mjs
-(Output is empty, indicating 0 errors and 0 warnings)
+
+## Post-Migration Verification
+
+- [ ] `config` column exists: `SELECT column_name FROM information_schema.columns WHERE table_name='armageddon_runs' AND column_name='config';`
+- [ ] GIN index exists: `SELECT indexname FROM pg_indexes WHERE tablename='armageddon_runs' AND indexname='idx_runs_config';`
+- [ ] Application health: Verify worker can write `config` JSONB via the Armageddon suite.
+
+## Rollback Plan
+
+If migration fails mid-transaction, PostgreSQL auto-rolls back (no partial state).
+For manual rollback after successful apply:
+
+```sql
+BEGIN;
+DROP INDEX IF EXISTS idx_runs_config;
+ALTER TABLE armageddon_runs DROP COLUMN IF EXISTS config;
+COMMIT;
 ```
 
-## Test Results
-- Valid migration: Verified logic against migration file presence
-- Missing RPC handling: Code review confirms robust error checking logic
+## apply_migration.mjs Status
 
-## Conclusion
-No cleanup required. Task marked complete.
+✅ Production-ready (reviewed 2026-02-21). Robust error handling with RPC fallback guidance.
