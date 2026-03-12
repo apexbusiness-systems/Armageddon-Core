@@ -1,8 +1,8 @@
 # ARMAGEDDON DEPLOYMENT PROTOCOL [LEVEL 8]
 
 > **CLASSIFICATION**: PROPRIETARY / INTERNAL
-> **VERSION**: 2.1.1 (Hybrid Cloud Edition)
-> **DATE**: 2026-02-11
+> **VERSION**: 3.0.0 (Moat Edition — Linux-first)
+> **DATE**: 2026-02-25
 
 ---
 
@@ -21,17 +21,18 @@ Before initiating the "Proprietary Moat" deployment, ensure the following constr
 The Kinetic Engine requires specific high-entropy secrets to function. These are MANUALLY managed to ensure air-gap safety.
 
 1.  **Create Configuration**:
-    ```powershell
+
+    ```bash
+    # Linux/macOS (canonical)
+    cp .env.moat.example .env.moat
+
+    # Windows (PowerShell)
     Copy-Item .env.moat.example .env.moat
     ```
+
 2.  **Populate Secrets**:
     - `SUPABASE_SERVICE_ROLE_KEY`: Required for Row Level Security bypass in the worker.
     - `SIM_MODE=true`: **MANDATORY** for all non-terminal testing.
-    - **Cloud Authentication** (Hybrid Mode):
-      - `TEMPORAL_ADDRESS`: `us-central1.gcp.api.temporal.io:7233`
-      - `TEMPORAL_NAMESPACE`: Your Namespace ID.
-      - `TEMPORAL_API_KEY`: Your Cloud API Key.
-      - _(Alternative)_: mTLS Certs in `certs/` directory (mapped automatically).
 
 > **WARNING**: Never commit `.env.moat` to version control. It is git-ignored by design.
 
@@ -39,57 +40,81 @@ The Kinetic Engine requires specific high-entropy secrets to function. These are
 
 ## 🚀 DEPLOYMENT AUTOMATION
 
-We utilize a "One-Click" PowerShell automation suite to ensure deterministic deployments.
+### Linux / CI (Canonical)
 
-### COMMAND: `scripts/deploy_moat.ps1`
+The **canonical** deployment method for production and CI is the Bash script suite:
 
-This script performs the following atomic operations:
+#### DEPLOY: `scripts/deploy_moat.sh`
 
-1.  **Validation**: Checks for `.env.moat` and required tools.
-2.  **Versioning**: Generates a release tag (`yyyyMMdd-HHmm-gitHASH`).
+1.  **Validation**: Checks Docker daemon, `.env.moat`, and required files.
+2.  **Versioning**: Generates a release tag (`YYYYMMDD-HHMM-<git-short>`).
 3.  **Build**: Compiles the `armageddon-worker` Docker image.
-4.  **Bridge Verification**: Runs `verify_kinetic_moat.ts` in an ephemeral container to test the Python Bridge.
-5.  **Deployment**: Executes `docker-compose up -d` with `force-recreate` to ensure zero drift.
-6.  **Smoke Test**: Probes the running container for immediate health feedback.
+4.  **Deploy**: Executes `docker compose up -d --force-recreate`.
+5.  **Health Wait**: Polls container health for up to 120s.
+6.  **Smoke Test**: Prints running container states.
 
-**Usage**:
+```bash
+chmod +x scripts/deploy_moat.sh
+bash scripts/deploy_moat.sh
+```
 
-```powershell
-.\scripts\deploy_moat.ps1
+#### KILL SWITCH (SEV-1): `scripts/kill_moat.sh`
+
+Immediately terminates all Moat containers. Use `--volumes` for full data wipe.
+
+```bash
+# Containers only (data preserved)
+bash scripts/kill_moat.sh
+
+# Full wipe including postgres_data volume
+bash scripts/kill_moat.sh --volumes
+```
+
+#### KILL-SWITCH VERIFICATION: `scripts/verify_kill_moat.sh`
+
+Full lifecycle test: deploy → health wait → kill → verify shutdown.
+
+```bash
+bash scripts/verify_kill_moat.sh          # Standard
+bash scripts/verify_kill_moat.sh --stress # With Temporal stress injection
 ```
 
 ---
 
-## ☢️ KILL SWITCH (SEV-1)
+### Windows Development (Alternative)
 
-In the event of a Containment Breach or uncontrolled loop:
-
-**COMMAND**: `scripts/kill_moat.ps1`
-
-**Effect**:
-
-- Immediately issues `SIGKILL` to all Moat containers.
-- Force-removes container artifacts.
-- Logs the termination event.
-
-**Usage**:
+PowerShell scripts are maintained for Windows dev environments:
 
 ```powershell
-.\scripts\kill_moat.ps1
+.\scripts\deploy_moat.ps1    # Deploy
+.\scripts\kill_moat.ps1      # Kill switch
 ```
+
+> **NOTE**: PowerShell scripts are convenience wrappers for Windows. The Bash scripts are authoritative for production and CI.
 
 ---
 
-## 📦 ARCHITECTURE (HYBRID MOAT)
+## 📦 ARCHITECTURE (MOAT)
 
 The "Moat" infrastructure is defined in `docker-compose.moat.yml` and consists of:
 
 - **armageddon-worker-moat**: The Kinetic Engine (Node.js + Python Bridge).
-  - Connected to **Temporal Cloud** via API Key / mTLS.
-- **armageddon-postgres-moat**: Local Persistence Layer (Optional/Fallback).
-- **armageddon-temporal-moat**: Local Orchestration Server (Backup/Offline Mode).
+- **armageddon-temporal-moat**: Orchestration Server.
+- **armageddon-postgres-moat**: Persistence Layer (named volume: `postgres_data`).
+- **armageddon-temporal-ui-moat**: Visibility Dashboard (Port 8080).
 
 Values are hard-pinned to specific versions to prevent supply-chain drift.
+
+---
+
+## 🔀 DEPLOYMENT BOUNDARY
+
+| Component                                     | Platform       | File                          |
+| --------------------------------------------- | -------------- | ----------------------------- |
+| **Kinetic Moat** (worker, Temporal, Postgres) | Docker Compose | `docker-compose.moat.yml`     |
+| **Marketing Site** (armageddon-site)          | Vercel         | `armageddon-site/vercel.json` |
+
+> **IMPORTANT**: Vercel and Render configurations do **not** apply to the Moat stack. The Moat runs exclusively via Docker Compose. `render.yaml` is retained for reference only — the canonical worker deployment target is Docker.
 
 ---
 

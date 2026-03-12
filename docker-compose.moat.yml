@@ -1,8 +1,11 @@
-version: '3.8'
+# ═══════════════════════════════════════════════════════════════════════════
+# KINETIC ENGINE (MOAT) — Local Production Replica
+# APEX Business Systems Ltd.
+# ═══════════════════════════════════════════════════════════════════════════
 
 services:
   # ─────────────────────────────────────────────────────────────────────────
-  # KINETIC ENGINE (MOAT) - Local Production Replica
+  # KINETIC ENGINE WORKER
   # ─────────────────────────────────────────────────────────────────────────
   worker:
     build:
@@ -24,6 +27,12 @@ services:
       - TEMPORAL_API_KEY
     volumes:
       - ./certs:/etc/temporal/certs:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: always
     # Resource limits to mimic production constraints
     deploy:
@@ -44,11 +53,14 @@ services:
       POSTGRES_DB: temporal
     ports:
       - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U temporal" ]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   temporal:
     image: temporalio/auto-setup:1.24.2
@@ -71,6 +83,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    restart: unless-stopped
 
   temporal-ui:
     image: temporalio/ui:2.26.2
@@ -81,3 +94,43 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
     ports:
       - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NAMED VOLUMES — persistent data survives container recreation
+# ═══════════════════════════════════════════════════════════════════════════
+volumes:
+  postgres_data:
+    driver: local
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DOCKER SECRETS UPGRADE PATH (optional, for production hardening)
+# ═══════════════════════════════════════════════════════════════════════════
+# To migrate from env_file to Docker secrets:
+#
+# 1. Create secret files:
+#    echo "your-service-role-key" | docker secret create supabase_service_role_key -
+#    echo "your-pg-password"     | docker secret create postgres_password -
+#
+# 2. Add top-level secrets block:
+#    secrets:
+#      supabase_service_role_key:
+#        external: true
+#      postgres_password:
+#        external: true
+#
+# 3. Reference in services:
+#    worker:
+#      secrets:
+#        - supabase_service_role_key
+#      environment:
+#        - SUPABASE_SERVICE_ROLE_KEY_FILE=/run/secrets/supabase_service_role_key
+#
+#    postgresql:
+#      secrets:
+#        - postgres_password
+#      environment:
+#        - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+#
+# Note: Docker secrets require Swarm mode. For standalone Compose, use
+# file-based secrets with the "file:" directive instead of "external:".

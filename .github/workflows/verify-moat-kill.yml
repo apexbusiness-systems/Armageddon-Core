@@ -1,0 +1,46 @@
+name: Verify Moat Kill-Switch
+
+on:
+  push:
+    branches: ["main", "refactor/*"]
+    paths:
+      - "docker-compose.moat.yml"
+      - "scripts/deploy_moat.sh"
+      - "scripts/kill_moat.sh"
+      - "scripts/verify_kill_moat.sh"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "docker-compose.moat.yml"
+      - "scripts/deploy_moat.sh"
+      - "scripts/kill_moat.sh"
+      - "scripts/verify_kill_moat.sh"
+
+jobs:
+  kill-switch-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env.moat for CI
+        run: cp .env.moat.example .env.moat
+
+      - name: Build worker image
+        run: |
+          docker build -t armageddon-worker:latest -f armageddon-core/Dockerfile .
+
+      - name: Make scripts executable
+        run: chmod +x scripts/deploy_moat.sh scripts/kill_moat.sh scripts/verify_kill_moat.sh
+
+      - name: Run kill-switch verification
+        run: bash scripts/verify_kill_moat.sh
+
+      - name: Confirm clean state
+        if: always()
+        run: |
+          echo "=== Remaining Docker containers ==="
+          docker ps -a --filter "name=armageddon-" --format "table {{.Names}}\t{{.Status}}" || true
+          echo "=== Remaining Docker volumes ==="
+          docker volume ls --filter "name=postgres_data" || true
