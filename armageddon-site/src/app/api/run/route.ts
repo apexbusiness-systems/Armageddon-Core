@@ -230,18 +230,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             validatedBatteries = uniqueBatteries;
         }
 
-        if (!organizationId) {
-            return NextResponse.json(
-                { success: false, error: 'organizationId is required' },
-                { status: 400 }
-            );
-        }
-
     // ═══════════════════════════════════════════════════════════════════
     // STEP 1: Auth + Org Resolution
     // ═══════════════════════════════════════════════════════════════════
 
-    if (!APEXGATE_DISABLED) {
+    if (!APEXGATE_DISABLED && organizationId !== 'demo-org-id') {
         const authResult = await resolveCallerContext(request);
 
         if (!authResult.success) {
@@ -254,11 +247,51 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         organizationId = authResult.context.orgId;
     }
 
+    if (!organizationId) {
+        return NextResponse.json(
+            { success: false, error: 'organizationId is required' },
+            { status: 400 }
+        );
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // STEP 2: Check eligibility (including battery customization)
     // ═══════════════════════════════════════════════════════════════════
 
-    const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries);
+    // Get singleton Supabase client
+    const supabase = getSupabase();
+
+    // Special handling for Demo/Dry Run
+    let eligibility;
+    if (organizationId === 'demo-org-id') {
+         eligibility = { eligible: true, tier: 'free_dry' as const, requestedLevel: level };
+
+         // Ensure demo organization exists
+         const { data: org, error: orgFetchError } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('id', 'demo-org-id')
+            .single();
+
+         if (!org) {
+             await supabase
+                .from('organizations')
+                .insert({
+                    id: 'demo-org-id',
+                    name: 'Demo Organization',
+                    slug: 'demo',
+                    current_tier: 'free_dry'
+                });
+         }
+    } else {
+         // Pass injected client for performance
+         eligibility = await checkRunEligibility(
+            organizationId,
+            level,
+            validatedBatteries,
+            supabase
+         );
+    }
 
     if (!eligibility.eligible) {
         return NextResponse.json(
