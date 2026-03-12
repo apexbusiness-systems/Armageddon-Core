@@ -336,9 +336,10 @@ export async function runBattery7_PlaywrightE2E(config: BatteryConfig): Promise<
             CI: 'true' // Force headless
         };
 
-        const command = `npx playwright test tests/e2e/battery-7.spec.ts --reporter=json`;
+        const command = 'npx';
+        const args = ['playwright', 'test', 'tests/e2e/battery-7.spec.ts', '--reporter=json'];
 
-        exec(command, { env, cwd: process.cwd() }, async (error: Error | null, stdout: string, stderr: string) => {
+        execFile(command, args, { env, cwd: process.cwd(), shell: process.platform === 'win32' }, async (error: Error | null, stdout: string, stderr: string) => {
             const duration = Date.now() - start;
             let passed = false;
             let details: Record<string, unknown> = {};

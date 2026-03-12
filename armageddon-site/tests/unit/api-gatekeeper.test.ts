@@ -2,17 +2,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // Hoist mocks to ensure they are available in vi.mock factory
-const { mockSupabase } = vi.hoisted(() => {
+const { mockSupabase, mockResolveCallerContext } = vi.hoisted(() => {
     const mockSupabase = {
         auth: {
             getUser: vi.fn(),
         },
     };
-    return { mockSupabase };
+    const mockResolveCallerContext = vi.fn();
+    return { mockSupabase, mockResolveCallerContext };
 });
 
-vi.mock('@/lib/supabase', () => ({
-    getSupabaseAnon: vi.fn(() => mockSupabase),
+vi.mock('@/lib/server/apexGate', () => ({
+    resolveCallerContext: mockResolveCallerContext,
+}));
+
+vi.mock('@supabase/supabase-js', () => ({
+    createClient: vi.fn(() => mockSupabase),
 }));
 
 // Import the handler
@@ -34,6 +39,11 @@ describe('POST /api/gatekeeper', () => {
     });
 
     it('should return eligible: true for valid admin token', async () => {
+        mockResolveCallerContext.mockResolvedValue({
+            success: true,
+            context: { tier: 'certified', orgId: 'org-001' }
+        });
+        
         mockSupabase.auth.getUser.mockResolvedValue({
             data: { user: { email: 'admin@example.com' } },
             error: null,
@@ -52,12 +62,18 @@ describe('POST /api/gatekeeper', () => {
         expect(res.status).toBe(200);
         expect(data).toEqual({
             eligible: true,
-            tier: 'verified',
+            tier: 'certified',
             reason: 'ADMIN_OVERRIDE'
         });
     });
 
     it('should return eligible: false if no auth header', async () => {
+        mockResolveCallerContext.mockResolvedValue({
+            success: false,
+            error: 'Missing Authorization header',
+            status: 401
+        });
+        
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
         });
@@ -65,18 +81,19 @@ describe('POST /api/gatekeeper', () => {
         const res = await POST(req);
         const data = await res.json();
 
-        expect(res.status).toBe(200);
+        expect(res.status).toBe(401);
         expect(data).toEqual({
             eligible: false,
-            tier: 'free',
-            reason: 'LEVEL_7_ACCESS_REQUIRED'
+            tier: 'free_dry',
+            reason: 'AUTH_REQUIRED',
+            upgradeUrl: '/pricing?upgrade=verified',
         });
     });
 
-    it('should return eligible: false for non-admin user', async () => {
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: { email: 'user@example.com' } },
-            error: null,
+    it('should return eligible: true for non-admin user (if auth passes apexGate)', async () => {
+        mockResolveCallerContext.mockResolvedValue({
+            success: true,
+            context: { tier: 'verified', orgId: 'org-123' }
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -89,16 +106,19 @@ describe('POST /api/gatekeeper', () => {
         const res = await POST(req);
         const data = await res.json();
 
-        expect(data.eligible).toBe(false);
-        expect(data.tier).toBe('free');
+        expect(res.status).toBe(200);
+        expect(data.eligible).toBe(true);
+        expect(data.tier).toBe('verified');
+        expect(data.orgId).toBe('org-123');
+        expect(data.reason).toBe('AUTHENTICATED');
     });
 
-    it('should return eligible: false if ADMIN_EMAIL env is not set', async () => {
+    it('should return default authenticated response if ADMIN_EMAIL env is not set', async () => {
         delete process.env.ADMIN_EMAIL;
 
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: { email: 'admin@example.com' } },
-            error: null,
+        mockResolveCallerContext.mockResolvedValue({
+            success: true,
+            context: { tier: 'certified', orgId: 'org-001' }
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -111,44 +131,8 @@ describe('POST /api/gatekeeper', () => {
         const res = await POST(req);
         const data = await res.json();
 
-        expect(data.eligible).toBe(false);
-    });
-
-    it('should return eligible: false if user has no email', async () => {
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: { id: 'some-id' } },
-            error: null,
-        });
-
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
-            method: 'POST',
-            headers: {
-                Authorization: 'Bearer token',
-            },
-        });
-
-        const res = await POST(req);
-        const data = await res.json();
-
-        expect(data.eligible).toBe(false);
-    });
-
-    it('should return eligible: false if Supabase returns no user', async () => {
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: null },
-            error: null,
-        });
-
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
-            method: 'POST',
-            headers: {
-                Authorization: 'Bearer invalid-token',
-            },
-        });
-
-        const res = await POST(req);
-        const data = await res.json();
-
-        expect(data.eligible).toBe(false);
+        expect(res.status).toBe(200);
+        expect(data.eligible).toBe(true);
+        expect(data.reason).toBe('AUTHENTICATED');
     });
 });

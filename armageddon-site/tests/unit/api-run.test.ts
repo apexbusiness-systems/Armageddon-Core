@@ -52,6 +52,8 @@ vi.mock('@temporalio/client', () => ({
 
 vi.mock('@armageddon/shared', () => ({
     checkRunEligibility: vi.fn(() => Promise.resolve({ eligible: true })),
+    WORKFLOW_LEVEL_7: 'ArmageddonLevel7Workflow',
+    TASK_QUEUE_LEVEL_7: 'armageddon-level-7'
 }));
 
 // Import the handler
