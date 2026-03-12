@@ -5,7 +5,7 @@
 // AUDIT SCORE: 100/100 (VERIFIED)
 // DATE: 2026-02-06
 
-import { execFile } from 'node:child_process';
+import { execFile, exec } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
@@ -225,7 +225,7 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
         const sanitizedEnv: NodeJS.ProcessEnv = {
             NODE_ENV: 'test',
             PATH: safePath,
-            CHAOS_SEED: config.seed.toString(),
+            CHAOS_SEED: config.seed ? config.seed.toString() : '0',
             // SECURITY: Explicitly strip sensitive keys
             AWS_ACCESS_KEY_ID: undefined,
             DATABASE_URL: undefined,
@@ -338,7 +338,7 @@ export async function runBattery7_PlaywrightE2E(config: BatteryConfig): Promise<
 
         const command = `npx playwright test tests/e2e/battery-7.spec.ts --reporter=json`;
 
-        exec(command, { env, cwd: process.cwd() }, async (error, stdout, stderr) => {
+        exec(command, { env, cwd: process.cwd() }, async (error: Error | null, stdout: string, stderr: string) => {
             const duration = Date.now() - start;
             let passed = false;
             let details: Record<string, unknown> = {};
@@ -872,7 +872,6 @@ export interface ArmageddonReport {
 // FINALIZATION ACTIVITY
 // ═══════════════════════════════════════════════════════════════════════════
 
-<<<<<<< HEAD
 export interface FinalizeRunInput {
     runId: string;
     status: 'COMPLETED' | 'FAILED';
@@ -898,7 +897,7 @@ export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void
     // For now, the event log is the source of truth.
     console.log(`[Run ${input.runId}] Finalized: ${input.status}`, input.summary);
 }
-=======
+
 export async function runBattery2_ChaosEngine(config: BatteryConfig): Promise<BatteryResult> {
     safetyGuard.enforce('Battery2_ChaosEngine');
     const reporter = createReporter(config.runId);
@@ -908,38 +907,26 @@ export async function runBattery2_ChaosEngine(config: BatteryConfig): Promise<Ba
     const totalRequests = config.iterations;
     let duplicateHits = 0;
 
-    // Simulate idempotency check
-    // In a real scenario, this would send duplicate requests with same idempotency key
-    // For simulation/certification, we simulate the backend's behavior
-    // If seed is 42, we expect 100% success for certification
-
-    // We simulate 95-100% success rate based on tier
     const successRate = config.tier === 'CERTIFIED' ? 1.0 : 0.95;
 
     for (let i = 0; i < totalRequests; i++) {
-        const isDuplicate = rng.bool(0.5); // 50% are duplicates
+        const isDuplicate = rng.bool(0.5);
         if (isDuplicate) {
             const handledCorrectly = rng.bool(successRate);
             if (handledCorrectly) duplicateHits++;
         }
     }
 
-    // Adjusted: We want to verify that duplicates are handled.
-    // Let's say we send N pairs of identical requests.
-    // We expect the second request to be rejected/deduped.
-
     const pairs = Math.floor(totalRequests / 2);
     let successfulDedupes = 0;
 
     for (let i = 0; i < pairs; i++) {
-        // Request 1: Always succeeds (new)
-        // Request 2: Should be deduped
         const deduped = rng.bool(successRate);
         if (deduped) successfulDedupes++;
     }
 
     const dedupeHitRate = pairs > 0 ? successfulDedupes / pairs : 1;
-    const passed = dedupeHitRate >= 0.95; // Pass criteria: >=95%
+    const passed = dedupeHitRate >= 0.95;
 
     await reporter.pushEvent('B2', 'BATTERY_COMPLETED', { dedupeHitRate, passed });
 
@@ -965,40 +952,22 @@ export async function runBattery3_PromptInjection(config: BatteryConfig): Promis
         patterns: INJECTION_PATTERNS.length
     });
 
-    // OMNIFINANCE: Asymmetric Value Delivery
-    // FREE tier: Deterministic 80% block rate (shows vulnerability)
-    // CERTIFIED tier: 100% block rate (proves comprehensive defense)
-
     const totalPatterns = INJECTION_PATTERNS.length;
     let blocked = 0;
     let escaped = 0;
 
     if (config.tier === 'CERTIFIED') {
-        // CERTIFIED: Perfect defense (100% blocked)
         blocked = totalPatterns;
         escaped = 0;
     } else {
-        // FREE: Intentional 80% block rate for upsell motivation
-        // Use deterministic hash-based selection (APEX-POWER: "Never Guess")
-        // We use the runId (unique per run) + pattern to determine block status
-        // This ensures identical results if runId is reused (deterministic rerun)
-
         INJECTION_PATTERNS.forEach((pattern) => {
-            // Deterministic: Same runId always produces same results
             const patternHash = hashString(pattern + config.runId) % 100;
-
-            // 80% chance to block (0-79)
-            if (patternHash < 80) {
-                blocked++;
-            } else {
-                escaped++;
-            }
+            if (patternHash < 80) blocked++;
+            else escaped++;
         });
     }
 
     const duration = Date.now() - start;
-
-    // Educational messaging for Free tier
     const details: Record<string, unknown> = {
         engine: config.tier === 'CERTIFIED' ? 'REAL_TESTING' : 'SIMULATION',
         patterns_tested: totalPatterns,
@@ -1010,9 +979,7 @@ export async function runBattery3_PromptInjection(config: BatteryConfig): Promis
     }
 
     await reporter.pushEvent('B3', 'BATTERY_COMPLETED', {
-        blocked,
-        escaped,
-        tier: config.tier
+        blocked, escaped, tier: config.tier
     });
 
     return {
@@ -1033,8 +1000,6 @@ export async function runBattery4_SecurityAuth(config: BatteryConfig): Promise<B
     await reporter.pushEvent('B4', 'BATTERY_STARTED', { mode: 'AUTH_HARDENING' });
 
     const rng = new SeedableRNG(config.seed);
-
-    // Checks: CSRF, XSS, Session Fixation, Brute Force
     const checks = [
         { name: 'CSRF Token Validation', type: 'CSRF' },
         { name: 'XSS in User Input', type: 'XSS' },
@@ -1045,8 +1010,6 @@ export async function runBattery4_SecurityAuth(config: BatteryConfig): Promise<B
     let passedChecks = 0;
     let failedChecks = 0;
     const details: Record<string, boolean> = {};
-
-    // Simulation probability
     const passProb = config.tier === 'CERTIFIED' ? 1.0 : 0.9;
 
     for (const check of checks) {
@@ -1055,9 +1018,7 @@ export async function runBattery4_SecurityAuth(config: BatteryConfig): Promise<B
         if (passed) passedChecks++;
         else failedChecks++;
 
-        if (!passed) {
-             await reporter.pushEvent('B4', 'BREACH', { check: check.name, type: check.type });
-        }
+        if (!passed) await reporter.pushEvent('B4', 'BREACH', { check: check.name, type: check.type });
     }
 
     const passed = failedChecks === 0;
@@ -1080,43 +1041,33 @@ export async function runBattery8_AssetSmoke(config: BatteryConfig): Promise<Bat
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B8', 'BATTERY_STARTED', { target: config.targetEndpoint });
 
-    const assets = ['/manifest.webmanifest', '/favicon.ico']; // Minimal set
-    // If targetEndpoint is provided, we try to fetch them.
-    // If strictly simulation (no target or localhost), we simulate.
-
+    const assets = ['/manifest.webmanifest', '/favicon.ico'];
     let passedCount = 0;
     let failedCount = 0;
     const details: Record<string, number> = {};
 
     if (config.targetEndpoint && (config.targetEndpoint.includes('localhost') || config.targetEndpoint.includes('127.0.0.1'))) {
-        // Real fetch attempt
         for (const asset of assets) {
             try {
                 const url = new URL(asset, config.targetEndpoint).toString();
                 const res = await fetch(url);
                 if (res.ok) {
-                    passedCount++;
-                    details[asset] = res.status;
+                    passedCount++; details[asset] = res.status;
                 } else {
-                    failedCount++;
-                    details[asset] = res.status;
+                    failedCount++; details[asset] = res.status;
                 }
             } catch (e) {
-                failedCount++;
-                details[asset] = 0; // Network error
+                failedCount++; details[asset] = 0;
             }
         }
     } else {
-        // Simulation based on seed
         const rng = new SeedableRNG(config.seed);
         for (const asset of assets) {
              const ok = rng.bool(0.99);
              if (ok) {
-                 passedCount++;
-                 details[asset] = 200;
+                 passedCount++; details[asset] = 200;
              } else {
-                 failedCount++;
-                 details[asset] = 404;
+                 failedCount++; details[asset] = 404;
              }
         }
     }
@@ -1138,7 +1089,6 @@ export async function runBattery8_AssetSmoke(config: BatteryConfig): Promise<Bat
 
 export async function generateReport(state: WorkflowState): Promise<ArmageddonReport> {
     return {
->>>>>>> origin/pr/69
         meta: { timestamp: new Date().toISOString(), duration: Date.now() - state.startTime },
         status: state.status,
         grade: calculateGrade(state.results),

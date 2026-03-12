@@ -101,6 +101,7 @@ interface GatekeeperResponse {
     eligible: boolean;
     tier: string;
     reason: string;
+    orgId?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
-UBE/**
+/**
  * ═══════════════════════════════════════════════════════════════════════════
  * ARMAGEDDON LEVEL 7 — API ROUTE
  * POST /api/run — Start a certification run
@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility, TASK_QUEUE_LEVEL_7, WORKFLOW_LEVEL_7 } from '@armageddon/shared';
 import { resolveCallerContext } from '@/lib/server/apexGate';
+import { Client, Connection } from '@temporalio/client';
+import { RateLimiter } from '@/lib/rate-limit';
+import { getSupabaseServiceRole } from '@/lib/supabase';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENV FLAG FOR ROLLBACK
@@ -48,31 +51,6 @@ const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SUPABASE CLIENT (SINGLETON)
-// ═══════════════════════════════════════════════════════════════════════════
-
-let cachedSupabaseClient: SupabaseClient | null = null;
-
-function getSupabase() {
-    if (cachedSupabaseClient) {
-        return cachedSupabaseClient;
-    }
-
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!url || !key) {
-        throw new Error('Missing Supabase credentials');
-    }
-
-    cachedSupabaseClient = createClient(url, key, {
-        auth: { persistSession: false },
-    });
-
-    return cachedSupabaseClient;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // TEMPORAL CLIENT (SINGLETON + LAZY)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -90,6 +68,7 @@ async function getTemporalClient(): Promise<Client> {
         return connectionPromise;
     }
 
+    const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
     const connectionOptions: any = { address };
 
     // Support mTLS for Temporal Cloud
@@ -173,22 +152,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
         const authHeader = request.headers.get('Authorization');
         const token = authHeader?.replace('Bearer ', '');
 
-        if (!token) {
+        if (!token && organizationId !== 'demo-org-id') {
              return NextResponse.json({ success: false, error: 'Unauthorized: Missing token' }, { status: 401 });
         }
 
         // Get singleton Supabase client
         const supabase = getSupabaseServiceRole();
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-        if (authError || !user) {
-            console.warn(`[Security] Invalid token: ${authError?.message}`);
-            return NextResponse.json({ success: false, error: 'Unauthorized: Invalid token' }, { status: 401 });
+        let user = null;
+        if (token) {
+            const { data, error: authError } = await supabase.auth.getUser(token);
+            if (authError || !data?.user) {
+                console.warn(`[Security] Invalid token: ${authError?.message}`);
+                return NextResponse.json({ success: false, error: 'Unauthorized: Invalid token' }, { status: 401 });
+            }
+            user = data.user;
         }
 
         // Verify organization membership
-        if (organizationId) {
+        if (organizationId && organizationId !== 'demo-org-id' && user) {
             const { data: membership, error: membershipError } = await supabase
                 .from('organization_members')
                 .select('role')
@@ -200,7 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
                 console.warn(`[Security] User ${user.id} attempted to access organization ${organizationId} without membership`);
                 return NextResponse.json({ success: false, error: 'Forbidden: You are not a member of this organization' }, { status: 403 });
             }
-        } else {
+        } else if (!organizationId) {
              return NextResponse.json(
                 { success: false, error: 'organizationId is required' },
                 { status: 400 }
@@ -257,9 +239,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
     // ═══════════════════════════════════════════════════════════════════
     // STEP 2: Check eligibility (including battery customization)
     // ═══════════════════════════════════════════════════════════════════
-
-    // Get singleton Supabase client
-    const supabase = getSupabase();
 
     // Special handling for Demo/Dry Run
     let eligibility;

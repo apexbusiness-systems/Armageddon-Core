@@ -2,6 +2,8 @@ import { Worker, NativeConnection } from '@temporalio/worker';
 import * as activities from './temporal/activities';
 import { safetyGuard } from './core/safety';
 import { TASK_QUEUE_LEVEL_7 } from '@armageddon/shared';
+import * as fs from 'node:fs';
+import { HealthServer } from './infrastructure/health';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -30,7 +32,6 @@ async function connectWithRetry(): Promise<NativeConnection> {
             
             let tlsConfig = undefined;
             if (process.env.TEMPORAL_CERT_PATH && process.env.TEMPORAL_KEY_PATH) {
-                const fs = require('node:fs');
                 tlsConfig = {
                     clientCertPair: {
                         crt: fs.readFileSync(process.env.TEMPORAL_CERT_PATH),
@@ -40,6 +41,7 @@ async function connectWithRetry(): Promise<NativeConnection> {
                 console.log('[Worker] mTLS Enabled via cert files.');
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const connectionOptions: any = { address, tls: tlsConfig };
             if (process.env.TEMPORAL_API_KEY) {
                 connectionOptions.apiKey = process.env.TEMPORAL_API_KEY; // Supported in newer SDKs
