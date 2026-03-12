@@ -167,6 +167,10 @@ export default function DestructionConsole({
                 if (data.tier) {
                     setCanCustomize(data.tier !== 'free_dry');
                 }
+                if (data.orgId) {
+                    // Store orgId for use in run initiation
+                    localStorage.setItem('userOrgId', data.orgId);
+                }
             } catch (e) {
                 console.error('Failed to fetch tier', e);
             }
@@ -244,7 +248,7 @@ export default function DestructionConsole({
         addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 7 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
         addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);
 
-        const orgId = user?.id || 'demo-org-id';
+        const orgId = localStorage.getItem('userOrgId') || user?.id || 'demo-org-id';
         let runId: string;
 
         try {

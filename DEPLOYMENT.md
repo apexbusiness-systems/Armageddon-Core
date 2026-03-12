@@ -1,8 +1,8 @@
 # ARMAGEDDON DEPLOYMENT PROTOCOL [LEVEL 8]
 
 > **CLASSIFICATION**: PROPRIETARY / INTERNAL
-> **VERSION**: 2.0.0 (Moat Edition)
-> **DATE**: 2026-02-08
+> **VERSION**: 2.1.1 (Hybrid Cloud Edition)
+> **DATE**: 2026-02-11
 
 ---
 
@@ -27,6 +27,11 @@ The Kinetic Engine requires specific high-entropy secrets to function. These are
 2.  **Populate Secrets**:
     - `SUPABASE_SERVICE_ROLE_KEY`: Required for Row Level Security bypass in the worker.
     - `SIM_MODE=true`: **MANDATORY** for all non-terminal testing.
+    - **Cloud Authentication** (Hybrid Mode):
+      - `TEMPORAL_ADDRESS`: `us-central1.gcp.api.temporal.io:7233`
+      - `TEMPORAL_NAMESPACE`: Your Namespace ID.
+      - `TEMPORAL_API_KEY`: Your Cloud API Key.
+      - _(Alternative)_: mTLS Certs in `certs/` directory (mapped automatically).
 
 > **WARNING**: Never commit `.env.moat` to version control. It is git-ignored by design.
 
@@ -75,14 +80,14 @@ In the event of a Containment Breach or uncontrolled loop:
 
 ---
 
-## 📦 ARCHITECTURE (MOAT)
+## 📦 ARCHITECTURE (HYBRID MOAT)
 
 The "Moat" infrastructure is defined in `docker-compose.moat.yml` and consists of:
 
 - **armageddon-worker-moat**: The Kinetic Engine (Node.js + Python Bridge).
-- **armageddon-temporal-moat**: Orchestration Server.
-- **armageddon-postgres-moat**: Persistence Layer.
-- **armageddon-temporal-ui-moat**: Visibility Dashboard (Port 8080).
+  - Connected to **Temporal Cloud** via API Key / mTLS.
+- **armageddon-postgres-moat**: Local Persistence Layer (Optional/Fallback).
+- **armageddon-temporal-moat**: Local Orchestration Server (Backup/Offline Mode).
 
 Values are hard-pinned to specific versions to prevent supply-chain drift.
 
