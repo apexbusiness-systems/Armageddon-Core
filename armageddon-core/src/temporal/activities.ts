@@ -531,22 +531,21 @@ async function runGenericAdversarialBattery<T>(
     // Sort results by original index before processing events
     results.sort((a, b) => a.index - b.index);
 
-    const eventsToPush: Array<{
-        batteryId: string;
-        eventType: EventType;
-        payload?: Record<string, unknown>;
-    }> = [];
-
-    for (let i = 0; i < results.length; i++) {
-        const event = results[i].result.event;
+    const eventsToPush = results.reduce((acc, r) => {
+        const event = r.result.event;
         if (event) {
-            eventsToPush.push({
+            acc.push({
                 batteryId,
                 eventType: event.type as EventType,
                 payload: event.payload
             });
         }
-    }
+        return acc;
+    }, [] as Array<{
+        batteryId: string;
+        eventType: EventType;
+        payload?: Record<string, unknown>;
+    }>);
 
     if (eventsToPush.length > 0) {
         await reporter.pushEvents(eventsToPush);
