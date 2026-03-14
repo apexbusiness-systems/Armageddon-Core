@@ -50,12 +50,13 @@ export interface StressTestResult {
  * Shared by both NativeHttpStressTester and SimulatedStressTester
  */
 export function parseDuration(duration: string): number {
-    const durationRegex = /^(\d+)([smh])$/;
+    const durationRegex = /^(\d+)(ms|[smh])$/;
     const match = durationRegex.exec(duration);
     if (!match) return 30000; // Default 30s
     
     const value = Number.parseInt(match[1], 10);
     switch (match[2]) {
+        case 'ms': return value;
         case 's': return value * 1000;
         case 'm': return value * 60 * 1000;
         case 'h': return value * 60 * 60 * 1000;
