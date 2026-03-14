@@ -256,33 +256,69 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-    const { searchParams } = new URL(request.url);
-    const runId = searchParams.get('runId');
+    try {
+        const { searchParams } = new URL(request.url);
+        const runId = searchParams.get('runId');
 
-    if (!runId) {
+        if (!runId) {
+            return NextResponse.json(
+                { success: false, error: 'runId is required' },
+                { status: 400 }
+            );
+        }
+
+        // 1. Authenticate user
+        const authHeader = request.headers.get('Authorization');
+        const token = authHeader?.replace('Bearer ', '');
+
+        if (!token) {
+            return NextResponse.json({ success: false, error: 'Unauthorized: Missing token' }, { status: 401 });
+        }
+
+        const supabase = getSupabaseServiceRole();
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+        if (authError || !user) {
+            console.warn(`[Security] Invalid token: ${authError?.message}`);
+            return NextResponse.json({ success: false, error: 'Unauthorized: Invalid token' }, { status: 401 });
+        }
+
+        // 2. Fetch run data
+        const { data: run, error } = await supabase
+            .from('armageddon_runs')
+            .select('*')
+            .eq('id', runId)
+            .single();
+
+        if (error || !run) {
+            return NextResponse.json(
+                { success: false, error: 'Run not found' },
+                { status: 404 }
+            );
+        }
+
+        // 3. Verify organization membership
+        const { data: membership, error: membershipError } = await supabase
+            .from('organization_members')
+            .select('role')
+            .eq('organization_id', run.organization_id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (membershipError || !membership) {
+            console.warn(`[Security] User ${user.id} attempted to access run ${runId} without membership in org ${run.organization_id}`);
+            return NextResponse.json({ success: false, error: 'Forbidden: You are not a member of the organization that owns this run' }, { status: 403 });
+        }
+
+        return NextResponse.json({
+            success: true,
+            run,
+        });
+    } catch (error) {
+        console.error('Run GET API error:', error);
         return NextResponse.json(
-            { success: false, error: 'runId is required' },
-            { status: 400 }
+            { success: false, error: 'Internal server error' },
+            { status: 500 }
         );
     }
-
-    const supabase = getSupabaseServiceRole();
-
-    const { data: run, error } = await supabase
-        .from('armageddon_runs')
-        .select('*')
-        .eq('id', runId)
-        .single();
-
-    if (error || !run) {
-        return NextResponse.json(
-            { success: false, error: 'Run not found' },
-            { status: 404 }
-        );
-    }
-
-    return NextResponse.json({
-        success: true,
-        run,
-    });
 }

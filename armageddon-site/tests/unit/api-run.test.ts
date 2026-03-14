@@ -55,7 +55,7 @@ vi.mock('@armageddon/shared', () => ({
 }));
 
 // Import the handler
-import { POST } from '../../src/app/api/run/route';
+import { POST, GET } from '../../src/app/api/run/route';
 
 describe('POST /api/run', () => {
     beforeEach(() => {
@@ -169,5 +169,93 @@ describe('POST /api/run', () => {
 
         const data = await res.json();
         expect(data.success).toBe(true);
+    });
+});
+
+describe('GET /api/run', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        process.env.SUPABASE_URL = 'https://example.supabase.co';
+        process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+    });
+
+    it('should return 401 if no Authorization header is provided', async () => {
+        const req = new NextRequest('http://localhost:3000/api/run?runId=run-123', {
+            method: 'GET',
+        });
+
+        const res = await GET(req);
+        expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if user is not a member of the organization that owns the run', async () => {
+        const mockRun = { id: 'run-123', organization_id: 'org-123', status: 'completed' };
+
+        mockSupabase.auth.getUser.mockResolvedValueOnce({
+            data: { user: { id: 'user-123' } },
+            error: null,
+        });
+
+        // Mock run fetch
+        const mockRunSingle = vi.fn().mockResolvedValue({ data: mockRun, error: null });
+        const mockRunEq = vi.fn(() => ({ single: mockRunSingle }));
+        const mockRunSelect = vi.fn(() => ({ eq: mockRunEq }));
+
+        // Mock membership check returning no rows
+        const mockMemSingle = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } });
+        const mockMemEq2 = vi.fn(() => ({ single: mockMemSingle }));
+        const mockMemEq1 = vi.fn(() => ({ eq: mockMemEq2 }));
+        const mockMemSelect = vi.fn(() => ({ eq: mockMemEq1 }));
+
+        mockSupabase.from
+            .mockReturnValueOnce({ select: mockRunSelect } as any)
+            .mockReturnValueOnce({ select: mockMemSelect } as any);
+
+        const req = new NextRequest('http://localhost:3000/api/run?runId=run-123', {
+            method: 'GET',
+            headers: {
+                Authorization: 'Bearer valid-token',
+            },
+        });
+
+        const res = await GET(req);
+        expect(res.status).toBe(403);
+    });
+
+    it('should return 200 if user is a member of the organization that owns the run', async () => {
+        const mockRun = { id: 'run-123', organization_id: 'org-123', status: 'completed' };
+
+        mockSupabase.auth.getUser.mockResolvedValueOnce({
+            data: { user: { id: 'user-123' } },
+            error: null,
+        });
+
+        // Mock run fetch
+        const mockRunSingle = vi.fn().mockResolvedValue({ data: mockRun, error: null });
+        const mockRunEq = vi.fn(() => ({ single: mockRunSingle }));
+        const mockRunSelect = vi.fn(() => ({ eq: mockRunEq }));
+
+        // Mock membership check returning a row
+        const mockMemSingle = vi.fn().mockResolvedValue({ data: { role: 'member' }, error: null });
+        const mockMemEq2 = vi.fn(() => ({ single: mockMemSingle }));
+        const mockMemEq1 = vi.fn(() => ({ eq: mockMemEq2 }));
+        const mockMemSelect = vi.fn(() => ({ eq: mockMemEq1 }));
+
+        mockSupabase.from
+            .mockReturnValueOnce({ select: mockRunSelect } as any)
+            .mockReturnValueOnce({ select: mockMemSelect } as any);
+
+        const req = new NextRequest('http://localhost:3000/api/run?runId=run-123', {
+            method: 'GET',
+            headers: {
+                Authorization: 'Bearer valid-token',
+            },
+        });
+
+        const res = await GET(req);
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.success).toBe(true);
+        expect(data.run).toEqual(mockRun);
     });
 });
