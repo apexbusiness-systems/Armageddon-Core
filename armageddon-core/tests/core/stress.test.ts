@@ -1,6 +1,40 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { NativeHttpStressTester } from '../../src/core/stress';
+import { NativeHttpStressTester, parseDuration } from '../../src/core/stress';
+
+describe('parseDuration', () => {
+    it('should parse milliseconds', () => {
+        expect(parseDuration('500ms')).toBe(500);
+    });
+
+    it('should parse seconds', () => {
+        expect(parseDuration('30s')).toBe(30000);
+    });
+
+    it('should parse minutes', () => {
+        expect(parseDuration('5m')).toBe(300000);
+    });
+
+    it('should parse hours', () => {
+        expect(parseDuration('1h')).toBe(3600000);
+    });
+
+    it('should return default 30s for invalid format', () => {
+        expect(parseDuration('invalid')).toBe(30000);
+        expect(parseDuration('')).toBe(30000);
+        expect(parseDuration('30')).toBe(30000);
+        expect(parseDuration('s30')).toBe(30000);
+    });
+
+    it('should return default 30s for unsupported units', () => {
+        expect(parseDuration('10d')).toBe(30000);
+    });
+
+    it('should handle zero values', () => {
+        expect(parseDuration('0s')).toBe(0);
+        expect(parseDuration('0ms')).toBe(0);
+    });
+});
 
 describe('NativeHttpStressTester', () => {
     beforeEach(() => {
