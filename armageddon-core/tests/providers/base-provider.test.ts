@@ -112,24 +112,14 @@ describe('BaseProvider', () => {
         });
 
         it('should create a new CircuitBreaker if costConfig is provided', () => {
-             // If costConfig is passed, it creates a new instance instead of getting from registry
-             // We need to verify that logic.
-             const p = new TestProvider(
-                 defaultOptions,
-                 'https://default.url',
-                 'TEST_ENV_KEY',
-                 { inputPer1M: 1, outputPer1M: 2 }
-             );
-             // The circuit breaker in p should be different from the one in registry for the same key if logic dictates
-             // Actually looking at code:
-             // this.circuitBreaker = CircuitBreakerRegistry.getInstance().getOrCreate(...)
-             // if (costConfig) { this.circuitBreaker = new CircuitBreaker(...) }
-             // So it overwrites it.
-             expect((p as any).circuitBreaker).toBeInstanceOf(CircuitBreaker);
-             // It should NOT be the one from registry (or at least, it's a new instance)
-             // But since we can't easily check instance equality without references,
-             // we can check if it has the custom cost config.
-             // We can check if getOrCreate was called (it still is), but the instance on provider is new.
+            const p = new TestProvider(
+                defaultOptions,
+                'https://default.url',
+                'TEST_ENV_KEY',
+                { inputPer1M: 1, outputPer1M: 2 }
+            );
+
+            expect((p as any).circuitBreaker).toBeInstanceOf(CircuitBreaker);
         });
     });
 
