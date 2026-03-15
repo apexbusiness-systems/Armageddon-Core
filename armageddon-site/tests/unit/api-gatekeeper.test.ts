@@ -1,19 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-// Hoist mocks to ensure they are available in vi.mock factory
-const { mockSupabase } = vi.hoisted(() => {
-    const mockSupabase = {
-        auth: {
-            getUser: vi.fn(),
-        },
-    };
-    return { mockSupabase };
-});
+import { NextResponse } from 'next/server';
 
-vi.mock('@/lib/supabase', () => ({
-    getSupabaseAnon: vi.fn(() => mockSupabase),
+// Mock auth module
+vi.mock('../../src/lib/auth', () => ({
+    authenticateRequest: vi.fn(),
 }));
+
+import { authenticateRequest } from '../../src/lib/auth';
 
 // Import the handler
 import { POST } from '../../src/app/api/gatekeeper/route';
@@ -34,9 +29,8 @@ describe('POST /api/gatekeeper', () => {
     });
 
     it('should return eligible: true for valid admin token', async () => {
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: { email: 'admin@example.com' } },
-            error: null,
+        (authenticateRequest as any).mockResolvedValueOnce({
+            user: { email: 'admin@example.com' },
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -58,6 +52,10 @@ describe('POST /api/gatekeeper', () => {
     });
 
     it('should return eligible: false if no auth header', async () => {
+        (authenticateRequest as any).mockResolvedValueOnce(
+            NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+        );
+
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
         });
@@ -74,9 +72,8 @@ describe('POST /api/gatekeeper', () => {
     });
 
     it('should return eligible: false for non-admin user', async () => {
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: { email: 'user@example.com' } },
-            error: null,
+        (authenticateRequest as any).mockResolvedValueOnce({
+            user: { email: 'user@example.com' },
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -96,9 +93,8 @@ describe('POST /api/gatekeeper', () => {
     it('should return eligible: false if ADMIN_EMAIL env is not set', async () => {
         delete process.env.ADMIN_EMAIL;
 
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: { email: 'admin@example.com' } },
-            error: null,
+        (authenticateRequest as any).mockResolvedValueOnce({
+            user: { email: 'admin@example.com' },
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -115,9 +111,8 @@ describe('POST /api/gatekeeper', () => {
     });
 
     it('should return eligible: false if user has no email', async () => {
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: { id: 'some-id' } },
-            error: null,
+        (authenticateRequest as any).mockResolvedValueOnce({
+            user: { id: 'some-id' },
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -134,10 +129,9 @@ describe('POST /api/gatekeeper', () => {
     });
 
     it('should return eligible: false if Supabase returns no user', async () => {
-        mockSupabase.auth.getUser.mockResolvedValue({
-            data: { user: null },
-            error: null,
-        });
+        (authenticateRequest as any).mockResolvedValueOnce(
+            NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+        );
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
