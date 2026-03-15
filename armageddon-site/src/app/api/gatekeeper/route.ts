@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAnon } from '@/lib/supabase';
+import { authenticateRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-    const authHeader = request.headers.get('Authorization');
-    
-    if (authHeader) {
-        const token = authHeader.replace('Bearer ', '');
-        const supabase = getSupabaseAnon();
-        
-        const { data: { user } } = await supabase.auth.getUser(token);
+    const auth = await authenticateRequest(request);
+
+    if (!(auth instanceof NextResponse)) {
+        const { user } = auth;
         
         // Secure Admin Verification via Environment Variable
         if (user && user.email && process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL) {
