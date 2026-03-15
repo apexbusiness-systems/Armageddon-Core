@@ -9,9 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility } from '@armageddon/shared';
 import { RateLimiter } from '@/lib/rate-limit';
-import { getSupabaseServiceRole } from '@/lib/supabase';
 import { getTemporalClient } from '@/lib/temporal';
-import { authenticateRequest, verifyOrganizationMembership, forbiddenResponse } from '@/lib/auth';
+import { checkMembershipResponse, getRunAndVerifyAccess } from '@/lib/auth';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -66,7 +65,7 @@ const orgLimiter = new RateLimiter({
 // POST HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function POST(request: NextRequest): Promise<NextResponse<RunResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         // 1. IP-based Rate Limiting (Pre-parsing)
         // Securely identify client IP via Next.js request.ip (handles trusted proxies)
@@ -92,24 +91,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<RunRespon
             );
         }
 
-        // 4. Authenticate Request
-        const auth = await authenticateRequest(request);
-        if (auth instanceof NextResponse) return auth;
-        const { user, supabase } = auth;
-
-        // Verify organization membership
-        if (organizationId) {
-            const isMember = await verifyOrganizationMembership(supabase, user.id, organizationId);
-            if (!isMember) {
-                console.warn(`[Security] User ${user.id} attempted to access organization ${organizationId} without membership`);
-                return forbiddenResponse('Forbidden: You are not a member of this organization');
-            }
-        } else {
+        if (!organizationId) {
              return NextResponse.json(
                 { success: false, error: 'organizationId is required' },
                 { status: 400 }
             );
         }
+
+        // 4. Authenticate Request & Verify Membership
+        const auth = await checkMembershipResponse(request, organizationId);
+        if (auth instanceof NextResponse) return auth;
+        const { supabase } = auth;
 
         // Validate and sanitize batteries
         let validatedBatteries: string[] = ['B10', 'B11', 'B12', 'B13']; // Default: all batteries
@@ -246,28 +238,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ success: false, error: 'runId is required' }, { status: 400 });
         }
 
-        // 1. Authenticate user
-        const auth = await authenticateRequest(request);
-        if (auth instanceof NextResponse) return auth;
-        const { user, supabase } = auth;
-
-        // 2. Fetch run data
-        const { data: run, error } = await supabase
-            .from('armageddon_runs')
-            .select('*')
-            .eq('id', runId)
-            .single();
-
-        if (error || !run) {
-            return NextResponse.json({ success: false, error: 'Run not found' }, { status: 404 });
-        }
-
-        // 3. Verify organization membership
-        const isMember = await verifyOrganizationMembership(supabase, user.id, run.organization_id);
-        if (!isMember) {
-            console.warn(`[Security] User ${user.id} attempted to access run ${runId} without membership in org ${run.organization_id}`);
-            return forbiddenResponse('Forbidden: You are not a member of the organization that owns this run');
-        }
+        // Combined Authentication, Retrieval, and Membership check
+        const result = await getRunAndVerifyAccess(request, runId);
+        if (result instanceof NextResponse) return result;
+        const { run } = result;
 
         return NextResponse.json({
             success: true,

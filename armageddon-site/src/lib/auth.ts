@@ -17,7 +17,7 @@ export interface AuthenticatedContext {
  * Authenticates a request and returns the user and supabase client.
  * Returns a NextResponse if authentication fails.
  */
-export async function authenticateRequest(request: NextRequest): Promise<AuthenticatedContext | NextResponse> {
+export async function authenticateRequest(request: NextRequest): Promise<AuthenticatedContext | NextResponse<any>> {
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
 
@@ -57,6 +57,55 @@ export async function verifyOrganizationMembership(
 /**
  * Helper to return a standard Forbidden response.
  */
-export function forbiddenResponse(message = 'Forbidden: You do not have access to this resource'): NextResponse {
+export function forbiddenResponse(message = 'Forbidden: You do not have access to this resource'): NextResponse<any> {
     return NextResponse.json({ success: false, error: message }, { status: 403 });
+}
+
+/**
+ * Combines authentication and organization membership check.
+ */
+export async function checkMembershipResponse(
+    request: NextRequest,
+    organizationId: string
+): Promise<AuthenticatedContext | NextResponse<any>> {
+    const auth = await authenticateRequest(request);
+    if (auth instanceof NextResponse) return auth;
+
+    const isMember = await verifyOrganizationMembership(auth.supabase, auth.user.id, organizationId);
+    if (!isMember) {
+        console.warn(`[Security] User ${auth.user.id} attempted unauthorized access to org ${organizationId}`);
+        return forbiddenResponse('Forbidden: You are not a member of this organization');
+    }
+
+    return auth;
+}
+
+/**
+ * Enhanced helper for GET requests: Fetches a run and verifies access in one step.
+ * This further reduces duplication between API handlers.
+ */
+export async function getRunAndVerifyAccess(
+    request: NextRequest,
+    runId: string
+): Promise<{ run: any; auth: AuthenticatedContext } | NextResponse<any>> {
+    const auth = await authenticateRequest(request);
+    if (auth instanceof NextResponse) return auth;
+
+    const { data: run, error } = await auth.supabase
+        .from('armageddon_runs')
+        .select('*')
+        .eq('id', runId)
+        .single();
+
+    if (error || !run) {
+        return NextResponse.json({ success: false, error: 'Run not found' }, { status: 404 });
+    }
+
+    const isMember = await verifyOrganizationMembership(auth.supabase, auth.user.id, run.organization_id);
+    if (!isMember) {
+        console.warn(`[Security] User ${auth.user.id} attempted unauthorized access to run ${runId}`);
+        return forbiddenResponse('Forbidden: You are not a member of the organization that owns this run');
+    }
+
+    return { run, auth };
 }
