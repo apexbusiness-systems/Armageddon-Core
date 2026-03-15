@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Hoist mocks to ensure they are available in vi.mock factory
 const { mockSupabase, mockTemporalClient, MockClient } = vi.hoisted(() => {
@@ -61,13 +61,12 @@ import { POST, GET } from '../../src/app/api/run/route';
 vi.mock('../../src/lib/auth', () => ({
     authenticateRequest: vi.fn(),
     verifyOrganizationMembership: vi.fn(),
-    forbiddenResponse: vi.fn((msg) => ({
-        status: 403,
-        json: () => Promise.resolve({ success: false, error: msg })
-    })),
+    checkMembershipResponse: vi.fn(),
+    getRunAndVerifyAccess: vi.fn(),
+    forbiddenResponse: vi.fn((msg) => NextResponse.json({ success: false, error: msg }, { status: 403 })),
 }));
 
-import { authenticateRequest, verifyOrganizationMembership } from '../../src/lib/auth';
+import { authenticateRequest, checkMembershipResponse, getRunAndVerifyAccess } from '../../src/lib/auth';
 
 describe('POST /api/run', () => {
     beforeEach(() => {
@@ -91,10 +90,9 @@ describe('POST /api/run', () => {
     });
 
     it('should return 401 if authentication fails', async () => {
-        (authenticateRequest as any).mockResolvedValueOnce({
-            status: 401,
-            json: () => Promise.resolve({ success: false, error: 'Unauthorized' })
-        });
+        (checkMembershipResponse as any).mockResolvedValueOnce(
+            NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+        );
 
         const req = new NextRequest('http://localhost:3000/api/run', {
             method: 'POST',
@@ -106,11 +104,9 @@ describe('POST /api/run', () => {
     });
 
     it('should return 403 if user is not a member of the organization', async () => {
-        (authenticateRequest as any).mockResolvedValueOnce({
-            user: { id: 'user-123' },
-            supabase: mockSupabase,
-        });
-        (verifyOrganizationMembership as any).mockResolvedValueOnce(false);
+        (checkMembershipResponse as any).mockResolvedValueOnce(
+            NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+        );
 
         const req = new NextRequest('http://localhost:3000/api/run', {
             method: 'POST',
@@ -125,11 +121,10 @@ describe('POST /api/run', () => {
     });
 
     it('should return 200 if user is a member and eligible', async () => {
-        (authenticateRequest as any).mockResolvedValueOnce({
+        (checkMembershipResponse as any).mockResolvedValueOnce({
             user: { id: 'user-123' },
             supabase: mockSupabase,
         });
-        (verifyOrganizationMembership as any).mockResolvedValueOnce(true);
 
         // Mock chain for subsequent inserts
         const mockUpdate = vi.fn(() => ({
@@ -164,10 +159,9 @@ describe('GET /api/run', () => {
     });
 
     it('should return 401 if authentication fails', async () => {
-        (authenticateRequest as any).mockResolvedValueOnce({
-            status: 401,
-            json: () => Promise.resolve({ success: false, error: 'Unauthorized' })
-        });
+        (getRunAndVerifyAccess as any).mockResolvedValueOnce(
+            NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+        );
 
         const req = new NextRequest('http://localhost:3000/api/run?runId=run-123', {
             method: 'GET',
@@ -178,21 +172,9 @@ describe('GET /api/run', () => {
     });
 
     it('should return 403 if user is not a member of the organization that owns the run', async () => {
-        const mockRun = { id: 'run-123', organization_id: 'org-123', status: 'completed' };
-
-        (authenticateRequest as any).mockResolvedValueOnce({
-            user: { id: 'user-123' },
-            supabase: mockSupabase,
-        });
-
-        // Mock run fetch
-        const mockRunSingle = vi.fn().mockResolvedValue({ data: mockRun, error: null });
-        const mockRunEq = vi.fn(() => ({ single: mockRunSingle }));
-        const mockRunSelect = vi.fn(() => ({ eq: mockRunEq }));
-
-        (verifyOrganizationMembership as any).mockResolvedValueOnce(false);
-
-        mockSupabase.from.mockReturnValueOnce({ select: mockRunSelect } as any);
+        (getRunAndVerifyAccess as any).mockResolvedValueOnce(
+            NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+        );
 
         const req = new NextRequest('http://localhost:3000/api/run?runId=run-123', {
             method: 'GET',
@@ -208,19 +190,13 @@ describe('GET /api/run', () => {
     it('should return 200 if user is a member of the organization that owns the run', async () => {
         const mockRun = { id: 'run-123', organization_id: 'org-123', status: 'completed' };
 
-        (authenticateRequest as any).mockResolvedValueOnce({
-            user: { id: 'user-123' },
-            supabase: mockSupabase,
+        (getRunAndVerifyAccess as any).mockResolvedValueOnce({
+            run: mockRun,
+            auth: {
+                user: { id: 'user-123' },
+                supabase: mockSupabase,
+            }
         });
-
-        // Mock run fetch
-        const mockRunSingle = vi.fn().mockResolvedValue({ data: mockRun, error: null });
-        const mockRunEq = vi.fn(() => ({ single: mockRunSingle }));
-        const mockRunSelect = vi.fn(() => ({ eq: mockRunEq }));
-
-        (verifyOrganizationMembership as any).mockResolvedValueOnce(true);
-
-        mockSupabase.from.mockReturnValueOnce({ select: mockRunSelect } as any);
 
         const req = new NextRequest('http://localhost:3000/api/run?runId=run-123', {
             method: 'GET',
