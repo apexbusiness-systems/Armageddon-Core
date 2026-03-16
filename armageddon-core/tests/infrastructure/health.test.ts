@@ -8,42 +8,30 @@ vi.mock('../../src/core/safety', () => ({
   }
 }));
 
-let portCounter = 51000;
-
 describe('HealthServer', () => {
   let server: HealthServer;
-  let port: number;
 
   beforeEach(() => {
-    port = portCounter++;
-    server = new HealthServer(port);
+    // Bind to a dynamically assigned ephemeral port (0) to eliminate EADDRINUSE conflicts
+    server = new HealthServer(0);
   });
 
-  afterEach(() => {
-    server.stop();
+  afterEach(async () => {
+    await server.stop();
   });
 
   it('should start HTTP server on specified port', async () => {
-    server.start();
-    // Wait for server to be listening
-    for (let i = 0; i < 20; i++) {
-        if (server.isRunning()) break;
-        await new Promise(resolve => setTimeout(resolve, 50));
-    }
+    await server.start();
     expect(server.isRunning()).toBe(true);
+    expect(server.getPort()).toBeGreaterThan(0);
   });
 
   it('should return health status with worker state', async () => {
-    server.start();
+    await server.start();
     server.setWorkerState('RUNNING');
     server.setTemporalConnected(true); // REQUIRED for healthy status
 
-    // Wait for server start
-    for (let i = 0; i < 20; i++) {
-        if (server.isRunning()) break;
-        await new Promise(resolve => setTimeout(resolve, 50));
-    }
-
+    const port = server.getPort();
     const response = await fetch(`http://127.0.0.1:${port}/health`);
     const data = await response.json();
 
@@ -54,30 +42,20 @@ describe('HealthServer', () => {
   });
 
   it('should return 503 when worker not running', async () => {
-    server.start();
+    await server.start();
     server.setWorkerState('STOPPED');
     // Even if temporal connected, STOPPED makes it unhealthy
     server.setTemporalConnected(true);
 
-    // Wait for server start
-    for (let i = 0; i < 20; i++) {
-        if (server.isRunning()) break;
-        await new Promise(resolve => setTimeout(resolve, 50));
-    }
-
+    const port = server.getPort();
     const response = await fetch(`http://127.0.0.1:${port}/health`);
     expect(response.status).toBe(503);
   });
 
   it('should expose metrics endpoint', async () => {
-    server.start();
+    await server.start();
 
-    // Wait for server start
-    for (let i = 0; i < 20; i++) {
-        if (server.isRunning()) break;
-        await new Promise(resolve => setTimeout(resolve, 50));
-    }
-
+    const port = server.getPort();
     const response = await fetch(`http://127.0.0.1:${port}/metrics`);
     const text = await response.text();
 
@@ -87,16 +65,11 @@ describe('HealthServer', () => {
   });
 
   it('should return 200 on /ready when worker running', async () => {
-    server.start();
+    await server.start();
     server.setWorkerState('RUNNING');
     server.setTemporalConnected(true);
 
-    // Wait for server start
-    for (let i = 0; i < 20; i++) {
-        if (server.isRunning()) break;
-        await new Promise(resolve => setTimeout(resolve, 50));
-    }
-
+    const port = server.getPort();
     const response = await fetch(`http://127.0.0.1:${port}/ready`);
     expect(response.status).toBe(200);
   });

@@ -38,13 +38,21 @@ export class HealthServer {
   /**
    * Start health server on specified port
    */
-  start(): void {
+  async start(): Promise<void> {
     this.server = createServer((req, res) => {
       this.handleRequest(req, res);
     });
 
-    this.server.listen(this.port, '0.0.0.0', () => {
-      console.log(`[Health] Kinetic Health Monitor active on port ${this.port}`);
+    return new Promise((resolve, reject) => {
+      const onError = (err: Error) => reject(err);
+      this.server!.on('error', onError);
+
+      this.server!.listen(this.port, '0.0.0.0', () => {
+        this.server!.removeListener('error', onError);
+        const actualPort = this.getPort();
+        console.log(`[Health] Kinetic Health Monitor active on port ${actualPort}`);
+        resolve();
+      });
     });
   }
 
@@ -53,6 +61,19 @@ export class HealthServer {
    */
   isRunning(): boolean {
     return this.server !== null && this.server.listening;
+  }
+
+  /**
+   * Get the actual listening port
+   */
+  getPort(): number {
+    if (this.server && this.server.listening) {
+      const address = this.server.address();
+      if (address && typeof address === 'object') {
+        return address.port;
+      }
+    }
+    return this.port;
   }
 
   /**
@@ -212,11 +233,17 @@ armageddon_uptime_seconds ${Math.floor(uptime / 1000)}
   /**
    * Stop health server
    */
-  stop(): void {
-    if (this.server) {
-      this.server.close();
-      this.server = null;
-      console.log('[Health] Kinetic Health Monitor shutdown complete');
-    }
+  async stop(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.server) {
+        this.server.close(() => {
+          console.log('[Health] Kinetic Health Monitor shutdown complete');
+          resolve();
+        });
+        this.server = null;
+      } else {
+        resolve();
+      }
+    });
   }
 }
