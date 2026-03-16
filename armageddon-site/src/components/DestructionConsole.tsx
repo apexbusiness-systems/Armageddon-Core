@@ -133,7 +133,8 @@ export default function DestructionConsole({
     const [threatMap, setThreatMap] = useState<ThreatCell[]>(() =>
         Array.from({ length: 64 }, (_, i) => ({ id: i, status: 'idle' }))
     );
-    const [currentBattery, setCurrentBattery] = useState(0);
+    const [currentBattery, setCurrentBattery] = useState<number>(0);
+    const [runId, setRunId] = useState<string | null>(null);
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const user = useAuth();
@@ -208,6 +209,7 @@ export default function DestructionConsole({
         setTimeout(() => {
             setIsLocked(true);
             setIsRunning(false);
+            setIsComplete(true);
         }, 1200);
     }, [addLine, onStatusChange]);
 
@@ -258,12 +260,14 @@ export default function DestructionConsole({
                 throw new Error(data.error || 'Run failed');
             }
             runId = data.runId;
+            setRunId(runId);
             addLine(LABELS.SYS, `Workflow started: ${runId}`, MSG_TYPE.SYSTEM);
             addLine(LABELS.SYS, 'Subscribing to real-time event stream...', MSG_TYPE.SYSTEM);
         } catch (e) {
             console.error("API call failed", e);
             addLine('CRIT', `API Error: ${e instanceof Error ? e.message : 'Unknown error'}`, MSG_TYPE.ERROR);
             setIsRunning(false);
+            setIsComplete(true);
             return;
         }
 
@@ -377,6 +381,25 @@ export default function DestructionConsole({
             }
             return [...prev, batteryId].sort((a, b) => a.localeCompare(b));
         });
+    };
+
+    const handleExportJson = () => {
+        const evidence = {
+            orgId: localStorage.getItem('userOrgId') || user?.id || 'demo-org',
+            complianceMode: localStorage.getItem('complianceMode') || 'STRICT',
+            timestamp: new Date().toISOString(),
+            runId: runId || 'unknown',
+            logs: terminalLines
+        };
+        const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `armageddon-evidence-${new Date().getTime()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     // ────────────────────────────────────────────────────────────────────────
@@ -493,6 +516,23 @@ export default function DestructionConsole({
                                 return isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE';
                             })()}
                         </motion.button>
+
+                        <AnimatePresence>
+                            {isComplete && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto', marginTop: '1rem' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                >
+                                    <button
+                                        onClick={handleExportJson}
+                                        className="btn-secondary w-full"
+                                    >
+                                        EXPORT JSON EVIDENCE
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </motion.div>
 

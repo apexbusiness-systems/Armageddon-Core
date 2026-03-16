@@ -8,11 +8,15 @@ vi.mock('../../src/core/safety', () => ({
   }
 }));
 
+let portCounter = 51000;
+
 describe('HealthServer', () => {
   let server: HealthServer;
+  let port: number;
 
   beforeEach(() => {
-    server = new HealthServer(8081);
+    port = portCounter++;
+    server = new HealthServer(port);
   });
 
   afterEach(() => {
@@ -40,7 +44,7 @@ describe('HealthServer', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    const response = await fetch('http://localhost:8081/health');
+    const response = await fetch(`http://127.0.0.1:${port}/health`);
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -61,7 +65,7 @@ describe('HealthServer', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    const response = await fetch('http://localhost:8081/health');
+    const response = await fetch(`http://127.0.0.1:${port}/health`);
     expect(response.status).toBe(503);
   });
 
@@ -74,7 +78,7 @@ describe('HealthServer', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    const response = await fetch('http://localhost:8081/metrics');
+    const response = await fetch(`http://127.0.0.1:${port}/metrics`);
     const text = await response.text();
 
     expect(response.status).toBe(200);
@@ -93,7 +97,7 @@ describe('HealthServer', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    const response = await fetch('http://localhost:8081/ready');
+    const response = await fetch(`http://127.0.0.1:${port}/ready`);
     expect(response.status).toBe(200);
   });
 });
