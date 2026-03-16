@@ -64,10 +64,12 @@ services:
       - POSTGRES_PWD=${POSTGRES_PASSWORD:-temporal}
       - POSTGRES_SEEDS=postgresql
       - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development.yaml
+    volumes:
+      - ./config/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
     ports:
       - "127.0.0.1:7233:7233"
     healthcheck:
-      test: [ "CMD", "tctl", "--address", "localhost:7233", "cluster", "health" ]
+      test: [ "CMD", "temporal", "operator", "cluster", "health" ]
       interval: 10s
       timeout: 5s
       retries: 10

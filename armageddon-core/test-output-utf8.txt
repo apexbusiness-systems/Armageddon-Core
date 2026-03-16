@@ -1,0 +1,139 @@
+﻿
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/sinyo/Armageddon-Core/armageddon-core[39m
+
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22msecureRandom[2m > [22mshould return a number between 0 and 1
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22msecureRandom[2m > [22mshould return different values on subsequent calls
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22mSeedableRNG[2m > [22mshould be deterministic with the same seed
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22mSeedableRNG[2m > [22mshould be different with different seeds
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22mSeedableRNG[2m > [22mshould generate bools respecting probability
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22mSeedableRNG[2m > [22mshould generate ints within range
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22mhashString[2m > [22mshould return consistent hash
+ [32mΓ£ô[39m tests/core/utils.test.ts[2m > [22mutils[2m > [22mhashString[2m > [22mshould return different hash for different strings
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould start in CLOSED state
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould trip when cost limit is reached (APEX-POWER Zero Tolerance)
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould trip when token limit is reached
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould return false but not trip when rate limit is reached
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould trip after max consecutive errors
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould transition to HALF_OPEN after cooldown and CLOSED after success
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould enforcement cooldown period
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould calculate cost and remaining budget accurately
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreaker[2m > [22mshould reset metrics and state
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreakerRegistry[2m > [22mshould be a singleton
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreakerRegistry[2m > [22mshould provide a global breaker with specific limits
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreakerRegistry[2m > [22mshould get or create provider-specific breakers
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreakerRegistry[2m > [22mshould calculate total cost across all provider breakers
+ [32mΓ£ô[39m tests/providers/circuit-breaker.test.ts[2m > [22mCircuitBreakerRegistry[2m > [22mshould reset all breakers including global one
+ [32mΓ£ô[39m tests/core/evidence-generator.test.ts[2m > [22mEvidenceGenerator[2m > [22mgenerateReportJson[2m > [22mshould generate valid JSON with correct structure
+ [32mΓ£ô[39m tests/core/evidence-generator.test.ts[2m > [22mEvidenceGenerator[2m > [22mgenerateReportJson[2m > [22mshould return FAILED verdict if score is low
+ [32mΓ£ô[39m tests/core/evidence-generator.test.ts[2m > [22mEvidenceGenerator[2m > [22mgenerateReportMd[2m > [22mshould generate Markdown with correct headers and sections
+ [32mΓ£ô[39m tests/core/evidence-generator.test.ts[2m > [22mEvidenceGenerator[2m > [22mgenerateCertificateTxt[2m > [22mshould generate plain text certificate with key details
+ [32mΓ£ô[39m tests/core/evidence-generator.test.ts[2m > [22mEvidenceGenerator[2m > [22mgenerateJunitXml[2m > [22mshould generate valid JUnit XML structure
+ [32mΓ£ô[39m tests/core/evidence-generator.test.ts[2m > [22mEvidenceGenerator[2m > [22msaveTo[2m > [22mshould create directories and write files
+ [32mΓ£ô[39m tests/core/reporter.test.ts[2m > [22mSupabaseReporter[2m > [22mshould throw if env vars are missing
+ [32mΓ£ô[39m tests/core/reporter.test.ts[2m > [22mSupabaseReporter[2m > [22mshould push event to armageddon_events
+ [32mΓ£ô[39m tests/core/reporter.test.ts[2m > [22mSupabaseReporter[2m > [22mshould upsert progress
+ [32mΓ£ô[39m tests/core/reporter.test.ts[2m > [22mSupabaseReporter[2m > [22mshould finalize run
+ [32mΓ£ô[39m tests/core/reporter.test.ts[2m > [22mSupabaseReporter[2m > [22mshould push multiple events in batch
+ [32mΓ£ô[39m tests/core/safety.test.ts[2m > [22mSafetyGuard[2m > [22mshould enforce SIM_MODE=true
+ [32mΓ£ô[39m tests/core/safety.test.ts[2m > [22mSafetyGuard[2m > [22mshould pass when SIM_MODE=true and valid SANDBOX_TENANT
+ [32mΓ£ô[39m tests/core/safety.test.ts[2m > [22mSafetyGuard[2m > [22mshould fail if SANDBOX_TENANT is missing
+ [32mΓ£ô[39m tests/core/safety.test.ts[2m > [22mSafetyGuard[2m > [22mshould fail if SANDBOX_TENANT matches production patterns
+ [32mΓ£ô[39m tests/core/safety.test.ts[2m > [22mSafetyGuard[2m > [22mshould validate target URLs
+ [32mΓ£ô[39m tests/core/safety.test.ts[2m > [22mSafetyGuard[2m > [22mshould return correct status
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mInitialization[2m > [22mshould initialize with provided options
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mInitialization[2m > [22mshould use environment variable if apiKey is missing
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mInitialization[2m > [22mshould use default base URL if provided URL is missing
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mInitialization[2m > [22mshould register with CircuitBreakerRegistry
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mInitialization[2m > [22mshould create a new CircuitBreaker if costConfig is provided
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mcomplete()[2m > [22mshould execute request successfully when circuit breakers are closed
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mcomplete()[2m > [22mshould throw and record error when execution fails
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mcomplete()[2m > [22mshould throw if local circuit breaker is OPEN
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mcomplete()[2m > [22mshould throw if global circuit breaker is OPEN
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mMetrics and State[2m > [22mshould delegate getMetrics to circuit breaker
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mMetrics and State[2m > [22mshould delegate reset to circuit breaker
+ [32mΓ£ô[39m tests/providers/base-provider.test.ts[2m > [22mBaseProvider[2m > [22mMetrics and State[2m > [22mshould determine availability correctly
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateProvider[2m > [22mshould create an OpenAIProvider for OpenAI models
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateProvider[2m > [22mshould create an AnthropicProvider for Anthropic models
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateProvider[2m > [22mshould create a SimulationProvider for simulation models
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateProvider[2m > [22mshould fallback to SimulationProvider with a warning for together/groq models
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateProvider[2m > [22mshould fallback to SimulationProvider for unknown models
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateAdversarialConfig[2m > [22mshould create a valid 3-LLM configuration
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateAdversarialConfig[2m > [22mshould route API keys correctly based on target model
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateAdversarialConfig[2m > [22mshould use default models for attacker and judge if not provided
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mcreateSimulationConfig[2m > [22mshould create deterministic simulation providers
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mRegistry Helpers[2m > [22mgetTotalCost should return total cost from registry
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mRegistry Helpers[2m > [22mresetAllProviders should reset the registry
+ [32mΓ£ô[39m tests/providers/index.test.ts[2m > [22mProvider Factory[2m > [22mRegistry Helpers[2m > [22mhasExceededLimits should return true when global breaker is not CLOSED
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 1 (Chaos Stress) runs and returns result
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 2 (Chaos Engine) is deterministic with seed 42
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 3 (Prompt Injection) fails for FREE tier (upsell strategy)
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 3 (Prompt Injection) passes for CERTIFIED tier
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 3 (Prompt Injection) is deterministic
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 4 (Security Auth) is deterministic
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 8 (Asset Smoke) handles missing target gracefully
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 6 (Unsafe Gate) fails correctly when unsafe
+ [32mΓ£ô[39m tests/core/batteries.test.ts[2m > [22mCore Batteries Logic[2m > [22mBattery 10 (Goal Hijack) runs and returns result
+[90mstdout[2m | tests/integration/parallel-determinism.test.ts[2m > [22m[2mParallel Execution Determinism[2m > [22m[2mshould maintain 98% block rate with parallel execution
+[22m[39mBlock Rate: 100.00%
+
+ [32mΓ£ô[39m tests/integration/parallel-determinism.test.ts[2m > [22mParallel Execution Determinism[2m > [22mshould produce identical results with sequential and parallel execution
+ [32mΓ£ô[39m tests/integration/parallel-determinism.test.ts[2m > [22mParallel Execution Determinism[2m > [22mshould maintain 98% block rate with parallel execution
+ [32mΓ£ô[39m tests/temporal/activities.test.ts[2m > [22mrunBattery5_FullUnit[2m > [22mshould call execFile with absolute npm path (or cmd.exe on Windows) when tier is FREE
+ [32mΓ£ô[39m tests/temporal/activities.test.ts[2m > [22mrunBattery5_FullUnit[2m > [22mshould call execFile with absolute docker path when tier is CERTIFIED
+ [32mΓ£ô[39m tests/integration/circuit-breaker-parallel.test.ts[2m > [22mCircuit Breaker - Parallel Execution[2m > [22mshould respect rate limits with concurrency=2
+[90mstdout[2m | tests/core/stress.test.ts[2m > [22m[2mNativeHttpStressTester[2m > [22m[2mshould complete a stress test run
+[22m[39m[StressTest] Starting 10 RPS for 1s
+
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould start HTTP server on specified port
+[22m[39m[Health] Kinetic Health Monitor shutdown complete
+
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould return health status with worker state
+[22m[39m[Health] Worker state: RUNNING
+[Health] Temporal connection: ACTIVE
+
+ [31m├ù[39m tests/infrastructure/health.test.ts[2m > [22mHealthServer[2m > [22mshould start HTTP server on specified port[33m 1638[2mms[22m[39m
+[31m   ΓåÆ expected false to be true // Object.is equality[39m
+[90mstdout[2m | tests/core/stress.test.ts[2m > [22m[2mNativeHttpStressTester[2m > [22m[2mshould respect maxVirtualUsers
+[22m[39m[StressTest] Starting 50 RPS for 1s
+
+ [32mΓ£ô[39m tests/core/stress.test.ts[2m > [22mNativeHttpStressTester[2m > [22mshould complete a stress test run[33m 1089[2mms[22m[39m
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould return health status with worker state
+[22m[39m[Health] Kinetic Health Monitor shutdown complete
+
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould return 503 when worker not running
+[22m[39m[Health] Worker state: STOPPED
+[Health] Temporal connection: ACTIVE
+
+ [31m├ù[39m tests/infrastructure/health.test.ts[2m > [22mHealthServer[2m > [22mshould return health status with worker state[33m 1285[2mms[22m[39m
+[31m   ΓåÆ Unexpected token '<', "<!doctype "... is not valid JSON[39m
+ [32mΓ£ô[39m tests/core/stress.test.ts[2m > [22mNativeHttpStressTester[2m > [22mshould respect maxVirtualUsers[33m 1040[2mms[22m[39m
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould return 503 when worker not running
+[22m[39m[Health] Kinetic Health Monitor shutdown complete
+
+ [31m├ù[39m tests/infrastructure/health.test.ts[2m > [22mHealthServer[2m > [22mshould return 503 when worker not running[33m 1226[2mms[22m[39m
+[31m   ΓåÆ expected 200 to be 503 // Object.is equality[39m
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould expose metrics endpoint
+[22m[39m[Health] Kinetic Health Monitor shutdown complete
+
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould return 200 on /ready when worker running
+[22m[39m[Health] Worker state: RUNNING
+[Health] Temporal connection: ACTIVE
+
+ [31m├ù[39m tests/infrastructure/health.test.ts[2m > [22mHealthServer[2m > [22mshould expose metrics endpoint[33m 1240[2mms[22m[39m
+[31m   ΓåÆ expected '<!doctype html>\r\n<html lang="en">\rΓÇª' to contain 'armageddon_worker_state'[39m
+[90mstdout[2m | tests/infrastructure/health.test.ts[2m > [22m[2mHealthServer[2m > [22m[2mshould return 200 on /ready when worker running
+[22m[39m[Health] Kinetic Health Monitor shutdown complete
+
+ [32mΓ£ô[39m tests/infrastructure/health.test.ts[2m > [22mHealthServer[2m > [22mshould return 200 on /ready when worker running[33m 1237[2mms[22m[39m
+
+[31mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1m[7m Unhandled Errors [27m[22mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[39m
+[31m[1m
+Vitest caught 5 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.[22m[39m
+[31mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[39m
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m12 passed[39m[22m[90m (14)[39m
+[2m      Tests [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m80 passed[39m[22m[90m (84)[39m
+[2m     Errors [22m [1m[31m5 errors[39m[22m
+[2m   Start at [22m 18:42:37
+[2m   Duration [22m 8.67s[2m (transform 4.42s, setup 0ms, collect 8.47s, tests 9.11s, environment 6ms, prepare 6.75s)[22m
+

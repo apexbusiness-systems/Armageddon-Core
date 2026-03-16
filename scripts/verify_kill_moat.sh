@@ -59,7 +59,7 @@ fi
 if [[ "$STRESS_MODE" = true ]]; then
     log "🔥 Phase 3: Stress test — sending rapid requests to Temporal..."
     for i in $(seq 1 10); do
-        docker exec armageddon-temporal-moat tctl --address localhost:7233 cluster health >/dev/null 2>&1 || true
+        docker exec armageddon-temporal-moat temporal operator cluster health >/dev/null 2>&1 || true
     done
     log "   Stress cycle complete."
 else
