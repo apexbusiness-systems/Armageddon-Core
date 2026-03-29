@@ -69,7 +69,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         // 1. IP-based Rate Limiting (Pre-parsing)
         // Securely identify client IP via Next.js request.ip (handles trusted proxies)
-        const ip = request.ip || 'unknown';
+        // Fallback to x-forwarded-for if request.ip is unavailable (e.g. non-Vercel environment)
+        const forwardedFor = request.headers.get('x-forwarded-for');
+        const ip = request.ip || (forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown');
+
         if (!ipLimiter.check(ip)) {
             console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
             return NextResponse.json(
