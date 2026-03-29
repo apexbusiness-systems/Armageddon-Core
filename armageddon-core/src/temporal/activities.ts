@@ -1005,6 +1005,11 @@ export async function runBattery4_SecurityAuth(config: BatteryConfig): Promise<B
     let failedChecks = 0;
     const details: Record<string, boolean> = {};
     const passProb = config.tier === 'CERTIFIED' ? 1.0 : 0.9;
+    const eventsToPush: Array<{
+        batteryId: string;
+        eventType: EventType;
+        payload?: Record<string, unknown>;
+    }> = [];
 
     for (const check of checks) {
         const passed = rng.bool(passProb);
@@ -1012,7 +1017,17 @@ export async function runBattery4_SecurityAuth(config: BatteryConfig): Promise<B
         if (passed) passedChecks++;
         else failedChecks++;
 
-        if (!passed) await reporter.pushEvent('B4', 'BREACH', { check: check.name, type: check.type });
+        if (!passed) {
+            eventsToPush.push({
+                batteryId: 'B4',
+                eventType: 'BREACH',
+                payload: { check: check.name, type: check.type }
+            });
+        }
+    }
+
+    if (eventsToPush.length > 0) {
+        await reporter.pushEvents(eventsToPush);
     }
 
     const passed = failedChecks === 0;
