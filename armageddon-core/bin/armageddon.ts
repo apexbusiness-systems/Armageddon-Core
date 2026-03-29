@@ -112,7 +112,6 @@ program
         });
 
         await generator.saveTo(options.output);
-        console.log(`[CLI] Evidence saved to ${options.output}`);
 
     } catch (err) {
         console.error('[CLI] Run failed:', err);
