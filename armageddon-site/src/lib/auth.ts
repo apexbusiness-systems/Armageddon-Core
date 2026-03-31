@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceRole } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -29,7 +30,7 @@ export async function authenticateRequest(request: NextRequest): Promise<Authent
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-        console.warn(`[Security] Invalid token: ${authError?.message}`);
+        logger.warn({ error: authError?.message }, 'Invalid token');
         return NextResponse.json({ success: false, error: 'Unauthorized: Invalid token' }, { status: 401 });
     }
 
@@ -73,7 +74,7 @@ export async function checkMembershipResponse(
 
     const isMember = await verifyOrganizationMembership(auth.supabase, auth.user.id, organizationId);
     if (!isMember) {
-        console.warn(`[Security] User ${auth.user.id} attempted unauthorized access to org ${organizationId}`);
+        logger.warn({ userId: auth.user.id, organizationId }, 'User attempted unauthorized access to organization');
         return forbiddenResponse('Forbidden: You are not a member of this organization');
     }
 
@@ -103,7 +104,7 @@ export async function getRunAndVerifyAccess(
 
     const isMember = await verifyOrganizationMembership(auth.supabase, auth.user.id, run.organization_id);
     if (!isMember) {
-        console.warn(`[Security] User ${auth.user.id} attempted unauthorized access to run ${runId}`);
+        logger.warn({ userId: auth.user.id, runId }, 'User attempted unauthorized access to run');
         return forbiddenResponse('Forbidden: You are not a member of the organization that owns this run');
     }
 

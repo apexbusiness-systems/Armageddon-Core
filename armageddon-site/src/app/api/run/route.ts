@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility } from '@armageddon/shared';
+import { logger } from '@/lib/logger';
 import { RateLimiter } from '@/lib/rate-limit';
 import { getTemporalClient } from '@/lib/temporal';
 import { checkMembershipResponse, getRunAndVerifyAccess } from '@/lib/auth';
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // Securely identify client IP via Next.js request.ip (handles trusted proxies)
         const ip = request.ip || 'unknown';
         if (!ipLimiter.check(ip)) {
-            console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
+            logger.warn({ ip }, 'Rate limit exceeded for IP');
             return NextResponse.json(
                 { success: false, error: 'Too many requests. Please try again in a minute.' },
                 { status: 429 }
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // 3. Organization-based Rate Limiting
         if (organizationId && !orgLimiter.check(organizationId)) {
-            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+            logger.warn({ organizationId }, 'Rate limit exceeded for Organization');
             return NextResponse.json(
                 { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
                 { status: 429 }
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             });
 
         if (insertError) {
-            console.error('Failed to create run record:', insertError);
+            logger.error({ error: insertError, organizationId, runId }, 'Failed to create run record');
             return NextResponse.json(
                 { success: false, error: 'Failed to create run record' },
                 { status: 500 }
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
 
     } catch (error) {
-        console.error('Run API error:', error);
+        logger.error({ error }, 'Run API error');
         return NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 }
@@ -248,7 +249,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             run,
         });
     } catch (error) {
-        console.error('Run GET API error:', error);
+        logger.error({ error }, 'Run GET API error');
         return NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 }
