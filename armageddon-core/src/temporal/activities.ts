@@ -592,8 +592,8 @@ async function runGenericAdversarialBattery<T>(
         payload?: Record<string, unknown>;
     }> = [];
 
-    for (let i = 0; i < results.length; i++) {
-        const event = results[i].result.event;
+    for (const { result } of results) {
+        const event = result.event;
         if (event) {
             eventsToPush.push({
                 batteryId,
