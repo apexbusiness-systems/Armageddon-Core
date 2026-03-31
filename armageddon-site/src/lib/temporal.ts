@@ -11,6 +11,7 @@
  */
 
 import { Client, Connection } from '@temporalio/client';
+import { logger } from '@/lib/logger';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SINGLETON CACHE
@@ -58,10 +59,10 @@ export async function getTemporalClient(): Promise<Client> {
             const client = new Client({ connection, namespace });
 
             cachedTemporalClient = client;
-            console.log(`[Temporal] Connected to ${address} (namespace: ${namespace})`);
+            logger.info({ address, namespace }, 'Connected to Temporal');
             return client;
         } catch (error) {
-            console.error('[Temporal] Connection failed:', error);
+            logger.error({ error, address }, 'Temporal connection failed');
             throw new Error(`Failed to connect to Temporal at ${address}: ${error}`);
         } finally {
             connectionPromise = null; // Clear promise after success/failure
