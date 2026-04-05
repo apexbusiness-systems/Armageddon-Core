@@ -25,6 +25,10 @@ class TestProvider extends BaseProvider {
     public get testBaseUrl(): string { return this.baseUrl; }
     public get testCircuitBreaker(): CircuitBreaker { return this.circuitBreaker; }
 
+    public testRecordSuccess(usage: TokenUsage, latencyMs: number): void {
+        this.recordSuccess(usage, latencyMs);
+    }
+
     public async executeRequest(request: LLMRequest): Promise<{
         usage: TokenUsage;
         content: string;
@@ -107,23 +111,32 @@ describe('BaseProvider', () => {
         });
 
         it('should register with CircuitBreakerRegistry using derived name and model', () => {
-            const spy = CircuitBreakerRegistry.getInstance().getOrCreate as any;
+            const registry = CircuitBreakerRegistry.getInstance();
             // TestProvider -> test
-            expect(spy).toHaveBeenCalledWith('test:gpt-4o', defaultOptions.circuitBreaker);
+            expect(registry.getOrCreate).toHaveBeenCalledWith('test:gpt-4o', defaultOptions.circuitBreaker);
         });
 
         it('should correctly derive provider name from class name', () => {
             class CustomAnthropicProvider extends BaseProvider {
                 readonly name: ProviderName = 'anthropic';
                 readonly model: ModelIdentifier = 'claude-3-opus-20240229';
-                protected async executeRequest() { return null as any; }
+                protected async executeRequest() {
+                    return {
+                        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                        content: '',
+                        finishReason: 'stop' as const,
+                        raw: {}
+                    };
+                }
             }
 
-            const spy = vi.spyOn(CircuitBreakerRegistry.getInstance(), 'getOrCreate');
-            new CustomAnthropicProvider({ model: 'claude-3-opus-20240229' }, 'url', 'KEY');
+            const registry = CircuitBreakerRegistry.getInstance();
+            const spy = vi.spyOn(registry, 'getOrCreate');
+            const p = new CustomAnthropicProvider({ model: 'claude-3-opus-20240229' }, 'url', 'KEY');
 
             // CustomAnthropicProvider -> customanthropic
             expect(spy).toHaveBeenCalledWith('customanthropic:claude-3-opus-20240229', undefined);
+            expect(p.name).toBe('anthropic');
         });
 
         it('should create a new CircuitBreaker if costConfig is provided', () => {
@@ -140,7 +153,7 @@ describe('BaseProvider', () => {
             // Verify it uses the provided costConfig
             // We can check this by recording a success and seeing the cost update
             const usage = { inputTokens: 1_000_000, outputTokens: 1_000_000, totalTokens: 2_000_000 };
-            (p as any).recordSuccess(usage, 100);
+            p.testRecordSuccess(usage, 100);
 
             const metrics = p.getMetrics();
             // input 1, output 2 -> total 3
