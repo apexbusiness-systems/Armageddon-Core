@@ -7,9 +7,10 @@
  * - Success/Error handling flows
  * - Metrics recording
  * - Availability checks
+ * - Provider name derivation
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, MockInstance } from 'vitest';
 import { BaseProvider, TokenUsage } from '../../src/providers/base-provider';
 import { CircuitBreakerRegistry, CircuitBreaker } from '../../src/providers/circuit-breaker';
 import { LLMRequest, LLMResponse, ProviderOptions, ProviderName, ModelIdentifier } from '../../src/providers/types';
@@ -19,14 +20,17 @@ class TestProvider extends BaseProvider {
     readonly name: ProviderName = 'openai'; // simulating openai for registry key generation
     readonly model: ModelIdentifier = 'gpt-4o';
 
-    // Expose protected methods for testing if needed, or just use public interface
+    // Expose protected members for testing
+    public get testApiKey(): string { return this.apiKey; }
+    public get testBaseUrl(): string { return this.baseUrl; }
+    public get testCircuitBreaker(): CircuitBreaker { return this.circuitBreaker; }
+
     public async executeRequest(request: LLMRequest): Promise<{
         usage: TokenUsage;
         content: string;
         finishReason: LLMResponse['finishReason'];
         raw: unknown;
     }> {
-        // This will be mocked in tests
         return Promise.resolve({
             usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
             content: 'test response',
@@ -38,8 +42,16 @@ class TestProvider extends BaseProvider {
 
 describe('BaseProvider', () => {
     let provider: TestProvider;
-    let mockCircuitBreaker: any;
-    let mockGlobalBreaker: any;
+    let localBreaker: CircuitBreaker;
+    let globalBreaker: CircuitBreaker;
+
+    let localCanProceedSpy: MockInstance;
+    let localRecordSuccessSpy: MockInstance;
+    let localRecordErrorSpy: MockInstance;
+
+    let globalCanProceedSpy: MockInstance;
+    let globalRecordSuccessSpy: MockInstance;
+    let globalRecordErrorSpy: MockInstance;
 
     const defaultOptions: ProviderOptions = {
         apiKey: 'test-api-key',
@@ -51,38 +63,25 @@ describe('BaseProvider', () => {
     };
 
     beforeEach(() => {
-        // Reset registry and mocks
         vi.restoreAllMocks();
         CircuitBreakerRegistry.getInstance().resetAll();
 
-        // Mock CircuitBreakerRegistry.getInstance() to return our controlled mocks
-        // However, CircuitBreakerRegistry is a singleton and hard to mock directly without
-        // affecting the internal state if not careful.
-        // Better approach: Let the registry work but spy on the breakers it returns.
-
-        // Alternatively, since BaseProvider uses CircuitBreakerRegistry.getInstance(),
-        // we can spy on the prototype or the singleton instance methods.
-
         const registry = CircuitBreakerRegistry.getInstance();
-
-        // We can spy on getOrCreate and getGlobal
         vi.spyOn(registry, 'getOrCreate');
         vi.spyOn(registry, 'getGlobal');
 
         provider = new TestProvider(defaultOptions, 'https://default.url', 'TEST_ENV_KEY');
 
-        // Get the actual breakers assigned to the provider for spying
-        // Accessing protected circuitBreaker via any cast
-        mockCircuitBreaker = (provider as any).circuitBreaker;
-        mockGlobalBreaker = registry.getGlobal();
+        localBreaker = provider.testCircuitBreaker;
+        globalBreaker = registry.getGlobal();
 
-        // Spy on breaker methods
-        vi.spyOn(mockCircuitBreaker, 'canProceed');
-        vi.spyOn(mockCircuitBreaker, 'recordSuccess');
-        vi.spyOn(mockCircuitBreaker, 'recordError');
-        vi.spyOn(mockGlobalBreaker, 'canProceed');
-        vi.spyOn(mockGlobalBreaker, 'recordSuccess');
-        vi.spyOn(mockGlobalBreaker, 'recordError');
+        localCanProceedSpy = vi.spyOn(localBreaker, 'canProceed');
+        localRecordSuccessSpy = vi.spyOn(localBreaker, 'recordSuccess');
+        localRecordErrorSpy = vi.spyOn(localBreaker, 'recordError');
+
+        globalCanProceedSpy = vi.spyOn(globalBreaker, 'canProceed');
+        globalRecordSuccessSpy = vi.spyOn(globalBreaker, 'recordSuccess');
+        globalRecordErrorSpy = vi.spyOn(globalBreaker, 'recordError');
     });
 
     afterEach(() => {
@@ -91,35 +90,61 @@ describe('BaseProvider', () => {
 
     describe('Initialization', () => {
         it('should initialize with provided options', () => {
-            expect((provider as any).apiKey).toBe('test-api-key');
-            expect((provider as any).baseUrl).toBe('https://api.test.com');
+            expect(provider.testApiKey).toBe('test-api-key');
+            expect(provider.testBaseUrl).toBe('https://api.test.com');
         });
 
         it('should use environment variable if apiKey is missing', () => {
             process.env.TEST_ENV_KEY = 'env-api-key';
             const p = new TestProvider({ ...defaultOptions, apiKey: undefined }, 'https://default.url', 'TEST_ENV_KEY');
-            expect((p as any).apiKey).toBe('env-api-key');
+            expect(p.testApiKey).toBe('env-api-key');
             delete process.env.TEST_ENV_KEY;
         });
 
         it('should use default base URL if provided URL is missing', () => {
             const p = new TestProvider({ ...defaultOptions, baseUrl: undefined }, 'https://default.url', 'TEST_ENV_KEY');
-            expect((p as any).baseUrl).toBe('https://default.url');
+            expect(p.testBaseUrl).toBe('https://default.url');
         });
 
-        it('should register with CircuitBreakerRegistry', () => {
-            expect(CircuitBreakerRegistry.getInstance().getOrCreate).toHaveBeenCalled();
+        it('should register with CircuitBreakerRegistry using derived name and model', () => {
+            const spy = CircuitBreakerRegistry.getInstance().getOrCreate as any;
+            // TestProvider -> test
+            expect(spy).toHaveBeenCalledWith('test:gpt-4o', defaultOptions.circuitBreaker);
+        });
+
+        it('should correctly derive provider name from class name', () => {
+            class CustomAnthropicProvider extends BaseProvider {
+                readonly name: ProviderName = 'anthropic';
+                readonly model: ModelIdentifier = 'claude-3-opus-20240229';
+                protected async executeRequest() { return null as any; }
+            }
+
+            const spy = vi.spyOn(CircuitBreakerRegistry.getInstance(), 'getOrCreate');
+            new CustomAnthropicProvider({ model: 'claude-3-opus-20240229' }, 'url', 'KEY');
+
+            // CustomAnthropicProvider -> customanthropic
+            expect(spy).toHaveBeenCalledWith('customanthropic:claude-3-opus-20240229', undefined);
         });
 
         it('should create a new CircuitBreaker if costConfig is provided', () => {
+            const costConfig = { inputPer1M: 1, outputPer1M: 2 };
             const p = new TestProvider(
                 defaultOptions,
                 'https://default.url',
                 'TEST_ENV_KEY',
-                { inputPer1M: 1, outputPer1M: 2 }
+                costConfig
             );
 
-            expect((p as any).circuitBreaker).toBeInstanceOf(CircuitBreaker);
+            expect(p.testCircuitBreaker).toBeInstanceOf(CircuitBreaker);
+
+            // Verify it uses the provided costConfig
+            // We can check this by recording a success and seeing the cost update
+            const usage = { inputTokens: 1_000_000, outputTokens: 1_000_000, totalTokens: 2_000_000 };
+            (p as any).recordSuccess(usage, 100);
+
+            const metrics = p.getMetrics();
+            // input 1, output 2 -> total 3
+            expect(metrics.totalCostUSD).toBe(3);
         });
     });
 
@@ -134,11 +159,12 @@ describe('BaseProvider', () => {
 
             const response = await provider.complete(validRequest);
 
-            expect(mockCircuitBreaker.canProceed).toHaveBeenCalled();
-            expect(mockGlobalBreaker.canProceed).toHaveBeenCalled();
+            expect(localCanProceedSpy).toHaveBeenCalled();
+            expect(globalCanProceedSpy).toHaveBeenCalled();
             expect(spyExecute).toHaveBeenCalledWith(validRequest);
-            expect(mockCircuitBreaker.recordSuccess).toHaveBeenCalled();
-            expect(mockGlobalBreaker.recordSuccess).toHaveBeenCalled();
+
+            expect(localRecordSuccessSpy).toHaveBeenCalledWith(10, 20, expect.any(Number));
+            expect(globalRecordSuccessSpy).toHaveBeenCalledWith(10, 20, expect.any(Number));
 
             expect(response.content).toBe('test response');
             expect(response.totalTokens).toBe(30);
@@ -151,23 +177,22 @@ describe('BaseProvider', () => {
 
             await expect(provider.complete(validRequest)).rejects.toThrow('API Error');
 
-            expect(mockCircuitBreaker.recordError).toHaveBeenCalled();
-            expect(mockGlobalBreaker.recordError).toHaveBeenCalled();
+            expect(localRecordErrorSpy).toHaveBeenCalled();
+            expect(globalRecordErrorSpy).toHaveBeenCalled();
         });
 
         it('should throw if local circuit breaker is OPEN', async () => {
-            mockCircuitBreaker.canProceed.mockReturnValue(false);
+            localCanProceedSpy.mockReturnValue(false);
 
             await expect(provider.complete(validRequest)).rejects.toThrow(/Circuit breaker OPEN/);
 
-            // Should not attempt execution
             const spyExecute = vi.spyOn(provider, 'executeRequest');
             expect(spyExecute).not.toHaveBeenCalled();
         });
 
         it('should throw if global circuit breaker is OPEN', async () => {
-            mockCircuitBreaker.canProceed.mockReturnValue(true);
-            mockGlobalBreaker.canProceed.mockReturnValue(false);
+            localCanProceedSpy.mockReturnValue(true);
+            globalCanProceedSpy.mockReturnValue(false);
 
             await expect(provider.complete(validRequest)).rejects.toThrow(/Global circuit breaker OPEN/);
 
@@ -178,31 +203,38 @@ describe('BaseProvider', () => {
 
     describe('Metrics and State', () => {
         it('should delegate getMetrics to circuit breaker', () => {
-            const spy = vi.spyOn(mockCircuitBreaker, 'getMetrics');
+            const spy = vi.spyOn(localBreaker, 'getMetrics');
             provider.getMetrics();
             expect(spy).toHaveBeenCalled();
         });
 
         it('should delegate reset to circuit breaker', () => {
-            const spy = vi.spyOn(mockCircuitBreaker, 'reset');
+            const spy = vi.spyOn(localBreaker, 'reset');
             provider.reset();
             expect(spy).toHaveBeenCalled();
         });
 
         it('should determine availability correctly', () => {
             // Case 1: Available
-            mockCircuitBreaker.canProceed.mockReturnValue(true);
+            localCanProceedSpy.mockReturnValue(true);
+            globalCanProceedSpy.mockReturnValue(true);
             expect(provider.isAvailable()).toBe(true);
 
-            // Case 2: Circuit Open
-            mockCircuitBreaker.canProceed.mockReturnValue(false);
+            // Case 2: Local Circuit Open
+            localCanProceedSpy.mockReturnValue(false);
             expect(provider.isAvailable()).toBe(false);
 
-            // Case 3: No API Key
+            // Case 3: Global Circuit Open
+            localCanProceedSpy.mockReturnValue(true);
+            globalCanProceedSpy.mockReturnValue(false);
+            expect(provider.isAvailable()).toBe(false);
+
+            // Case 4: No API Key
             const pNoKey = new TestProvider({ ...defaultOptions, apiKey: '' }, 'url', 'KEY');
-            // Mock its breaker too
-            const breaker = (pNoKey as any).circuitBreaker;
+            const breaker = pNoKey.testCircuitBreaker;
             vi.spyOn(breaker, 'canProceed').mockReturnValue(true);
+            // Global breaker still mocked from beforeEach to return false if we don't fix it
+            globalCanProceedSpy.mockReturnValue(true);
 
             expect(pNoKey.isAvailable()).toBe(false);
         });

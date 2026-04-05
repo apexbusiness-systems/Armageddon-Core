@@ -162,7 +162,8 @@ export abstract class BaseProvider implements ILLMProvider {
      * Check if provider is available
      */
     isAvailable(): boolean {
-        return this.circuitBreaker.canProceed() && !!this.apiKey;
+        const globalBreaker = CircuitBreakerRegistry.getInstance().getGlobal();
+        return this.circuitBreaker.canProceed() && globalBreaker.canProceed() && !!this.apiKey;
     }
 
     /**
