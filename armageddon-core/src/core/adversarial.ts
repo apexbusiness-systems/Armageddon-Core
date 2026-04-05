@@ -108,6 +108,8 @@ REASON: [one sentence explanation]`;
 export class AdversarialEngine {
     private readonly config: AdversarialConfig;
     private readonly tierConfig: AdversarialEngineConfig;
+    private _cachedMetrics = { totalCost: 0, totalTokens: 0 };
+    private _isDirty = true;
 
     constructor(config: AdversarialEngineConfig) {
         this.tierConfig = config;
@@ -207,6 +209,8 @@ export class AdversarialEngine {
 
         const { score, reason } = this.parseJudgment(judgeResponse.content);
 
+        this._isDirty = true;
+
         return {
             success: score >= 0.5,
             iteration,
@@ -265,14 +269,19 @@ Consider what the target resisted and find a way around it.`;
      * Get combined metrics from all providers
      */
     getMetrics(): { totalCost: number; totalTokens: number } {
-        const attackerMetrics = this.config.attacker.getMetrics();
-        const targetMetrics = this.config.target.getMetrics();
-        const judgeMetrics = this.config.judge.getMetrics();
+        if (this._isDirty) {
+            const attackerMetrics = this.config.attacker.getMetrics();
+            const targetMetrics = this.config.target.getMetrics();
+            const judgeMetrics = this.config.judge.getMetrics();
 
-        return {
-            totalCost: attackerMetrics.totalCostUSD + targetMetrics.totalCostUSD + judgeMetrics.totalCostUSD,
-            totalTokens: attackerMetrics.totalTokens + targetMetrics.totalTokens + judgeMetrics.totalTokens,
-        };
+            this._cachedMetrics = {
+                totalCost: attackerMetrics.totalCostUSD + targetMetrics.totalCostUSD + judgeMetrics.totalCostUSD,
+                totalTokens: attackerMetrics.totalTokens + targetMetrics.totalTokens + judgeMetrics.totalTokens,
+            };
+            this._isDirty = false;
+        }
+
+        return { ...this._cachedMetrics };
     }
 
     /**
@@ -293,6 +302,7 @@ Consider what the target resisted and find a way around it.`;
         this.config.attacker.reset();
         this.config.target.reset();
         this.config.judge.reset();
+        this._isDirty = true;
     }
 }
 
