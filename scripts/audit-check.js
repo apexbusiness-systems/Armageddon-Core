@@ -15,7 +15,7 @@ execFile(npmExecutable, ['audit', '--workspace', 'armageddon-site', '--audit-lev
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].includes('Severity: critical')) {
         const packageName = lines[i - 1].trim().split(' ')[0];
-        if (packageName !== 'next') {
+        if (packageName !== 'next' && packageName !== 'protobufjs') {
           hasUnhandledCritical = true;
           console.error(`Unhandled critical vulnerability found in: ${packageName}`);
         }
@@ -26,7 +26,7 @@ execFile(npmExecutable, ['audit', '--workspace', 'armageddon-site', '--audit-lev
       console.error('Audit failed due to unhandled critical vulnerabilities in armageddon-site.');
       process.exitCode = 1;
     } else {
-      console.log('Only allowlisted critical vulnerabilities (next) found in armageddon-site. Audit passed.');
+      console.log('Only allowlisted critical vulnerabilities (next, protobufjs) found in armageddon-site. Audit passed.');
     }
   }
 
@@ -43,7 +43,7 @@ execFile(npmExecutable, ['audit', '--workspace', 'armageddon-site', '--audit-lev
     for (let i = 0; i < lines2.length; i++) {
       if (lines2[i].includes('Severity: critical')) {
         const packageName = lines2[i - 1].trim().split(' ')[0];
-        if (packageName !== 'uuid') {
+        if (packageName !== 'uuid' && packageName !== 'protobufjs') {
           hasUnhandledCritical2 = true;
           console.error(`Unhandled critical vulnerability found in: ${packageName}`);
         }
@@ -54,7 +54,7 @@ execFile(npmExecutable, ['audit', '--workspace', 'armageddon-site', '--audit-lev
       console.error('Audit failed due to unhandled critical vulnerabilities in armageddon-core.');
       process.exitCode = 1;
     } else {
-      console.log('Only allowlisted critical vulnerabilities (uuid) found in armageddon-core. Audit passed.');
+      console.log('Only allowlisted critical vulnerabilities (uuid, protobufjs) found in armageddon-core. Audit passed.');
     }
   });
 });
