@@ -1,6 +1,5 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Analytics } from '@vercel/analytics/next';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // METADATA
@@ -81,12 +80,12 @@ export default function RootLayout({
                         <div className="flex items-center gap-3 bg-[var(--void)]/95 border border-[var(--tungsten)] px-4 py-2 backdrop-blur-sm">
                             <div className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse shadow-[0_0_8px_var(--safe)]" />
                             <span className="mono-small text-[var(--safe)]/80 tracking-widest">
-                                VERCEL_EDGE_READY
+                                CLOUDFLARE_EDGE_READY
                             </span>
                         </div>
                     </div>
                 </div>
-                <Analytics />
+
             </body>
         </html>
     );
