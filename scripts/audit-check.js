@@ -1,16 +1,22 @@
-const { execSync } = require('child_process');
+const { execFile } = require('node:child_process');
+const os = require('node:os');
+const path = require('node:path');
 
-try {
-  execSync('npm audit --workspace armageddon-core --audit-level=critical', { stdio: 'pipe' });
-  console.log('No critical vulnerabilities found.');
-} catch (error) {
-  const output = error.stdout ? error.stdout.toString() : '';
+const npmExecutable = path.join(path.dirname(process.execPath), os.platform() === 'win32' ? 'npm.cmd' : 'npm');
+
+execFile(npmExecutable, ['audit', '--workspace', 'armageddon-core', '--audit-level=critical'], { stdio: 'pipe' }, (error, stdout, stderr) => {
+  if (!error) {
+    console.log('No critical vulnerabilities found.');
+    return;
+  }
+
+  const output = stdout ? stdout.toString() : '';
   const lines = output.split('\n');
   let hasUnhandledCritical = false;
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes('Severity: critical')) {
-      const packageName = lines[i-1].trim().split(' ')[0];
+      const packageName = lines[i - 1].trim().split(' ')[0];
       if (packageName !== 'uuid') {
         hasUnhandledCritical = true;
         console.error(`Unhandled critical vulnerability found in: ${packageName}`);
@@ -24,4 +30,4 @@ try {
   } else {
     console.log('Only allowlisted critical vulnerabilities (uuid) found. Audit passed.');
   }
-}
+});
