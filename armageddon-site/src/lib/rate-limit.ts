@@ -11,7 +11,7 @@ export interface RateLimitConfig {
 
 /**
  * Simple in-memory rate limiter using a fixed-window/token-bucket hybrid approach.
- * Note: In a serverless environment (like Vercel), this will be local to the
+ * Note: In a serverless edge environment (like Cloudflare Workers), this will be local to the
  * warm lambda instance. For global rate limiting across all instances,
  * a persistent store like Redis would be required.
  */

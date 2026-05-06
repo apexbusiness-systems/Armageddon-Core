@@ -116,19 +116,19 @@ export default function Footer() {
                         <span className="mono-small text-signal/30">© 2026 APEX BUSINESS SYSTEMS</span>
                     </div>
 
-                    {/* Vercel badge */}
+                    {/* Cloudflare deployment badge */}
                     <div className="flex items-center gap-3">
                         <span className="mono-small text-signal/40">POWERED BY</span>
                         <svg className="h-5 w-5 text-signal/50" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 2L2 19.5h20L12 2z" />
                         </svg>
-                        <span className="mono-small text-signal/40">VERCEL</span>
+                        <span className="mono-small text-signal/40">CLOUDFLARE</span>
                     </div>
 
                     {/* Deployment indicator */}
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 bg-[var(--safe)] rounded-full animate-pulse" />
-                        <span className="mono-small text-signal/30">DEPLOYED TO VERCEL PROD // US-EAST</span>
+                        <span className="mono-small text-signal/30">DEPLOYED TO CLOUDFLARE EDGE // GLOBAL</span>
                     </div>
                 </div>
             </div>

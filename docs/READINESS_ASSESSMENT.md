@@ -11,7 +11,7 @@
 
 **Current State**:
 
-- ✅ **Frontend IS LIVE** at [www.armageddon.icu](https://www.armageddon.icu) and [armageddon-core.vercel.app](https://armageddon-core.vercel.app)
+- ✅ **Frontend IS LIVE** at [www.armageddon.icu](https://www.armageddon.icu) and Cloudflare edge static deployment
 - ✅ **API endpoint EXISTS** at `POST /api/run`
 - ❌ **Temporal worker connection** not configured/deployed
 - ❓ **GitHub integration** - needs verification
@@ -84,7 +84,7 @@
 
 ### 1. **Deployment** — ⛔ BLOCKING
 
-- ❌ Frontend NOT deployed to Vercel
+- ❌ Frontend cloud-host dependency migrated to Cloudflare edge deployment path
 - ❌ Temporal worker NOT deployed (needs Temporal Cloud or self-hosted)
 - ❌ No production environment URLs
 - ❌ Supabase migration not applied to production instance
@@ -190,7 +190,7 @@
 
 To go live with **FREE tier only** (simulation mode):
 
-- [ ] Deploy frontend to Vercel
+- [ ] Deploy frontend to Cloudflare
 - [ ] Apply Supabase migration to production
 - [ ] Create `create-run` Edge Function
 - [ ] Deploy Temporal worker (minimum: single instance)
