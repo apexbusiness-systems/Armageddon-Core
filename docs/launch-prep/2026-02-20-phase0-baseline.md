@@ -44,10 +44,10 @@ Date: 2026-02-20
 3) Repo scope discovery
 - Command(s):
   - `find . -maxdepth 2 -type d \( -name node_modules -o -path './.git' \) -prune -o -type d -print`
-  - `find . -maxdepth 3 -type f -path './.github/workflows/*' -o -name 'Dockerfile' -o -name 'docker-compose*.yml' -o -name 'render.yaml' -o -name 'vercel.json'`
+  - `find . -maxdepth 3 -type f -path './.github/workflows/*' -o -name 'Dockerfile' -o -name 'docker-compose*.yml' -o -name 'render.yaml' -o -name 'wrangler.*'`
 - Key output (trimmed):
   - Major directories: `armageddon-core`, `armageddon-site`, `packages/shared`, `docs`, `scripts`, `supabase`, `.github/workflows`
-  - CI/deploy assets: `ci.yml`, `production-readiness.yml`, `sonarcloud.yml`, `secret-scanning.yml`, `docker-compose.yml`, `docker-compose.moat.yml`, `armageddon-core/Dockerfile`, `render.yaml`, `vercel.json`
+  - CI/deploy assets: `ci.yml`, `production-readiness.yml`, `sonarcloud.yml`, `secret-scanning.yml`, `docker-compose.yml`, `docker-compose.moat.yml`, `armageddon-core/Dockerfile`, `render.yaml`, `scripts/deploy_cloudflare_static.mjs`
 - Files inspected/changed: none
 
 4) Core documentation/manifests review
