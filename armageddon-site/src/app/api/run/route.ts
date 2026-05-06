@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { checkRunEligibility } from '@armageddon/shared';
+import { checkRunEligibility, normalizeIterations } from '@armageddon/shared';
 import { RateLimiter } from '@/lib/rate-limit';
 import { getTemporalClient } from '@/lib/temporal';
 import { checkMembershipResponse, getRunAndVerifyAccess } from '@/lib/auth';
@@ -33,6 +34,7 @@ interface RunResponse {
 }
 
 type OrganizationTier = 'free_dry' | 'verified' | 'certified';
+type WorkflowTier = 'FREE' | 'CERTIFIED';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TIER ACCESS CONFIGURATION
@@ -43,6 +45,19 @@ const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
     verified: [1, 2, 3, 4, 5, 6],
     certified: [1, 2, 3, 4, 5, 6, 7],
 };
+
+const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
+
+function mapWorkflowTier(tier: OrganizationTier): WorkflowTier {
+    // Temporal activities only distinguish simulation/free behavior from certified live-fire behavior.
+    return tier === 'certified' ? 'CERTIFIED' : 'FREE';
+}
+
+function deriveRunSeed(runId: string, organizationId: string): number {
+    // Use a deterministic non-secret seed so retries preserve reproducible simulation/audit traces.
+    const digest = createHash('sha256').update(`${organizationId}:${runId}`).digest('hex');
+    return Number.parseInt(digest.slice(0, 8), 16);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RATE LIMITERS (MODULE-LEVEL SINGLETONS)
@@ -80,7 +95,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // Parse request body
         const body: RunRequest = await request.json();
-        const { organizationId, level = 7, iterations = 2500, batteries } = body;
+        const { organizationId, level = 7, batteries } = body;
 
         // 3. Organization-based Rate Limiting
         if (organizationId && !orgLimiter.check(organizationId)) {
@@ -150,6 +165,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             );
         }
 
+        const defaultIterations = eligibility.tier === 'certified' && level === 7 ? 10000 : 2500;
+        const iterations = normalizeIterations(body.iterations ?? defaultIterations);
+
         // ═══════════════════════════════════════════════════════════════════
         // STEP 2: Create run record
         // ═══════════════════════════════════════════════════════════════════
@@ -157,6 +175,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // Reuse the same supabase instance
         const runId = uuidv4();
         const workflowId = `armageddon-${runId}`;
+        const workflowTier = mapWorkflowTier(eligibility.tier);
+        const workflowSeed = deriveRunSeed(runId, organizationId);
 
         const { error: insertError } = await supabase
             .from('armageddon_runs')
@@ -168,7 +188,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 sandbox_tenant: process.env.SANDBOX_TENANT || 'armageddon-test',
                 workflow_id: workflowId,
                 status: 'pending',
-                config: { batteries: validatedBatteries },
+                config: {
+                    batteries: validatedBatteries,
+                    iterations,
+                    tier: workflowTier,
+                    seed: workflowSeed,
+                },
             });
 
         if (insertError) {
@@ -187,11 +212,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId,
-            taskQueue: 'armageddon-level7',
+            taskQueue: TEMPORAL_TASK_QUEUE,
             args: [{
                 runId,
                 organizationId,
                 iterations,
+                tier: workflowTier,
+                seed: workflowSeed,
                 batteries: validatedBatteries,
             }],
         });

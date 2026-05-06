@@ -48,6 +48,7 @@ export interface BatteryConfig {
     targetEndpoint?: string;
     targetModel?: AdversarialModel;
     seed: number;
+    batteries?: string[];
 }
 
 interface AttackResult {
@@ -518,8 +519,8 @@ async function runGenericAdversarialBattery<T>(
     let processedCount = 0;
     let lastProgressUpdate: Promise<void> = Promise.resolve();
     
-    // Risk Management: Cap iterations
-    const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
+    // Certified claims are only valid when the requested canonical iteration count is preserved.
+    const maxIterations = config.iterations;
 
     // Concurrency Strategy
     const concurrencyLimit = config.tier === 'CERTIFIED'
