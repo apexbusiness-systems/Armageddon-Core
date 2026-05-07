@@ -53,6 +53,8 @@ const UPGRADE_URLS: Record<OrganizationTier, string> = {
     certified: '', // Already at max
 };
 
+export const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
+
 const TIER_FEATURES: Record<OrganizationTier, {
     canCustomizeBatteries: boolean;
     allowedBatteries: string[];
@@ -151,7 +153,7 @@ export async function checkRunEligibility(
 
     // Check battery customization
     if (batteries && batteries.length > 0) {
-        const defaultBatteries = ['B10', 'B11', 'B12', 'B13'];
+        const defaultBatteries = DEFAULT_BATTERIES;
         const isCustomized = batteries.length !== defaultBatteries.length ||
             !batteries.every(b => defaultBatteries.includes(b));
 

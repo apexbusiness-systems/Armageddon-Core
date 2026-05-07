@@ -42,6 +42,7 @@ export interface RunProgress {
 export class SupabaseReporter {
     private readonly client: SupabaseClient;
     private readonly runId: string;
+    private readonly channel: ReturnType<SupabaseClient['channel']>;
 
     constructor(runId: string) {
         const supabaseUrl = process.env.SUPABASE_URL;
@@ -53,6 +54,7 @@ export class SupabaseReporter {
 
         this.client = createClient(supabaseUrl, supabaseKey);
         this.runId = runId;
+        this.channel = this.client.channel(`run_telemetry_${runId}`);
     }
 
     /**
@@ -71,9 +73,16 @@ export class SupabaseReporter {
             timestamp: new Date().toISOString(),
         };
 
-        const { error } = await this.client
-            .from('armageddon_events')
-            .insert(event);
+        const [dbResult] = await Promise.all([
+            this.client.from('armageddon_events').insert(event),
+            this.channel.send({
+                type: 'broadcast',
+                event: 'armageddon_event',
+                payload: event,
+            })
+        ]);
+
+        const error = dbResult.error;
 
         if (error) {
             console.error('[Reporter] Failed to push event:', error);
@@ -100,9 +109,16 @@ export class SupabaseReporter {
             timestamp: new Date().toISOString(),
         }));
 
-        const { error } = await this.client
-            .from('armageddon_events')
-            .insert(rows);
+        const [dbResult] = await Promise.all([
+            this.client.from('armageddon_events').insert(rows),
+            this.channel.send({
+                type: 'broadcast',
+                event: 'armageddon_event_batch',
+                payload: { events: rows },
+            })
+        ]);
+
+        const error = dbResult.error;
 
         if (error) {
             console.error(`[Reporter] Failed to push ${events.length} events:`, error);

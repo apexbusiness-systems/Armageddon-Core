@@ -9,9 +9,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility, normalizeIterations } from '@armageddon/shared';
-import { RateLimiter } from '@/lib/rate-limit';
+import { dbRateLimit } from '@/lib/db-rate-limit';
 import { getTemporalClient } from '@/lib/temporal';
 import { checkMembershipResponse, getRunAndVerifyAccess } from '@/lib/auth';
+import { DEFAULT_BATTERIES } from '@armageddon/shared';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -59,20 +60,6 @@ function deriveRunSeed(runId: string, organizationId: string): number {
     return Number.parseInt(digest.slice(0, 8), 16);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// RATE LIMITERS (MODULE-LEVEL SINGLETONS)
-// ═══════════════════════════════════════════════════════════════════════════
-
-const ipLimiter = new RateLimiter({
-    intervalMs: 60 * 1000, // 1 minute
-    limit: 10,             // 10 requests per minute per IP
-});
-
-const orgLimiter = new RateLimiter({
-    intervalMs: 60 * 1000, // 1 minute
-    limit: 5,              // 5 runs per minute per organization
-});
-
 // ELIGIBILITY CHECK
 // Using centralized checkRunEligibility from armageddon-core/src/core/monetization/gate.ts
 
@@ -85,7 +72,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // 1. IP-based Rate Limiting (Pre-parsing)
         // Securely identify client IP via Next.js request.ip (handles trusted proxies)
         const ip = request.ip || 'unknown';
-        if (!ipLimiter.check(ip)) {
+        const ipLimitResult = await dbRateLimit({ scope: 'ip', key: ip, limit: 10, windowMs: 60 * 1000 });
+        if (!ipLimitResult.allowed) {
             console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
             return NextResponse.json(
                 { success: false, error: 'Too many requests. Please try again in a minute.' },
@@ -98,13 +86,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { organizationId, level = 7, batteries } = body;
 
         // 3. Organization-based Rate Limiting
-        if (organizationId && !orgLimiter.check(organizationId)) {
-            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
-            return NextResponse.json(
-                { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
-                { status: 429 }
-            );
+        if (organizationId) {
+            const orgLimitResult = await dbRateLimit({ scope: 'org', key: organizationId, limit: 5, windowMs: 60 * 1000 });
+            if (!orgLimitResult.allowed) {
+                console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+                return NextResponse.json(
+                    { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
+                    { status: 429 }
+                );
+            }
         }
+
 
         if (!organizationId) {
              return NextResponse.json(
@@ -119,20 +111,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { supabase } = auth;
 
         // Validate and sanitize batteries
-        let validatedBatteries: string[] = ['B10', 'B11', 'B12', 'B13']; // Default: all batteries
+        let validatedBatteries: string[] = DEFAULT_BATTERIES;
         if (batteries && batteries.length > 0) {
             // Remove duplicates
             const uniqueBatteries = Array.from(new Set(batteries));
 
             // Validate battery IDs
-            const validPattern = /^B1[0-3]$/;
+            const validPattern = /^B1[0-4]$/;
             const invalidBatteries = uniqueBatteries.filter(b => !validPattern.test(b));
 
             if (invalidBatteries.length > 0) {
                 return NextResponse.json(
                     {
                         success: false,
-                        error: `Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: B10, B11, B12, B13`
+                        error: `Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: ${DEFAULT_BATTERIES.join(', ')}`
                     },
                     { status: 400 }
                 );
