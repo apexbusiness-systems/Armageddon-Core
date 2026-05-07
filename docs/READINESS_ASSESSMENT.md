@@ -11,7 +11,7 @@
 
 **Current State**:
 
-- ✅ **Frontend IS LIVE** at [www.armageddon.icu](https://www.armageddon.icu) and Cloudflare edge static deployment
+- ✅ **Frontend target is Cloudflare/local Moat oriented** at [www.armageddon.icu](https://www.armageddon.icu); legacy preview hosting is not required by this repository
 - ✅ **API endpoint EXISTS** at `POST /api/run`
 - ❌ **Temporal worker connection** not configured/deployed
 - ❓ **GitHub integration** - needs verification
@@ -84,7 +84,7 @@
 
 ### 1. **Deployment** — ⛔ BLOCKING
 
-- ❌ Frontend cloud-host dependency migrated to Cloudflare edge deployment path
+- ❌ Frontend Cloudflare production proof not recorded in this repository
 - ❌ Temporal worker NOT deployed (needs Temporal Cloud or self-hosted)
 - ❌ No production environment URLs
 - ❌ Supabase migration not applied to production instance
@@ -190,7 +190,7 @@
 
 To go live with **FREE tier only** (simulation mode):
 
-- [ ] Deploy frontend to Cloudflare
+- [ ] Deploy frontend to Cloudflare or run the local Moat-backed frontend
 - [ ] Apply Supabase migration to production
 - [ ] Create `create-run` Edge Function
 - [ ] Deploy Temporal worker (minimum: single instance)
@@ -231,7 +231,7 @@ Complete all 5 phases above. Launch with both FREE and CERTIFIED tiers.
 
 **Why?**
 
-- The website is not deployed
+- The Cloudflare/local production proof is not recorded here
 - The worker is not deployed
 - The API bridge between frontend and worker doesn't exist
 - GitHub integration is not built

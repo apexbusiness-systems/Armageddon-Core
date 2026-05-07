@@ -47,7 +47,13 @@ export interface BatteryConfig {
     tier: OrganizationTier; 
     targetEndpoint?: string;
     targetModel?: AdversarialModel;
-    seed: number;
+    seed?: number;
+    batteries?: string[];
+}
+
+function resolveSeed(config: Pick<BatteryConfig, 'runId' | 'seed'>): number {
+    // Preserve explicit API/CLI seeds, and derive a stable fallback for legacy callers.
+    return Number.isFinite(config.seed) ? config.seed as number : hashString(`${config.runId}:seed`);
 }
 
 interface AttackResult {
@@ -225,7 +231,7 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
         const sanitizedEnv: NodeJS.ProcessEnv = {
             NODE_ENV: 'test',
             PATH: safePath,
-            CHAOS_SEED: config.seed ? config.seed.toString() : '0',
+            CHAOS_SEED: resolveSeed(config).toString(),
             // SECURITY: Explicitly strip sensitive keys
             AWS_ACCESS_KEY_ID: undefined,
             DATABASE_URL: undefined,
@@ -504,7 +510,7 @@ async function runGenericAdversarialBattery<T>(
             runId: config.runId,
             maxIterations: 3
         })
-        : new SimulationAdapter(config.runId, config.seed);
+        : new SimulationAdapter(config.runId, resolveSeed(config));
 
     await reporter.pushEvent(batteryId, 'BATTERY_STARTED', { 
         tier: config.tier, 
@@ -518,8 +524,8 @@ async function runGenericAdversarialBattery<T>(
     let processedCount = 0;
     let lastProgressUpdate: Promise<void> = Promise.resolve();
     
-    // Risk Management: Cap iterations
-    const maxIterations = config.tier === 'CERTIFIED' ? Math.min(config.iterations, 50) : config.iterations;
+    // Certified claims are only valid when the requested canonical iteration count is preserved.
+    const maxIterations = config.iterations;
 
     // Concurrency Strategy
     const concurrencyLimit = config.tier === 'CERTIFIED'
@@ -899,7 +905,7 @@ export async function runBattery2_ChaosEngine(config: BatteryConfig): Promise<Ba
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B2', 'BATTERY_STARTED', { mode: 'IDEMPOTENCY_CHECK' });
 
-    const rng = new SeedableRNG(config.seed);
+    const rng = new SeedableRNG(resolveSeed(config));
     const totalRequests = config.iterations;
 
     const successRate = config.tier === 'CERTIFIED' ? 1.0 : 0.95;
@@ -993,7 +999,7 @@ export async function runBattery4_SecurityAuth(config: BatteryConfig): Promise<B
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B4', 'BATTERY_STARTED', { mode: 'AUTH_HARDENING' });
 
-    const rng = new SeedableRNG(config.seed);
+    const rng = new SeedableRNG(resolveSeed(config));
     const checks = [
         { name: 'CSRF Token Validation', type: 'CSRF' },
         { name: 'XSS in User Input', type: 'XSS' },
@@ -1055,7 +1061,7 @@ export async function runBattery8_AssetSmoke(config: BatteryConfig): Promise<Bat
             }
         }
     } else {
-        const rng = new SeedableRNG(config.seed);
+        const rng = new SeedableRNG(resolveSeed(config));
         for (const asset of assets) {
              const ok = rng.bool(0.99);
              if (ok) {

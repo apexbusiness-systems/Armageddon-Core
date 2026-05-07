@@ -33,15 +33,16 @@ COPY packages/shared ./packages/shared
 # Copy root package files for workspace resolution
 COPY package.json package-lock.json ./
 COPY armageddon-core/package*.json ./armageddon-core/
-RUN cd armageddon-core && npm ci --omit=dev --install-links
+RUN npm ci --install-links
 
 # Copy TypeScript config and source
 COPY armageddon-core/tsconfig.json ./armageddon-core/
 COPY armageddon-core/src ./armageddon-core/src
 
-# Build shared package first, then armageddon-core
-RUN cd packages/shared && npx tsc 2>/dev/null || true
-RUN cd armageddon-core && npm run build && ls -la dist
+# Build shared package first, then armageddon-core; fail fast if either workspace cannot compile.
+RUN npm run build -w @armageddon/shared
+RUN npm run build -w armageddon-core && ls -la armageddon-core/dist
+RUN npm prune --omit=dev --workspaces --include-workspace-root
 
 # Flatten dist to /app/dist for CMD
 RUN cp -r armageddon-core/dist ./dist

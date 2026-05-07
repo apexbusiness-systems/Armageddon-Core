@@ -52,6 +52,8 @@ vi.mock('@temporalio/client', () => ({
 
 vi.mock('@armageddon/shared', () => ({
     checkRunEligibility: vi.fn(() => Promise.resolve({ eligible: true })),
+    // Keep the mock aligned with the API route's shared iteration normalization import.
+    normalizeIterations: vi.fn((tier: string, requested?: number) => requested ?? (tier === 'certified' ? 10000 : 50)),
 }));
 
 // Import the handler

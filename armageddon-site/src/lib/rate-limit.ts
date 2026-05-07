@@ -11,8 +11,8 @@ export interface RateLimitConfig {
 
 /**
  * Simple in-memory rate limiter using a fixed-window/token-bucket hybrid approach.
- * Note: In a serverless edge environment (like Cloudflare Workers), this will be local to the
- * warm lambda instance. For global rate limiting across all instances,
+ * Note: In a horizontally scaled Node/serverless runtime, this in-memory
+ * window is process-local. For global rate limiting across all instances,
  * a persistent store like Redis would be required.
  */
 export class RateLimiter {

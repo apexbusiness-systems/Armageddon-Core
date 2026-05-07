@@ -5,7 +5,6 @@ node_modules/
 .DS_Store
 dist/
 build/
-.vercel/
 coverage/
 .turbo/
 npm-debug.log*
@@ -17,4 +16,3 @@ yarn-error.log*
 .env.*
 !.env.example
 !.env.*.example
-

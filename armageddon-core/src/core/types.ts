@@ -41,6 +41,8 @@ export interface BatteryConfig {
     tier: OrganizationTier;
     targetEndpoint?: string;
     targetModel?: AdversarialModel;
+    seed?: number;
+    batteries?: string[];
 }
 
 /**
