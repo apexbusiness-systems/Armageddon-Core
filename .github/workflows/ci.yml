@@ -1,4 +1,4 @@
-name: CI
+name: Cloudflare/Local CI
 
 on:
   push:
@@ -7,7 +7,8 @@ on:
     branches: ["main"]
 
 jobs:
-  build:
+  cloudflare-local-build:
+    name: Cloudflare/local CI (${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -32,7 +33,7 @@ jobs:
       - name: Build Core
         run: npm run build -w armageddon-core
 
-      - name: Build Site
+      - name: Build Cloudflare/local Site
         run: npm run build -w armageddon-site
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
@@ -45,7 +46,7 @@ jobs:
       - name: Run Unit Tests (Core)
         run: npm run test -w armageddon-core
 
-      - name: Run Unit Tests (Site)
+      - name: Run Unit Tests (Cloudflare/local Site)
         run: npm run test -w armageddon-site
 
       - name: Type Check (Core)
