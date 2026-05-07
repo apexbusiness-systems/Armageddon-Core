@@ -21,6 +21,10 @@ node scripts/deploy_cloudflare_static.mjs
 
 The deploy script uploads the generated `armageddon-site/out` assets to Cloudflare Workers Static Assets through the Cloudflare API and enables the `workers.dev` route for verification.
 
+## Disabled legacy Vercel checks
+
+`vercel.json` is retained only as a repository-level kill switch for the legacy Vercel GitHub App check. It disables automatic Vercel deployments for every branch and skips any fallback build attempt so the blocked external Vercel account cannot keep PR CI red.
+
 ## Constraints
 
 - Do not deploy `.env.moat` or service-role secrets to Cloudflare.
