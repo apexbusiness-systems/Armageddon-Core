@@ -8,7 +8,9 @@
     "start": "next start",
     "test": "vitest run",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:cloudflare": "CLOUDFLARE_STATIC_EXPORT=true next build",
+    "deploy:cloudflare": "npm run build:cloudflare && node ../scripts/deploy_cloudflare_static.mjs"
   },
   "dependencies": {
     "@armageddon/shared": "*",
