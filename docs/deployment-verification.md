@@ -124,15 +124,19 @@ Minimum acceptance criteria for the future Cloudflare patch:
 
 ## Deprecation Authorization Checklist
 
-Before removing or replacing active Vercel references, confirm:
+Before treating Vercel as fully decommissioned, confirm:
 
 - [ ] Gate 1 passed.
 - [ ] Gate 2 passed.
 - [ ] Gate 3 passed.
 - [ ] Gate 4 passed.
+- [ ] `vercel.json` disables automatic provider Git deployments with `git.deploymentEnabled=false`.
+- [ ] Active README assets are repository-local or Cloudflare-hosted and load.
+- [ ] Footer deployment copy reflects Cloudflare/local Moat posture.
 - [ ] Cloudflare frontend proof exists, or local-only replacement is explicitly accepted.
-- [ ] Replacement README asset path is live or local.
-- [ ] UI deployment-copy change is approved separately from branding/certification copy.
+- [ ] `/api/run` Temporal dispatch is still backed by a proven local/Moat service.
+- [ ] Provider GitHub integration / required check is removed from provider or GitHub settings if it still appears.
+- [ ] Post-change `rg` scan shows only intentional historical/audit or provider-disable references remain.
 
 ## Recommended Verification Order
 

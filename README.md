@@ -1,8 +1,8 @@
 # <div align="center">ARMAGEDDON</div>
 
 <div align="center">
-  <img src="https://armageddon-core.vercel.app/wordmark.png" alt="Armageddon Wordmark" width="0" height="0" style="display: none;" />
-  <img src="https://armageddon-core.vercel.app/seal.png" alt="Armageddon Seal" width="200" />
+  <img src="armageddon-site/public/wordmark.png" alt="Armageddon Wordmark" width="0" height="0" style="display: none;" />
+  <img src="armageddon-site/public/seal.png" alt="Armageddon Seal" width="200" />
 </div>
 
 <div align="center">

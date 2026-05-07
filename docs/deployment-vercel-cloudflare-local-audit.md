@@ -42,13 +42,13 @@ Cloudflare appears in UI status copy, but this repository currently has no `wran
 
 | Artifact | Location | Status | Action gate |
 | --- | --- | --- | --- |
-| Vercel config | `vercel.json` absent in current tree | Dead/absent | No removal needed. |
+| Vercel config | `vercel.json` present only as a deployment kill switch with `git.deploymentEnabled=false` | Disabled | Keep until the Vercel Git integration is removed from GitHub/Vercel dashboards. |
 | Vercel dependency | No `vercel`/`@vercel/*` dependency in package manifests | Dead/absent | No removal needed. |
 | Vercel deploy script | No Vercel deploy script in package manifests | Dead/absent | No removal needed. |
 | Local Vercel metadata ignore | `.gitignore` ignores `.vercel/` | Safe | Keep; prevents local metadata commits. |
-| README hosted image URLs | `README.md` references `armageddon-core.vercel.app` assets | Active doc/runtime reference | Replace only after replacement assets are proven. |
-| Footer Vercel badge/copy | `armageddon-site/src/components/Footer.tsx` | Active visible UI copy | Do not change without explicit branding/deployment-copy approval. |
-| Readiness Vercel references | `docs/READINESS_ASSESSMENT.md` | Stale/contradictory | Deprecate only after Cloudflare/local proof. |
+| README hosted image URLs | `README.md` uses repository-local image assets | Migrated | No external Vercel asset dependency remains. |
+| Footer deployment badge/copy | `armageddon-site/src/components/Footer.tsx` | Migrated | Shows Cloudflare/local Moat deployment posture. |
+| Readiness deployment references | `docs/READINESS_ASSESSMENT.md` | Migrated | Checklist now points at Cloudflare/local deployment. |
 | Render blueprint | `render.yaml` | Stale/deprecated candidate | Deprecate separately from Vercel after approval. |
 
 ## 3. Cloudflare/Local Replacement Plan
@@ -69,14 +69,15 @@ Only after local proof, add the minimum Cloudflare Pages/OpenNext configuration 
 
 `armageddon-site/src/app/api/run/route.ts` starts a Temporal workflow through the server-side Temporal client. The current Temporal client connects to `TEMPORAL_ADDRESS`. That API path should remain local/Moat-backed unless a Cloudflare-compatible Temporal dispatch boundary is designed and tested.
 
-### Gate E — deprecate Vercel references last
+### Gate E — complete external decommission
 
 After Gates A-C pass:
 
-1. Replace Vercel-hosted README assets with local or Cloudflare-hosted assets.
-2. Deprecate stale readiness Vercel checklist items.
-3. Update visible footer deployment copy only with explicit approval because it is active UI copy.
-4. Keep `.vercel/` ignored.
+1. Keep README assets repository-local or Cloudflare-hosted.
+2. Keep readiness checklist items aligned to Cloudflare/local deployment.
+3. Keep visible footer deployment copy aligned to Cloudflare/local Moat posture.
+4. Keep `.vercel/` ignored so local metadata is never committed.
+5. Remove the connected Git integration and required check in provider/GitHub settings if it still appears on PRs.
 
 ## 4. Minimal Patch List
 
@@ -85,26 +86,25 @@ Approved and completed by this documentation patch:
 1. Add this audit file to classify deployment paths and Vercel artifacts.
 2. Add `docs/deployment-verification.md` with proof commands and pass/fail criteria.
 
-Not included in this patch:
+Current repository constraints:
 
-- No Cloudflare config files.
 - No package dependency changes.
 - No package script changes.
 - No Docker compose changes.
-- No Vercel copy removal.
 - No branding or certification copy changes.
 - No test battery changes.
+- Active deployment UI/README copy now uses Cloudflare/local wording and repository-local assets.
 
 ## 5. Risk Register
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| Removing active Vercel asset URLs too early | Broken README imagery or external asset loads | Replace only after local/Cloudflare asset path is proven. |
+| Removing external asset URLs without replacements | Broken README imagery or external asset loads | Use repository-local assets already committed under `armageddon-site/public`. |
 | Moving `/api/run` directly to Cloudflare without Temporal proof | Workflow dispatch outage | Keep Temporal dispatch local/Moat-backed until a tested gateway exists. |
 | Adding Cloudflare adapter dependencies prematurely | Build/runtime drift and lockfile churn | Add only after local proof and adapter selection. |
-| Editing footer deployment text under branding freeze | Scope violation | Require explicit copy approval before UI text changes. |
-| Changing compose while auditing | Moat regression | This patch is documentation-only. |
+| External provider check remains required | Merge blocked despite repo-side disable config | Remove the provider check from GitHub branch protection or disconnect the provider integration. |
+| Changing compose while auditing | Moat regression | Do not change compose as part of provider decommissioning. |
 
 ## Decision
 
-Vercel production reliance is not proven as an active deploy mechanism in repository configuration, but active Vercel references remain in docs/assets/UI copy. Deprecation should proceed only after local Moat and local/Cloudflare frontend proof gates pass.
+Vercel production reliance is disabled in repository configuration with `git.deploymentEnabled=false`, and active UI/README asset references have been migrated to Cloudflare/local wording. If a Vercel check still appears on PRs, it is coming from the connected Vercel GitHub integration or branch protection settings outside this repository.
