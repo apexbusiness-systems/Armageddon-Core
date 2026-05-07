@@ -1,7 +1,7 @@
 # Deployment Gate Run — 2026-05-06
 
 **Scope:** Execution record for Gates 1-4 from `docs/deployment-verification.md`.
-**Decision:** Do not approve the next Vercel-deprecation or Cloudflare-config patch yet, because Gate 2 and Gate 3 could not be proven in this environment.
+**Decision:** Do not approve the next legacy-provider decommission or Cloudflare-config patch yet, because Gate 2 and Gate 3 could not be proven in this environment.
 **Environment limitation:** Docker is not installed in this checkout runtime, so Docker Compose commands fail before repo configuration can be evaluated.
 
 ## Gate Results
@@ -29,4 +29,4 @@ curl -fsS http://127.0.0.1:3000 >/dev/null
 
 ## Follow-Up Requirement
 
-Run Gate 2 and Gate 3 again on a host with Docker Compose available before approving any patch that removes active Vercel references, adds Cloudflare deployment config, or changes deployment-copy behavior.
+Run Gate 2 and Gate 3 again on a host with Docker Compose available before approving any patch that removes active legacy provider references, adds Cloudflare deployment config, or changes deployment-copy behavior.

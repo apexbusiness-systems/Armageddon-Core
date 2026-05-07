@@ -1,7 +1,7 @@
-# Deployment Audit — Vercel Deprecation Gate
+# Deployment Audit — Cloudflare/Local Migration Gate
 
 **Date:** 2026-05-06
-**Scope:** Audit deployment dependencies and identify the minimum safe path to deprecate Vercel production reliance after Cloudflare/local proof.
+**Scope:** Audit deployment dependencies and identify the minimum safe path to deprecate legacy preview-host production reliance after Cloudflare/local proof.
 **Patch status:** Documentation-only. No runtime code, test batteries, branding copy, or certification copy changed.
 
 ## 1. Current Deployment Paths
@@ -38,28 +38,28 @@ Moat services currently include:
 
 Cloudflare appears in UI status copy, but this repository currently has no `wrangler.toml`, OpenNext Cloudflare adapter config, Cloudflare Pages config, or Cloudflare deploy script. Cloudflare is therefore not a proven deployment path yet.
 
-## 2. Vercel Artifacts and Status
+## 2. Legacy Preview-Host Artifacts and Status
 
 | Artifact | Location | Status | Action gate |
 | --- | --- | --- | --- |
-| Vercel config | `vercel.json` present only as a deployment kill switch with `git.deploymentEnabled=false` | Disabled | Keep until the Vercel Git integration is removed from GitHub/Vercel dashboards. |
-| Vercel dependency | No `vercel`/`@vercel/*` dependency in package manifests | Dead/absent | No removal needed. |
-| Vercel deploy script | No Vercel deploy script in package manifests | Dead/absent | No removal needed. |
-| Local Vercel metadata ignore | `.gitignore` ignores `.vercel/` | Safe | Keep; prevents local metadata commits. |
-| README hosted image URLs | `README.md` uses repository-local image assets | Migrated | No external Vercel asset dependency remains. |
+| Legacy preview-host config | None present in the repository | Removed | Provider integration must be disconnected in GitHub/provider settings if a provider check still appears. |
+| Legacy preview-host dependency | No provider dependency in package manifests | Dead/absent | No removal needed. |
+| Legacy preview-host deploy script | No provider deploy script in package manifests | Dead/absent | No removal needed. |
+| Legacy provider metadata ignore | No provider metadata ignore rule remains | Removed | Do not create or commit provider metadata. |
+| README hosted image URLs | `README.md` uses repository-local image assets | Migrated | No external preview-host asset dependency remains. |
 | Footer deployment badge/copy | `armageddon-site/src/components/Footer.tsx` | Migrated | Shows Cloudflare/local Moat deployment posture. |
 | Readiness deployment references | `docs/READINESS_ASSESSMENT.md` | Migrated | Checklist now points at Cloudflare/local deployment. |
-| Render blueprint | `render.yaml` | Stale/deprecated candidate | Deprecate separately from Vercel after approval. |
+| Render blueprint | `render.yaml` | Stale/deprecated candidate | Deprecate separately from legacy preview host after approval. |
 
 ## 3. Cloudflare/Local Replacement Plan
 
 ### Gate A — prove local Moat first
 
-Before any Vercel deprecation patch, prove the local Moat stack still resolves, builds, starts, and exposes local health surfaces. This protects Docker Moat operation from drift.
+Before any legacy-provider decommission patch, prove the local Moat stack still resolves, builds, starts, and exposes local health surfaces. This protects Docker Moat operation from drift.
 
 ### Gate B — prove local Next.js site second
 
-Build and start `armageddon-site` outside Vercel. This establishes that Vercel is not required for local UI operation.
+Build and start `armageddon-site` outside any legacy preview host. This establishes that a legacy preview host is not required for local UI operation.
 
 ### Gate C — prove Cloudflare frontend third
 
@@ -76,14 +76,14 @@ After Gates A-C pass:
 1. Keep README assets repository-local or Cloudflare-hosted.
 2. Keep readiness checklist items aligned to Cloudflare/local deployment.
 3. Keep visible footer deployment copy aligned to Cloudflare/local Moat posture.
-4. Keep `.vercel/` ignored so local metadata is never committed.
+4. Do not create provider metadata in the repository.
 5. Remove the connected Git integration and required check in provider/GitHub settings if it still appears on PRs.
 
 ## 4. Minimal Patch List
 
-Approved and completed by this documentation patch:
+Completed migration records:
 
-1. Add this audit file to classify deployment paths and Vercel artifacts.
+1. Add this audit file to classify deployment paths and legacy preview-host artifacts.
 2. Add `docs/deployment-verification.md` with proof commands and pass/fail criteria.
 
 Current repository constraints:
@@ -107,4 +107,4 @@ Current repository constraints:
 
 ## Decision
 
-Vercel production reliance is disabled in repository configuration with `git.deploymentEnabled=false`, and active UI/README asset references have been migrated to Cloudflare/local wording. If a Vercel check still appears on PRs, it is coming from the connected Vercel GitHub integration or branch protection settings outside this repository.
+Legacy preview-host production reliance has been removed from repository configuration, dependencies, scripts, README assets, and visible deployment copy. If the legacy provider check still appears on PRs, it is coming from the connected provider GitHub App/check suite or branch protection settings outside this repository.

@@ -1,7 +1,7 @@
 # Deployment Verification Commands — Cloudflare/Local Proof Gates
 
 **Date:** 2026-05-06
-**Scope:** Non-destructive verification commands for proving the local Docker Moat and local frontend path before deprecating Vercel production reliance.
+**Scope:** Non-destructive verification commands for proving the local Docker Moat and local frontend path before deprecating legacy preview-host production reliance.
 **Safety:** These commands do not alter test batteries, branding copy, certification copy, or production secrets.
 
 ## Secret Handling Rules
@@ -17,7 +17,7 @@ Run from repository root:
 
 ```bash
 git status --short --branch
-rg -n --hidden -S 'vercel|@vercel|wrangler|cloudflare|render|docker-compose\.moat|deploy_moat|kill_moat|armageddon-core\.vercel\.app' \
+rg -n --hidden -S 'legacy-preview-host|wrangler|cloudflare|render|docker-compose\.moat|deploy_moat|kill_moat' \
   -g '*.{md,json,yml,yaml,toml,js,ts,tsx,ps1,env,example}' \
   -g '!node_modules' \
   -g '!vendor' \
@@ -32,7 +32,7 @@ rg -n --hidden -S 'vercel|@vercel|wrangler|cloudflare|render|docker-compose\.moa
 Pass criteria:
 
 - Worktree state is understood before edits.
-- Vercel/Cloudflare references are classified before removal.
+- Cloudflare/local/provider references are classified before removal.
 
 ## Gate 1 — Local Dependency and Build Proof
 
@@ -48,7 +48,7 @@ Pass criteria:
 - Workspace dependencies install from lockfile.
 - Shared/core/site type checks pass.
 - Shared/core/site builds pass.
-- Site builds outside Vercel.
+- Site builds outside any legacy preview host.
 
 ## Gate 2 — Moat Compose Configuration Proof
 
@@ -83,7 +83,7 @@ Pass criteria:
 
 - Worker image builds.
 - Postgres, Temporal, Temporal UI, and worker containers start.
-- Worker health check returns a healthy status, or a concrete readiness defect is captured before Vercel deprecation proceeds.
+- Worker health check returns a healthy status, or a concrete readiness defect is captured before legacy-provider decommission proceeds.
 - Temporal UI responds on `127.0.0.1:8080`.
 
 Cleanup after runtime proof:
@@ -109,7 +109,7 @@ curl -fsS http://127.0.0.1:3000 >/dev/null
 Pass criteria:
 
 - Next.js serves the frontend locally after `npm --prefix armageddon-site run build`.
-- Vercel is not required to load the UI.
+- A legacy preview host is not required to load the UI.
 
 ## Gate 5 — Cloudflare Frontend Proof
 
@@ -124,19 +124,19 @@ Minimum acceptance criteria for the future Cloudflare patch:
 
 ## Deprecation Authorization Checklist
 
-Before treating Vercel as fully decommissioned, confirm:
+Before treating the legacy preview-host provider as fully decommissioned, confirm:
 
 - [ ] Gate 1 passed.
 - [ ] Gate 2 passed.
 - [ ] Gate 3 passed.
 - [ ] Gate 4 passed.
-- [ ] `vercel.json` disables automatic provider Git deployments with `git.deploymentEnabled=false`.
+- [ ] No legacy preview-host config file remains in the repository.
 - [ ] Active README assets are repository-local or Cloudflare-hosted and load.
 - [ ] Footer deployment copy reflects Cloudflare/local Moat posture.
 - [ ] Cloudflare frontend proof exists, or local-only replacement is explicitly accepted.
 - [ ] `/api/run` Temporal dispatch is still backed by a proven local/Moat service.
 - [ ] Provider GitHub integration / required check is removed from provider or GitHub settings if it still appears.
-- [ ] Post-change `rg` scan shows only intentional historical/audit or provider-disable references remain.
+- [ ] Post-change `rg` scan shows only intentional historical/audit or legacy-provider audit references remain.
 
 ## Recommended Verification Order
 
