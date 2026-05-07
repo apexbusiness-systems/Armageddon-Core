@@ -43,6 +43,10 @@ That means the previous Cloudflare patch did not duplicate local deploy config f
 
 The only pre-existing Cloudflare signal found before the patch was the layout status indicator text `CLOUDFLARE_EDGE_READY`. The previous patch's footer copy (`DEPLOYED TO CLOUDFLARE EDGE // GLOBAL`) aligns with this, but it is presentation copy and not deployment infrastructure.
 
+### 5. Legacy Vercel CI check mitigation
+
+A root `vercel.json` is required temporarily as a repo-side kill switch because the external Vercel GitHub App check is still attached to the pull request and reports `Account is blocked`. The config disables all automatic deployments and makes any fallback ignored-build path exit successfully.
+
 ## Duplication assessment
 
 | Area | Already present on remote/base? | Previous patch duplicate? | Decision |
@@ -53,7 +57,7 @@ The only pre-existing Cloudflare signal found before the patch was the layout st
 | Cloudflare deploy script | No | No | Keep, but requires real Cloudflare API egress to validate |
 | Cloudflare deployment docs | No | No | Keep |
 | Vercel footer/readiness references | Yes | Patch removes/deprecates | Keep removal |
-| `vercel.json` | Not in PR base; raw remote read returned 404 | No current patch duplication | No action |
+| `vercel.json` | Not in PR base; raw remote read returned 404 | Reintroduced only as a CI kill switch | Keep until the external GitHub App check is removed |
 
 ## Conclusion
 
