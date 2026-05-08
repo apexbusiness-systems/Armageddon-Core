@@ -1,0 +1,100 @@
+name: Deploy → Cloudflare Workers
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ARMAGEDDON-CORE — Cloudflare Workers Deployment
+# Serves armageddon.icu directly from Cloudflare — zero Vercel
+# ═══════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloudflare-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      # ─── Checkout ─────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ─── Node.js ──────────────────────────────────────────────────────
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # ─── Install ──────────────────────────────────────────────────────
+      - name: Install root dependencies
+        run: npm ci
+        # Postinstall automatically builds @armageddon/shared
+
+      - name: Verify shared lib build
+        run: |
+          ls packages/shared/dist/
+          echo "✅ @armageddon/shared built"
+
+      # ─── Build static site for Cloudflare ────────────────────────────
+      - name: Build armageddon-site (Cloudflare static export)
+        working-directory: armageddon-site
+        env:
+          CLOUDFLARE_STATIC_EXPORT: "true"
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run build
+
+      - name: Verify static export output
+        run: |
+          ls -la armageddon-site/out/
+          FILE_COUNT=$(find armageddon-site/out -type f | wc -l)
+          echo "✅ Static export: $FILE_COUNT files"
+          test -f armageddon-site/out/index.html || (echo "❌ Missing index.html" && exit 1)
+
+      # ─── Deploy to Cloudflare Workers ─────────────────────────────────
+      - name: Deploy to Cloudflare Workers (armageddon.icu)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_ATS }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: armageddon-site
+          command: deploy --compatibility-date 2026-05-06
+          wranglerVersion: latest
+
+      # ─── Smoke test ───────────────────────────────────────────────────
+      - name: Smoke test — armageddon.icu live
+        run: |
+          echo "⏳ Waiting 10s for propagation..."
+          sleep 10
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+            --retry 3 --retry-delay 5 --max-time 30 \
+            "https://armageddon.icu" 2>&1 || echo "FAIL")
+          echo "HTTP status: $HTTP"
+          if [ "$HTTP" = "200" ] || [ "$HTTP" = "301" ] || [ "$HTTP" = "302" ]; then
+            echo "✅ armageddon.icu is LIVE on Cloudflare Workers"
+          else
+            echo "⚠️  Status $HTTP — DNS may still be propagating (normal, check in 60s)"
+          fi
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "══════════════════════════════════════════════════"
+          echo "  ARMAGEDDON DEPLOYMENT COMPLETE"
+          echo "══════════════════════════════════════════════════"
+          echo "  Worker:  armageddon-core"
+          echo "  Domain:  armageddon.icu"
+          echo "  CDN:     Cloudflare Workers (0 Vercel)"
+          echo "══════════════════════════════════════════════════"

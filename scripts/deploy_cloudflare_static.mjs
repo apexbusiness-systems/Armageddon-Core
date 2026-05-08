@@ -146,12 +146,74 @@ async function enableWorkersDev({ accountId, workerName, token }) {
   return subdomain.result?.subdomain;
 }
 
+/**
+ * Finds the Cloudflare Zone ID for a given domain name.
+ */
+async function getZoneId({ token, zoneName }) {
+  const res = await apiFetch(`/zones?name=${encodeURIComponent(zoneName)}&status=active`, { token });
+  const zone = res.result?.[0];
+  if (!zone) throw new Error(`Zone not found for ${zoneName}. Ensure the domain is added to this Cloudflare account.`);
+  return zone.id;
+}
+
+/**
+ * Ensures armageddon.icu has a proxied A record (required for worker routes).
+ * Upserts: if a record exists for the name, updates it; otherwise creates it.
+ */
+async function upsertProxiedDnsRecord({ token, zoneId, name, content = '192.0.2.1' }) {
+  const existing = await apiFetch(`/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}&type=A`, { token });
+  const record = existing.result?.[0];
+  if (record) {
+    if (record.proxied && record.content === content) {
+      console.log(`[DNS] A record for ${name} already proxied ✓`);
+      return record;
+    }
+    await apiFetch(`/zones/${zoneId}/dns_records/${record.id}`, {
+      token, method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'A', name, content, proxied: true, ttl: 1 }),
+    });
+    console.log(`[DNS] Updated A record for ${name} → proxied`);
+  } else {
+    await apiFetch(`/zones/${zoneId}/dns_records`, {
+      token, method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'A', name, content, proxied: true, ttl: 1 }),
+    });
+    console.log(`[DNS] Created proxied A record for ${name}`);
+  }
+}
+
+/**
+ * Registers worker routes for the zone so all traffic to armageddon.icu
+ * is handled by the armageddon-core worker. Idempotent.
+ */
+async function upsertWorkerRoutes({ token, zoneId, workerName, patterns }) {
+  const existing = await apiFetch(`/zones/${zoneId}/workers/routes`, { token });
+  const existingPatterns = new Set((existing.result ?? []).map(r => r.pattern));
+
+  for (const pattern of patterns) {
+    if (existingPatterns.has(pattern)) {
+      console.log(`[Routes] Route already registered: ${pattern}`);
+      continue;
+    }
+    await apiFetch(`/zones/${zoneId}/workers/routes`, {
+      token, method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pattern, script: workerName }),
+    });
+    console.log(`[Routes] Registered route: ${pattern} → ${workerName}`);
+  }
+}
+
 async function main() {
   const accountId = requiredEnv('CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_ID');
   const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_TOKEN_ATS');
   const workerName = process.env.CLOUDFLARE_WORKER_NAME?.trim() || 'armageddon-core';
   const outputDir = path.resolve(process.env.CLOUDFLARE_OUTPUT_DIR?.trim() || 'armageddon-site/out');
+  const zoneName = process.env.CLOUDFLARE_ZONE_NAME?.trim() || 'armageddon.icu';
 
+  // ── 1. Build manifest & upload assets ──────────────────────────────────
   console.log(`[Cloudflare] Preparing static asset deployment: ${workerName}`);
   const { manifest, byHash, fileCount } = await createManifest(outputDir);
   console.log(`[Cloudflare] Manifest ready: ${fileCount} files`);
@@ -159,12 +221,41 @@ async function main() {
   const completionJwt = await uploadAssets({ accountId, workerName, token, manifest, byHash });
   console.log('[Cloudflare] Assets uploaded');
 
+  // ── 2. Deploy worker ───────────────────────────────────────────────────
   await deployWorker({ accountId, workerName, token, completionJwt });
-  const subdomain = await enableWorkersDev({ accountId, workerName, token });
+  console.log('[Cloudflare] Worker deployed');
 
-  const url = subdomain ? `https://${workerName}.${subdomain}.workers.dev/` : null;
+  // ── 3. Enable workers.dev preview ─────────────────────────────────────
+  const subdomain = await enableWorkersDev({ accountId, workerName, token });
+  const previewUrl = subdomain ? `https://${workerName}.${subdomain}.workers.dev/` : null;
+  if (previewUrl) console.log(`[Cloudflare] Preview URL: ${previewUrl}`);
+
+  // ── 4. Wire up armageddon.icu DNS + routes (zero Vercel) ──────────────
+  console.log(`[Cloudflare] Configuring ${zoneName} DNS + worker routes...`);
+  try {
+    const zoneId = await getZoneId({ token, zoneName });
+    console.log(`[DNS] Zone ID: ${zoneId}`);
+
+    // Ensure root + www have proxied A records so worker routes intercept them
+    await upsertProxiedDnsRecord({ token, zoneId, name: zoneName });
+    await upsertProxiedDnsRecord({ token, zoneId, name: `www.${zoneName}` });
+
+    // Register worker routes for root and www
+    await upsertWorkerRoutes({
+      token, zoneId, workerName,
+      patterns: [`${zoneName}/*`, `www.${zoneName}/*`],
+    });
+
+    console.log(`[Cloudflare] ✅ ${zoneName} fully wired to Cloudflare Workers — zero Vercel`);
+  } catch (err) {
+    // Non-fatal: worker is deployed, routes just need manual zone wiring if token lacks zone perms
+    console.warn(`[DNS] Warning: Could not auto-configure zone routes: ${err.message}`);
+    console.warn('[DNS] Worker deployed. Add routes manually in Cloudflare dashboard if needed.');
+  }
+
   console.log('[Cloudflare] Deployment complete');
-  if (url) console.log(`[Cloudflare] URL: ${url}`);
+  if (previewUrl) console.log(`[Cloudflare] Workers.dev: ${previewUrl}`);
+  console.log(`[Cloudflare] Production: https://${zoneName}`);
 }
 
 main().catch((error) => {

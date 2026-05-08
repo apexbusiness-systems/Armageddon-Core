@@ -6,6 +6,10 @@
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "single-page-application"
   },
+  "routes": [
+    { "pattern": "armageddon.icu/*", "zone_name": "armageddon.icu" },
+    { "pattern": "www.armageddon.icu/*", "zone_name": "armageddon.icu" }
+  ],
   "observability": {
     "enabled": true
   }
