@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { readdir, readFile, stat } from 'node:fs/promises';
+import ts from 'typescript';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -108,12 +109,41 @@ async function uploadAssets({ accountId, workerName, token, manifest, byHash }) 
   return completionJwt;
 }
 
-async function deployWorker({ accountId, workerName, token, completionJwt }) {
+async function compileWorkerSource(workerSourcePath) {
+  const source = await readFile(workerSourcePath, 'utf8');
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+      isolatedModules: true,
+      removeComments: false,
+    },
+    fileName: workerSourcePath,
+    reportDiagnostics: true,
+  });
+  const diagnostics = output.diagnostics ?? [];
+  const blocking = diagnostics.filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error);
+  if (blocking.length > 0) {
+    const message = ts.formatDiagnosticsWithColorAndContext(blocking, {
+      getCanonicalFileName: (fileName) => fileName,
+      getCurrentDirectory: () => process.cwd(),
+      getNewLine: () => '\n',
+    });
+    throw new Error(`Worker TypeScript transpilation failed:\n${message}`);
+  }
+  return output.outputText;
+}
+
+async function deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey }) {
   const scriptName = 'worker.mjs';
   const metadata = {
     main_module: scriptName,
     compatibility_date: new Date().toISOString().slice(0, 10),
-    bindings: [{ type: 'assets', name: 'ASSETS' }],
+    bindings: [
+      { type: 'assets', name: 'ASSETS' },
+      { type: 'secret_text', name: 'SUPABASE_URL', text: supabaseUrl },
+      { type: 'secret_text', name: 'SUPABASE_SERVICE_ROLE_KEY', text: supabaseServiceRoleKey },
+    ],
     assets: {
       jwt: completionJwt,
       config: {
@@ -123,7 +153,7 @@ async function deployWorker({ accountId, workerName, token, completionJwt }) {
     },
     observability: { enabled: true },
   };
-  const source = `export default {\n  async fetch(request, env) {\n    return env.ASSETS.fetch(request);\n  }\n};\n`;
+  const source = await compileWorkerSource(workerSourcePath);
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   form.append(scriptName, new Blob([source], { type: 'application/javascript+module' }), scriptName);
@@ -211,7 +241,14 @@ async function main() {
   const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_TOKEN_ATS');
   const workerName = process.env.CLOUDFLARE_WORKER_NAME?.trim() || 'armageddon-core';
   const outputDir = path.resolve(process.env.CLOUDFLARE_OUTPUT_DIR?.trim() || 'armageddon-site/out');
+  const workerSourcePath = path.resolve(process.env.CLOUDFLARE_WORKER_SOURCE?.trim() || 'armageddon-site/src/intake-handler.ts');
   const zoneName = process.env.CLOUDFLARE_ZONE_NAME?.trim() || 'armageddon.icu';
+  const supabaseUrl = requiredEnv('SUPABASE_URL');
+  const supabaseServiceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (process.env.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED !== 'true') {
+    throw new Error('Refusing deploy: apply supabase/migrations/20260508000000_armageddon_intake.sql first, then set SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED=true.');
+  }
 
   // ── 1. Build manifest & upload assets ──────────────────────────────────
   console.log(`[Cloudflare] Preparing static asset deployment: ${workerName}`);
@@ -222,7 +259,7 @@ async function main() {
   console.log('[Cloudflare] Assets uploaded');
 
   // ── 2. Deploy worker ───────────────────────────────────────────────────
-  await deployWorker({ accountId, workerName, token, completionJwt });
+  await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey });
   console.log('[Cloudflare] Worker deployed');
 
   // ── 3. Enable workers.dev preview ─────────────────────────────────────

@@ -1,11 +1,16 @@
 {
   "name": "armageddon-core",
+  "main": "src/intake-handler.ts",
   "compatibility_date": "2026-05-06",
   "assets": {
     "directory": "./out",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "single-page-application"
   },
+  "routes": [
+    { "pattern": "armageddon.icu/intake*", "zone_name": "armageddon.icu" },
+    { "pattern": "armageddon.icu/api/intake", "zone_name": "armageddon.icu" }
+  ],
   "observability": {
     "enabled": true
   }

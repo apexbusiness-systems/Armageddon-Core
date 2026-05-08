@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Armageddon Resilience Audit Intake</title>
+    <meta
+      name="description"
+      content="Request an Armageddon Resilience Audit for AI agents. Severity-ranked adversarial testing across 14 battery categories with optional certification."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              armageddon: {
+                bg: '#0A0A0A',
+                card: '#111111',
+                gold: '#C9A84C',
+                text: '#F5F5F5',
+                critical: '#FF4444',
+                high: '#FF8C00',
+              },
+            },
+            fontFamily: {
+              sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            },
+            boxShadow: {
+              gold: '0 0 50px rgba(201, 168, 76, 0.14)',
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      html { scroll-behavior: smooth; }
+      body { background: #0A0A0A; color: #F5F5F5; font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
+      .field-error { color: #FF4444; font-size: 0.875rem; margin-top: 0.375rem; }
+    </style>
+  </head>
+  <body class="min-h-screen bg-armageddon-bg text-armageddon-text antialiased">
+    <main class="mx-auto flex w-full max-w-7xl flex-col gap-14 px-5 py-8 sm:px-8 lg:px-10 lg:py-14">
+      <section class="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(201,168,76,0.18),transparent_36%),linear-gradient(135deg,#111111,#0A0A0A)] px-6 py-14 shadow-gold sm:px-10 lg:px-14 lg:py-20">
+        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-armageddon-gold to-transparent"></div>
+        <div class="max-w-4xl">
+          <span class="inline-flex rounded-full border border-armageddon-gold/70 bg-armageddon-gold/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-armageddon-gold">
+            Armageddon · Level 8 Certified
+          </span>
+          <h1 class="mt-8 max-w-3xl text-5xl font-bold tracking-[-0.05em] text-white sm:text-6xl lg:text-7xl">
+            How Resilient Is Your AI Agent?
+          </h1>
+          <p class="mt-6 max-w-3xl text-lg leading-8 text-white/76 sm:text-xl">
+            Request an Armageddon Resilience Audit. We test your agent against 14 adversarial battery categories — prompt injection, goal hijacking, indirect injection, authority spoofing, data exfiltration, and more. You get a severity-ranked report and optional certification.
+          </p>
+          <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+            <a href="#intake-form" class="inline-flex items-center justify-center rounded-full bg-armageddon-gold px-6 py-3 text-base font-bold text-black transition hover:bg-[#dabb65] focus:outline-none focus:ring-4 focus:ring-armageddon-gold/30">
+              Request Audit
+            </a>
+            <a href="#tiers" class="inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-base font-bold text-white transition hover:border-armageddon-gold/70 hover:text-armageddon-gold focus:outline-none focus:ring-4 focus:ring-white/10">
+              Compare tiers
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="tiers" aria-labelledby="tiers-heading" class="space-y-6">
+        <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-[0.22em] text-armageddon-gold">Audit scope</p>
+            <h2 id="tiers-heading" class="mt-2 text-3xl font-bold tracking-[-0.03em] sm:text-4xl">Choose your intake tier</h2>
+          </div>
+          <p class="max-w-2xl text-sm leading-6 text-white/60">Pricing is shown clearly for intake qualification only. No payment is collected on this page; approved audits are invoiced separately.</p>
+        </div>
+
+        <div class="grid gap-5 lg:grid-cols-3">
+          <article class="rounded-3xl border border-white/10 bg-armageddon-card p-6 shadow-2xl shadow-black/30">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-2xl font-bold">Self-Serve</h3>
+                <p class="mt-1 text-3xl font-bold text-armageddon-gold">CAD $500</p>
+              </div>
+              <span class="rounded-full border border-armageddon-gold/30 px-3 py-1 text-xs font-semibold text-armageddon-gold">JSON</span>
+            </div>
+            <p class="mt-5 text-white/72">Run our battery against your system using our test harness. Machine-readable JSON report. No reviewer.</p>
+            <div class="mt-6 space-y-4 text-sm">
+              <div>
+                <p class="font-semibold text-white">Includes</p>
+                <ul class="mt-2 space-y-2 text-white/68">
+                  <li>✓ 14-category battery</li>
+                  <li>✓ Automated severity ranking</li>
+                  <li>✓ JSON output</li>
+                </ul>
+              </div>
+              <div>
+                <p class="font-semibold text-white">Not included</p>
+                <ul class="mt-2 space-y-2 text-white/52">
+                  <li>— Human review</li>
+                  <li>— Certificate</li>
+                  <li>— Remediation plan</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <article class="rounded-3xl border border-white/10 bg-armageddon-card p-6 shadow-2xl shadow-black/30">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-2xl font-bold">Verified</h3>
+                <p class="mt-1 text-3xl font-bold text-armageddon-gold">CAD $2,500</p>
+              </div>
+              <span class="rounded-full border border-armageddon-high/40 px-3 py-1 text-xs font-semibold text-armageddon-high">Reviewed</span>
+            </div>
+            <p class="mt-5 text-white/72">APEX reviews your evidence and produces a signed finding summary.</p>
+            <div class="mt-6 space-y-4 text-sm">
+              <div>
+                <p class="font-semibold text-white">Includes</p>
+                <ul class="mt-2 space-y-2 text-white/68">
+                  <li>✓ Everything in Self-Serve</li>
+                  <li>✓ Human review</li>
+                  <li>✓ Finding summary PDF</li>
+                </ul>
+              </div>
+              <div>
+                <p class="font-semibold text-white">Not included</p>
+                <ul class="mt-2 space-y-2 text-white/52">
+                  <li>— Signed certificate</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <article class="relative rounded-3xl border border-armageddon-gold/70 bg-[linear-gradient(180deg,rgba(201,168,76,0.12),#111111_28%)] p-6 shadow-gold">
+            <span class="absolute right-5 top-5 rounded-full bg-armageddon-gold px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-black">Most popular</span>
+            <div class="pr-24">
+              <h3 class="text-2xl font-bold">Certified</h3>
+              <p class="mt-1 text-3xl font-bold text-armageddon-gold">CAD $7,500</p>
+            </div>
+            <p class="mt-5 text-white/72">Full audit + signed APEX Armageddon certificate.</p>
+            <div class="mt-6 space-y-4 text-sm">
+              <div>
+                <p class="font-semibold text-white">Includes</p>
+                <ul class="mt-2 space-y-2 text-white/68">
+                  <li>✓ Everything in Verified</li>
+                  <li>✓ Signed certificate</li>
+                  <li>✓ Remediation plan</li>
+                  <li>✓ 30-day re-test window</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="flex flex-col gap-4 rounded-3xl border border-white/10 bg-armageddon-card p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 class="text-xl font-bold">Enterprise</h3>
+            <p class="mt-1 text-white/68">Custom scope, expanded battery, team systems.</p>
+          </div>
+          <a href="mailto:apex@armageddon.icu?subject=Enterprise%20Armageddon%20Resilience%20Audit" class="inline-flex items-center justify-center rounded-full border border-armageddon-gold px-5 py-3 font-bold text-armageddon-gold transition hover:bg-armageddon-gold hover:text-black">
+            Contact us
+          </a>
+        </div>
+      </section>
+
+      <section id="intake-form" aria-labelledby="form-heading" class="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+        <div class="rounded-3xl border border-white/10 bg-armageddon-card p-6 lg:sticky lg:top-6">
+          <p class="text-sm font-semibold uppercase tracking-[0.22em] text-armageddon-gold">Intake</p>
+          <h2 id="form-heading" class="mt-2 text-3xl font-bold tracking-[-0.03em]">Request an Armageddon Resilience Audit</h2>
+          <p class="mt-4 text-white/68">Submit the system details APEX needs to qualify scope, risk profile, and recommended audit tier.</p>
+          <div class="mt-6 grid gap-3 text-sm">
+            <div class="rounded-2xl border border-armageddon-critical/25 bg-armageddon-critical/10 p-4"><strong class="text-armageddon-critical">Critical:</strong> jailbreak, exfiltration, unsafe tool execution.</div>
+            <div class="rounded-2xl border border-armageddon-high/25 bg-armageddon-high/10 p-4"><strong class="text-armageddon-high">High:</strong> goal hijacking, authority spoofing, unsafe delegation.</div>
+            <div class="rounded-2xl border border-armageddon-gold/25 bg-armageddon-gold/10 p-4"><strong class="text-armageddon-gold">Medium:</strong> partial policy bypass or constrained leakage.</div>
+          </div>
+        </div>
+
+        <form id="auditForm" class="rounded-3xl border border-white/10 bg-armageddon-card p-6 shadow-2xl shadow-black/30 sm:p-8" novalidate>
+          <div id="formAlert" class="mb-6 hidden rounded-2xl border px-4 py-3 text-sm" role="alert" aria-live="polite"></div>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <label class="block sm:col-span-2">
+              <span class="text-sm font-semibold text-white">System Name <span class="text-armageddon-critical">*</span></span>
+              <input name="system_name" required maxlength="160" placeholder="What is the name of your AI system?" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
+              <span data-error-for="system_name" class="field-error"></span>
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-semibold text-white">Contact Name <span class="text-armageddon-critical">*</span></span>
+              <input name="contact_name" required maxlength="160" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
+              <span data-error-for="contact_name" class="field-error"></span>
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-semibold text-white">Email <span class="text-armageddon-critical">*</span></span>
+              <input name="email" type="email" required maxlength="254" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
+              <span data-error-for="email" class="field-error"></span>
+            </label>
+
+            <label class="block sm:col-span-2">
+              <span class="text-sm font-semibold text-white">Company</span>
+              <input name="company" maxlength="180" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
+              <span data-error-for="company" class="field-error"></span>
+            </label>
+          </div>
+
+          <fieldset class="mt-6">
+            <legend class="text-sm font-semibold text-white">Tier Selection <span class="text-armageddon-critical">*</span></legend>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
+                <input type="radio" name="tier" value="Self-Serve" checked class="mt-1 accent-armageddon-gold" />
+                <span><span class="block font-bold">Self-Serve</span><span class="text-sm text-white/55">CAD $500</span></span>
+              </label>
+              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
+                <input type="radio" name="tier" value="Verified" class="mt-1 accent-armageddon-gold" />
+                <span><span class="block font-bold">Verified</span><span class="text-sm text-white/55">CAD $2,500</span></span>
+              </label>
+              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
+                <input type="radio" name="tier" value="Certified" class="mt-1 accent-armageddon-gold" />
+                <span><span class="block font-bold">Certified</span><span class="text-sm text-white/55">CAD $7,500</span></span>
+              </label>
+              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
+                <input type="radio" name="tier" value="Enterprise" class="mt-1 accent-armageddon-gold" />
+                <span><span class="block font-bold">Enterprise</span><span class="text-sm text-white/55">Custom invoice</span></span>
+              </label>
+            </div>
+            <span data-error-for="tier" class="field-error"></span>
+          </fieldset>
+
+          <label class="mt-6 block">
+            <span class="text-sm font-semibold text-white">System Description <span class="text-armageddon-critical">*</span></span>
+            <textarea name="description" required maxlength="4000" rows="6" placeholder="Briefly describe your agent and what it can do (tools, APIs, autonomy level)" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10"></textarea>
+            <span data-error-for="description" class="field-error"></span>
+          </label>
+
+          <label class="mt-6 block">
+            <span class="text-sm font-semibold text-white">How did you find us?</span>
+            <input name="source" maxlength="240" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
+            <span data-error-for="source" class="field-error"></span>
+          </label>
+
+          <button id="submitButton" type="submit" class="mt-7 flex w-full items-center justify-center rounded-2xl bg-armageddon-gold px-5 py-4 text-base font-bold text-black transition hover:bg-[#dabb65] focus:outline-none focus:ring-4 focus:ring-armageddon-gold/30 disabled:cursor-not-allowed disabled:opacity-60">
+            Request Audit
+          </button>
+          <p class="mt-4 text-center text-xs text-white/45">No payment is collected here. Audit fees are invoiced separately after scope confirmation.</p>
+        </form>
+
+        <section id="successCard" class="hidden rounded-3xl border border-armageddon-gold/50 bg-armageddon-card p-8 shadow-gold" aria-live="polite">
+          <p class="text-sm font-semibold uppercase tracking-[0.22em] text-armageddon-gold">Submitted</p>
+          <h2 class="mt-3 text-3xl font-bold">Request received. We'll respond within 24 hours.</h2>
+          <p class="mt-4 text-white/68">APEX will review your intake, confirm scope, and follow up with next steps. Your form data has been preserved locally in this browser session for reference.</p>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById('auditForm');
+      const successCard = document.getElementById('successCard');
+      const submitButton = document.getElementById('submitButton');
+      const alertBox = document.getElementById('formAlert');
+
+      const setAlert = (message, type = 'error') => {
+        alertBox.textContent = message;
+        alertBox.classList.remove('hidden', 'border-armageddon-critical/40', 'bg-armageddon-critical/10', 'text-armageddon-critical', 'border-armageddon-gold/40', 'bg-armageddon-gold/10', 'text-armageddon-gold');
+        if (type === 'success') {
+          alertBox.classList.add('border-armageddon-gold/40', 'bg-armageddon-gold/10', 'text-armageddon-gold');
+        } else {
+          alertBox.classList.add('border-armageddon-critical/40', 'bg-armageddon-critical/10', 'text-armageddon-critical');
+        }
+      };
+
+      const clearErrors = () => {
+        document.querySelectorAll('[data-error-for]').forEach((node) => { node.textContent = ''; });
+        alertBox.classList.add('hidden');
+        alertBox.textContent = '';
+      };
+
+      const setFieldErrors = (errors) => {
+        Object.entries(errors || {}).forEach(([field, message]) => {
+          const target = document.querySelector(`[data-error-for="${field}"]`);
+          if (target) target.textContent = Array.isArray(message) ? message.join(', ') : message;
+        });
+      };
+
+      const getPayload = () => {
+        const data = new FormData(form);
+        return {
+          system_name: String(data.get('system_name') || ''),
+          contact_name: String(data.get('contact_name') || ''),
+          email: String(data.get('email') || ''),
+          company: String(data.get('company') || ''),
+          tier: String(data.get('tier') || ''),
+          description: String(data.get('description') || ''),
+          source: String(data.get('source') || ''),
+        };
+      };
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearErrors();
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting…';
+
+        const payload = getPayload();
+        sessionStorage.setItem('armageddon_intake_draft', JSON.stringify(payload));
+
+        try {
+          const response = await fetch('/api/intake', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const result = await response.json().catch(() => ({}));
+
+          if (!response.ok || !result.success) {
+            setFieldErrors(result.fieldErrors || {});
+            setAlert(result.error || 'Unable to submit your request. Please correct the highlighted fields and try again.');
+            return;
+          }
+
+          form.classList.add('hidden');
+          successCard.classList.remove('hidden');
+          successCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+          setAlert('Network error. Your data is still in the form — please try again in a moment.');
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = 'Request Audit';
+        }
+      });
+    </script>
+  </body>
+</html>
