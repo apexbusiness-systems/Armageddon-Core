@@ -1,3 +1,4 @@
+import { DEFAULT_BATTERIES } from '@armageddon/shared';
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * ARMAGEDDON LEVEL 7 — API ROUTE
@@ -12,7 +13,6 @@ import { checkRunEligibility, normalizeIterations } from '@armageddon/shared';
 import { dbRateLimit } from '@/lib/db-rate-limit';
 import { getTemporalClient } from '@/lib/temporal';
 import { checkMembershipResponse, getRunAndVerifyAccess } from '@/lib/auth';
-import { DEFAULT_BATTERIES } from '@armageddon/shared';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES

@@ -77,7 +77,7 @@ function applyTapLiteMutation(vectorStr: string, rng: SeedableRNG): string {
     const operators = [
         (s: string) => s + ' [M_OVERRIDE]',
         (s: string) => '[SYS:IGNORE] ' + s,
-        (s: string) => s.replace(/e/g, '3').replace(/a/g, '@'),
+        (s: string) => s.replaceAll('e', '3').replaceAll('a', '@'),
         (s: string) => s.split('').join('​'), // Zero-width space obfuscation
         (s: string) => `${s} \n\n<!-- ${rng.int(1000, 9999)} -->`
     ];
@@ -125,7 +125,7 @@ async function runAdversarialBattery(
         }
 
         // Simulate attack
-        const rng = new SeedableRNG(parseInt(runId.replace(/[^0-9]/g, '').slice(0, 8)) || 12345 + i);
+        const rng = new SeedableRNG(Number.parseInt(runId.replace(/\D/g, '').slice(0, 8)) || 12345 + i);
         const vector = vectors[i % vectors.length];
         let vectorStr = vectorToString(vector);
         vectorStr = applyTapLiteMutation(vectorStr, rng);
