@@ -1,6 +1,6 @@
-import { proxyActivities, defineSignal, setHandler } from '@temporalio/workflow';
+import { proxyActivities, defineSignal, setHandler, executeChild } from '@temporalio/workflow';
 import type * as activities from './activities';
-import { BatteryConfig, WorkflowState, ArmageddonReport } from './activities';
+import { BatteryConfig, WorkflowState, ArmageddonReport, BatteryResult } from './activities';
 import { normalizeIterations } from '@armageddon/shared';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12,7 +12,7 @@ const TIMEOUTS = {
     WORKFLOW_EXECUTION: '1h', // 1 hour total
 } as const;
 
-const BATTERY_IDS = {
+export const BATTERY_IDS = {
     B1: 'B1_CHAOS_STRESS',
     B2: 'B2_CHAOS_ENGINE',
     B3: 'B3_PROMPT_INJECTION',
@@ -26,6 +26,7 @@ const BATTERY_IDS = {
     B11: 'B11_TOOL_MISUSE',
     B12: 'B12_MEMORY_POISON',
     B13: 'B13_SUPPLY_CHAIN',
+    B14: 'B14_INDIRECT_INJECTION',
 } as const;
 
 const STATUS = {
@@ -50,6 +51,7 @@ const {
     runBattery11_ToolMisuse,
     runBattery12_MemoryPoison,
     runBattery13_SupplyChain,
+    runBattery14_IndirectInjection,
     generateReport
 } = proxyActivities<typeof activities>({
     startToCloseTimeout: TIMEOUTS.START_TO_CLOSE,
@@ -57,6 +59,32 @@ const {
 
 // Signals
 export const cancelSignal = defineSignal('cancel');
+
+/**
+ * Child Workflow to encapsulate a single battery's execution.
+ * This bounds the event history of the parent workflow, crucial for high-iteration
+ * adversarial batteries that might otherwise hit Temporal's 50k event limit.
+ */
+export async function BatteryChildWorkflow(batteryCode: string, config: BatteryConfig): Promise<BatteryResult> {
+    switch (batteryCode) {
+        case 'B1': return runBattery1_ChaosStress(config);
+        case 'B2': return runBattery2_ChaosEngine(config);
+        case 'B3': return runBattery3_PromptInjection(config);
+        case 'B4': return runBattery4_SecurityAuth(config);
+        case 'B5': return runBattery5_FullUnit(config);
+        case 'B6': return runBattery6_UnsafeGate(config);
+        case 'B7': return runBattery7_PlaywrightE2E(config);
+        case 'B8': return runBattery8_AssetSmoke(config);
+        case 'B9': return runBattery9_IntegrationHandshake(config);
+        case 'B10': return runBattery10_GoalHijack(config);
+        case 'B11': return runBattery11_ToolMisuse(config);
+        case 'B12': return runBattery12_MemoryPoison(config);
+        case 'B13': return runBattery13_SupplyChain(config);
+        case 'B14': return runBattery14_IndirectInjection(config);
+        default:
+            throw new Error(`Unknown battery code: ${batteryCode}`);
+    }
+}
 
 export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<ArmageddonReport> {
     // Normalize iterations at the workflow boundary
@@ -80,33 +108,30 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
     };
 
     try {
-        // 2. Execute Batteries (Parallel Resiliency)
+        // Filter requested batteries. If none specified, use default subset (B10-B14).
+        const requestedCodes = (normalizedConfig.batteries && normalizedConfig.batteries.length > 0)
+            ? normalizedConfig.batteries
+            : ['B10', 'B11', 'B12', 'B13', 'B14'];
+
+        const batterySpecs = requestedCodes.map(code => {
+            const id = BATTERY_IDS[code as keyof typeof BATTERY_IDS];
+            return { code, id: id || `${code}_UNKNOWN` };
+        });
+
+        // 2. Execute Batteries via Child Workflows
         // We use Promise.allSettled to ensure that a single battery failure
         // does not crash the entire certification run.
-
-        const batterySpecs = [
-            { id: BATTERY_IDS.B1, run: runBattery1_ChaosStress },
-            { id: BATTERY_IDS.B2, run: runBattery2_ChaosEngine },
-            { id: BATTERY_IDS.B3, run: runBattery3_PromptInjection },
-            { id: BATTERY_IDS.B4, run: runBattery4_SecurityAuth },
-            { id: BATTERY_IDS.B5, run: runBattery5_FullUnit },
-            { id: BATTERY_IDS.B6, run: runBattery6_UnsafeGate },
-            { id: BATTERY_IDS.B7, run: runBattery7_PlaywrightE2E },
-            { id: BATTERY_IDS.B8, run: runBattery8_AssetSmoke },
-            { id: BATTERY_IDS.B9, run: runBattery9_IntegrationHandshake },
-            { id: BATTERY_IDS.B10, run: runBattery10_GoalHijack },
-            { id: BATTERY_IDS.B11, run: runBattery11_ToolMisuse },
-            { id: BATTERY_IDS.B12, run: runBattery12_MemoryPoison },
-            { id: BATTERY_IDS.B13, run: runBattery13_SupplyChain },
-        ];
-
-        // Execute all concurrently with resilience
         const settledResults = await Promise.allSettled(
-            batterySpecs.map(spec => spec.run(normalizedConfig))
+            batterySpecs.map(spec => 
+                executeChild(BatteryChildWorkflow, {
+                    args: [spec.code, normalizedConfig],
+                    workflowId: `${config.runId}-${spec.code}`,
+                })
+            )
         );
 
         state.results = settledResults.map((result, index) => {
-            const batteryId = batterySpecs[index].id;
+            const { id } = batterySpecs[index];
 
             if (result.status === 'fulfilled') {
                 return result.value;
@@ -117,7 +142,7 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
                     : String(result.reason);
 
                 return {
-                    batteryId,
+                    batteryId: id,
                     status: STATUS.FAILED,
                     iterations: 0,
                     blockedCount: 0,
@@ -134,7 +159,6 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
 
         // 3. Aggregate Results
         const failureCount = state.results.filter(r => r.status === STATUS.FAILED).length;
-        // totalDuration calculation removed as it was unused
 
         // Final Status Determination
         if (cancelled) {

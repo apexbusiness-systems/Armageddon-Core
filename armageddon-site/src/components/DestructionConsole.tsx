@@ -279,7 +279,7 @@ export default function DestructionConsole({
         }
 
         const eventsChannel = supabase
-            .channel(`events-${runId}`)
+            .channel(`run_telemetry_${runId}`)
             .on('postgres_changes',
                 { event: EVENTS.INSERT, schema: TABLE.SCHEMA, table: TABLE.EVENTS, filter: `run_id=eq.${runId}` },
                 (payload: { new: ArmageddonEvent }) => {

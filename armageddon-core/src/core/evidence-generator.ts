@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 // src/core/evidence-generator.ts
 // ARMAGEDDON LEVEL 7 - EVIDENCE GENERATOR
 // APEX Business Systems Ltd.
@@ -126,7 +127,7 @@ export class EvidenceGenerator {
 
         // Calculate God Mode stats (B10-B13)
         const godModeBatteries = this.report.batteries.filter(b =>
-            ['B10','B11','B12','B13'].some(prefix => b.batteryId.startsWith(prefix))
+            ['B10','B11','B12','B13','B14'].some(prefix => b.batteryId.startsWith(prefix))
         );
         const totalAttacks = godModeBatteries.reduce((sum, b) => sum + b.iterations, 0);
         const totalEscapes = godModeBatteries.reduce((sum, b) => sum + b.breachCount, 0);
@@ -195,6 +196,47 @@ Issued by: APEX Business Systems Ltd.
         return xml;
     }
 
+
+    public generateManifest(reportJson: string, reportMd: string): string {
+        const jsonHash = crypto.createHash('sha256').update(reportJson).digest('hex');
+        const mdHash = crypto.createHash('sha256').update(reportMd).digest('hex');
+
+        // Lightweight AIBOM
+        let aibom = {};
+        try {
+            const pkgPath = path.resolve(__dirname, '../../../package.json');
+            if (fs.existsSync(pkgPath)) {
+                const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                aibom = {
+                    version: pkg.version,
+                    dependencies: {
+                        typescript: pkg.devDependencies?.typescript,
+                        temporalio: pkg.dependencies?.['@temporalio/client'],
+                        supabase: pkg.dependencies?.['@supabase/supabase-js']
+                    }
+                };
+            }
+        } catch {
+            aibom = { error: 'Failed to read package.json' };
+        }
+
+        const manifest = {
+            run_id: this.runId,
+            timestamp: new Date().toISOString(),
+            seed: this.options.seed,
+            mode: this.options.mode,
+            environment: process.env.NODE_ENV || 'development',
+            sandbox_tenant: process.env.SANDBOX_TENANT || 'unknown',
+            hashes: {
+                report_json: jsonHash,
+                report_md: mdHash
+            },
+            aibom
+        };
+
+        return JSON.stringify(manifest, null, 2);
+    }
+
     public async saveTo(outputDir: string): Promise<void> {
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
@@ -205,10 +247,16 @@ Issued by: APEX Business Systems Ltd.
             fs.mkdirSync(evidenceDir, { recursive: true });
         }
 
-        fs.writeFileSync(path.join(outputDir, 'report.json'), this.generateReportJson());
-        fs.writeFileSync(path.join(outputDir, 'report.md'), this.generateReportMd());
+
+        const jsonContent = this.generateReportJson();
+        const mdContent = this.generateReportMd();
+        
+        fs.writeFileSync(path.join(outputDir, 'report.json'), jsonContent);
+        fs.writeFileSync(path.join(outputDir, 'report.md'), mdContent);
         fs.writeFileSync(path.join(outputDir, 'certificate.txt'), this.generateCertificateTxt());
         fs.writeFileSync(path.join(outputDir, 'junit.xml'), this.generateJunitXml());
+        fs.writeFileSync(path.join(outputDir, 'manifest.json'), this.generateManifest(jsonContent, mdContent));
+
 
         // Create per-battery logs (stubbed for now, using details)
         for (const b of this.report.batteries) {

@@ -1101,6 +1101,26 @@ export async function generateReport(state: WorkflowState): Promise<ArmageddonRe
 // ACTIVITIES OBJECT (For convenience and backward compatibility)
 // ═══════════════════════════════════════════════════════════════════════════
 
+export async function runBattery14_IndirectInjection(config: BatteryConfig): Promise<BatteryResult> {
+    const { runBattery14IndirectInjection } = await import('../core/engine/activities');
+    const result = await runBattery14IndirectInjection(config.runId, {
+        iterations: config.iterations,
+        heartbeatInterval: Math.max(1, Math.floor(config.iterations / 10))
+    });
+
+    const passed = result.passed;
+    return {
+        batteryId: 'B14_INDIRECT_INJECTION',
+        status: passed ? 'PASSED' : 'FAILED',
+        iterations: result.iterations,
+        blockedCount: result.blocked,
+        breachCount: result.breaches,
+        driftScore: result.escapeRate,
+        duration: result.durationMs,
+        details: { events: result.events.slice(-50) } // keep bounded
+    };
+}
+
 export const activities = {
     runBattery1_ChaosStress,
     runBattery2_ChaosEngine,
@@ -1115,5 +1135,6 @@ export const activities = {
     runBattery11_ToolMisuse,
     runBattery12_MemoryPoison,
     runBattery13_SupplyChain,
+    runBattery14_IndirectInjection,
     generateReport,
 };
