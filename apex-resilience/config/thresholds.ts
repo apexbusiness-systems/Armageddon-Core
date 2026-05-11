@@ -1,0 +1,2 @@
+export const MAX_TRANSPORT_LATENCY = 26.81;
+export const MAX_HMAC_VERIFICATION_BUDGET = 1.00;
