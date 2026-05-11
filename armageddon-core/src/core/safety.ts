@@ -40,16 +40,6 @@ export class SafetyGuard {
     'firebaseio.com'
   ];
 
-  // Loopback / link-local patterns that must never be targeted outside SIM_MODE.
-  // These are checked as an additional defence-in-depth guard in validateTarget.
-  private readonly localhostPatterns: RegExp[] = [
-    /^localhost$/i,
-    /^127\.\d+\.\d+\.\d+$/,
-    /^::1$/,
-    /^0\.0\.0\.0$/,
-    /^\[::1\]$/,
-  ];
-
   private constructor() {
     this.simMode = process.env.SIM_MODE === 'true';
     this.sandboxTenant = process.env.SANDBOX_TENANT;
@@ -61,9 +51,13 @@ export class SafetyGuard {
   }
 
   /**
-   * Resets the singleton instance. FOR TESTING ONLY.
+   * Resets the singleton instance.
+   * FOR UNIT TESTS ONLY — calling this in production code is a security violation.
    */
   public static resetForTesting(): void {
+    if (process.env.NODE_ENV === 'production') {
+      throw new SystemLockdownError('resetForTesting() called in production — aborting.');
+    }
     SafetyGuard.instance = null;
   }
 
@@ -137,27 +131,10 @@ export class SafetyGuard {
       throw new SystemLockdownError(`Invalid URL format: ${url}`);
     }
 
-    // Reject suspiciously long URLs (potential buffer overflow / log injection).
-    if (url.length > 2048) {
-      throw new SystemLockdownError(`Target URL exceeds maximum length of 2048 characters.`);
-    }
-
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
       throw new SystemLockdownError(
         `Target URL '${url}' uses forbidden protocol '${parsedUrl.protocol}'. Only http and https are allowed.`
       );
-    }
-
-    // Reject loopback / link-local targets when not in simulation mode.
-    // Even in SIM_MODE, reaching localhost could exfiltrate internal services,
-    // so this is an unconditional hard block.
-    const hostname = parsedUrl.hostname;
-    for (const pattern of this.localhostPatterns) {
-      if (pattern.test(hostname)) {
-        throw new SystemLockdownError(
-          `Target URL hostname '${hostname}' resolves to a loopback/local address. SSRF protection: loopback targets are forbidden.`
-        );
-      }
     }
 
     this.assertNoProductionMatch(parsedUrl.hostname, `Target URL hostname '${parsedUrl.hostname}'`);

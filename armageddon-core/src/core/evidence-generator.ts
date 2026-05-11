@@ -4,6 +4,7 @@ import * as crypto from 'node:crypto';
 // APEX Business Systems Ltd.
 
 import * as fs from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { ArmageddonReport } from '../temporal/activities';
 
@@ -238,33 +239,34 @@ Issued by: APEX Business Systems Ltd.
     }
 
     public async saveTo(outputDir: string): Promise<void> {
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
+        const ensureDir = async (dir: string) => {
+            await mkdir(dir, { recursive: true });
+        };
 
-        const evidenceDir = path.join(outputDir, 'evidence');
-        if (!fs.existsSync(evidenceDir)) {
-            fs.mkdirSync(evidenceDir, { recursive: true });
-        }
-
+        await ensureDir(outputDir);
+        const evidenceDir = `${outputDir}/evidence`;
+        await ensureDir(evidenceDir);
 
         const jsonContent = this.generateReportJson();
         const mdContent = this.generateReportMd();
-        
-        fs.writeFileSync(path.join(outputDir, 'report.json'), jsonContent);
-        fs.writeFileSync(path.join(outputDir, 'report.md'), mdContent);
-        fs.writeFileSync(path.join(outputDir, 'certificate.txt'), this.generateCertificateTxt());
-        fs.writeFileSync(path.join(outputDir, 'junit.xml'), this.generateJunitXml());
-        fs.writeFileSync(path.join(outputDir, 'manifest.json'), this.generateManifest(jsonContent, mdContent));
 
+        await Promise.all([
+            writeFile(`${outputDir}/report.json`, jsonContent),
+            writeFile(`${outputDir}/report.md`, mdContent),
+            writeFile(`${outputDir}/certificate.txt`, this.generateCertificateTxt()),
+            writeFile(`${outputDir}/junit.xml`, this.generateJunitXml()),
+            writeFile(`${outputDir}/manifest.json`, this.generateManifest(jsonContent, mdContent)),
+        ]);
 
-        // Create per-battery logs (stubbed for now, using details)
-        for (const b of this.report.batteries) {
-             const { id } = this.parseBatteryId(b.batteryId);
-             const logContent = `[${new Date().toISOString()}] BATTERY ${id} STARTED\n` +
-                                `[${new Date().toISOString()}] CONFIG: ${JSON.stringify(b.details)}\n` +
-                                `[${new Date().toISOString()}] STATUS: ${b.status}\n`;
-             fs.writeFileSync(path.join(evidenceDir, `battery-${id}.log`), logContent);
-        }
+        await Promise.all(
+            this.report.batteries.map(async b => {
+                const { id } = this.parseBatteryId(b.batteryId);
+                const logContent =
+                    `[${new Date().toISOString()}] BATTERY ${id} STARTED\n` +
+                    `[${new Date().toISOString()}] CONFIG: ${JSON.stringify(b.details)}\n` +
+                    `[${new Date().toISOString()}] STATUS: ${b.status}\n`;
+                await writeFile(`${evidenceDir}/battery-${id}.log`, logContent);
+            })
+        );
     }
 }

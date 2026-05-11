@@ -8,7 +8,8 @@ import { HealthServer } from './infrastructure/health';
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MAX_RETRIES = 15;
-const RETRY_INTERVAL_MS = 2000;
+const BASE_RETRY_MS = 1000;
+const MAX_RETRY_MS = 30_000;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HEALTH MONITORING
@@ -37,8 +38,9 @@ async function connectWithRetry(): Promise<NativeConnection> {
                 console.error(`[Worker] Failed to connect after ${MAX_RETRIES} attempts. Exiting.`);
                 throw err;
             }
-            console.log(`[Worker] Waiting for Temporal... (retry in ${RETRY_INTERVAL_MS / 1000}s)`);
-            await sleep(RETRY_INTERVAL_MS);
+            const backoffMs = Math.min(BASE_RETRY_MS * 2 ** (attempt - 1), MAX_RETRY_MS);
+            console.log(`[Worker] Waiting for Temporal... (retry in ${(backoffMs / 1000).toFixed(1)}s)`);
+            await sleep(backoffMs);
         }
     }
 
