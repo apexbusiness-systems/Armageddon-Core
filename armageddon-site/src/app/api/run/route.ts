@@ -76,6 +76,35 @@ function deriveRunSeed(runId: string, organizationId: string): number {
 // POST HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
 
+
+async function applyRateLimits(request: NextRequest, organizationId?: string): Promise<NextResponse | null> {
+    // 1. IP-based Rate Limiting (Pre-parsing)
+    // Securely identify client IP via Next.js request.ip (handles trusted proxies)
+    const ip = request.ip || 'unknown';
+    const ipLimitResult = await dbRateLimit({ scope: 'ip', key: ip, limit: 10, windowMs: 60 * 1000 });
+    if (!ipLimitResult.allowed) {
+        console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
+        return NextResponse.json(
+            { success: false, error: 'Too many requests. Please try again in a minute.' },
+            { status: 429 }
+        );
+    }
+
+    // 3. Organization-based Rate Limiting
+    if (organizationId) {
+        const orgLimitResult = await dbRateLimit({ scope: 'org', key: organizationId, limit: 5, windowMs: 60 * 1000 });
+        if (!orgLimitResult.allowed) {
+            console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+            return NextResponse.json(
+                { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
+                { status: 429 }
+            );
+        }
+    }
+
+    return null;
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         // Validate Content-Type to prevent CSRF via form submissions and
@@ -97,33 +126,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             );
         }
 
-        // 1. IP-based Rate Limiting (Pre-parsing)
-        // Securely identify client IP via Next.js request.ip (handles trusted proxies)
-        const ip = request.ip || 'unknown';
-        const ipLimitResult = await dbRateLimit({ scope: 'ip', key: ip, limit: 10, windowMs: 60 * 1000 });
-        if (!ipLimitResult.allowed) {
-            console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
-            return NextResponse.json(
-                { success: false, error: 'Too many requests. Please try again in a minute.' },
-                { status: 429 }
-            );
-        }
-
         // Parse request body
         const body: RunRequest = await request.json();
         const { organizationId, level = 7, batteries } = body;
 
-        // 3. Organization-based Rate Limiting
-        if (organizationId) {
-            const orgLimitResult = await dbRateLimit({ scope: 'org', key: organizationId, limit: 5, windowMs: 60 * 1000 });
-            if (!orgLimitResult.allowed) {
-                console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
-                return NextResponse.json(
-                    { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
-                    { status: 429 }
-                );
-            }
-        }
+        // Apply rate limits
+        const rateLimitResponse = await applyRateLimits(request, organizationId);
+        if (rateLimitResponse) return rateLimitResponse;
 
 
         if (!organizationId) {

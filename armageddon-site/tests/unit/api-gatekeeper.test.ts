@@ -33,15 +33,24 @@ describe('POST /api/gatekeeper', () => {
             user: { email: 'admin@example.com' },
         });
 
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
+        const req = new Request('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
             headers: {
+                'content-type': 'application/json',
                 Authorization: 'Bearer valid-admin-token',
             },
         });
 
-        const res = await POST(req);
-        const data = await res.json();
+        // console.log('headers', Array.from(req.headers.entries()));
+const res = await POST(req as any);
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            console.error('Failed to parse:', text);
+            throw e;
+        }
 
         expect(res.status).toBe(200);
         expect(data).toEqual({
@@ -56,12 +65,20 @@ describe('POST /api/gatekeeper', () => {
             NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         );
 
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
-            method: 'POST',
+        const req = new Request('http://localhost:3000/api/gatekeeper', {
+            method: 'POST', body: JSON.stringify({}),
+            headers: { 'content-type': 'application/json' }
         });
 
-        const res = await POST(req);
-        const data = await res.json();
+        const res = await POST(req as any);
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            console.error('Failed to parse:', text);
+            throw e;
+        }
 
         expect(res.status).toBe(200);
         expect(data).toEqual({
@@ -76,15 +93,23 @@ describe('POST /api/gatekeeper', () => {
             user: { email: 'user@example.com' },
         });
 
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
+        const req = new Request('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
             headers: {
+                'content-type': 'application/json',
                 Authorization: 'Bearer user-token',
             },
         });
 
-        const res = await POST(req);
-        const data = await res.json();
+        const res = await POST(req as any);
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            console.error('Failed to parse:', text);
+            throw e;
+        }
 
         expect(data.eligible).toBe(false);
         expect(data.tier).toBe('free');
@@ -97,15 +122,23 @@ describe('POST /api/gatekeeper', () => {
             user: { email: 'admin@example.com' },
         });
 
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
+        const req = new Request('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
             headers: {
+                'content-type': 'application/json',
                 Authorization: 'Bearer admin-token',
             },
         });
 
-        const res = await POST(req);
-        const data = await res.json();
+        const res = await POST(req as any);
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            console.error('Failed to parse:', text);
+            throw e;
+        }
 
         expect(data.eligible).toBe(false);
     });
@@ -115,15 +148,23 @@ describe('POST /api/gatekeeper', () => {
             user: { id: 'some-id' },
         });
 
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
+        const req = new Request('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
             headers: {
+                'content-type': 'application/json',
                 Authorization: 'Bearer token',
             },
         });
 
-        const res = await POST(req);
-        const data = await res.json();
+        const res = await POST(req as any);
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            console.error('Failed to parse:', text);
+            throw e;
+        }
 
         expect(data.eligible).toBe(false);
     });
@@ -133,15 +174,23 @@ describe('POST /api/gatekeeper', () => {
             NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         );
 
-        const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
+        const req = new Request('http://localhost:3000/api/gatekeeper', {
             method: 'POST',
             headers: {
+                'content-type': 'application/json',
                 Authorization: 'Bearer invalid-token',
             },
         });
 
-        const res = await POST(req);
-        const data = await res.json();
+        const res = await POST(req as any);
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            console.error('Failed to parse:', text);
+            throw e;
+        }
 
         expect(data.eligible).toBe(false);
     });
