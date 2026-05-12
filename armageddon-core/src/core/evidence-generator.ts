@@ -39,8 +39,6 @@ export class EvidenceGenerator {
     }
 
     private parseBatteryId(fullId: string): { id: number; name: string } {
-        // Format: "B1_CHAOS_STRESS" -> id: 1, name: "Chaos Stress"
-        // Format: "B10_GOAL_HIJACK" -> id: 10, name: "Goal Hijack"
         const match = /^B(\d+)_(.+)$/.exec(fullId);
         if (match) {
             return {
@@ -126,7 +124,6 @@ export class EvidenceGenerator {
         const passedCount = this.report.batteries.filter(b => b.status === 'PASSED').length;
         const failedCount = this.report.batteries.filter(b => b.status === 'FAILED').length;
 
-        // Calculate God Mode stats (B10-B13)
         const godModeBatteries = this.report.batteries.filter(b =>
             ['B10','B11','B12','B13','B14'].some(prefix => b.batteryId.startsWith(prefix))
         );
@@ -134,7 +131,6 @@ export class EvidenceGenerator {
         const totalEscapes = godModeBatteries.reduce((sum, b) => sum + b.breachCount, 0);
         const escapeRate = totalAttacks > 0 ? (totalEscapes / totalAttacks * 100).toFixed(4) : '0.0000';
 
-        // Expiry date (90 days)
         const expiryDate = new Date();
         expiryDate.setDate(expiryDate.getDate() + 90);
 
@@ -197,12 +193,10 @@ Issued by: APEX Business Systems Ltd.
         return xml;
     }
 
-
     public generateManifest(reportJson: string, reportMd: string): string {
         const jsonHash = crypto.createHash('sha256').update(reportJson).digest('hex');
         const mdHash = crypto.createHash('sha256').update(reportMd).digest('hex');
 
-        // Lightweight AIBOM
         let aibom = {};
         try {
             const pkgPath = path.resolve(__dirname, '../../../package.json');
@@ -238,26 +232,28 @@ Issued by: APEX Business Systems Ltd.
         return JSON.stringify(manifest, null, 2);
     }
 
+    /**
+     * Save all evidence artifacts to disk asynchronously.
+     * Uses parallel writes (Promise.all) to avoid blocking the event loop.
+     */
     public async saveTo(outputDir: string): Promise<void> {
-        const ensureDir = async (dir: string) => {
-            await mkdir(dir, { recursive: true });
-        };
-
-        await ensureDir(outputDir);
-        const evidenceDir = `${outputDir}/evidence`;
-        await ensureDir(evidenceDir);
+        await mkdir(outputDir, { recursive: true });
+        const evidenceDir = path.join(outputDir, 'evidence');
+        await mkdir(evidenceDir, { recursive: true });
 
         const jsonContent = this.generateReportJson();
         const mdContent = this.generateReportMd();
 
+        // Parallel write of all top-level artifacts
         await Promise.all([
-            writeFile(`${outputDir}/report.json`, jsonContent),
-            writeFile(`${outputDir}/report.md`, mdContent),
-            writeFile(`${outputDir}/certificate.txt`, this.generateCertificateTxt()),
-            writeFile(`${outputDir}/junit.xml`, this.generateJunitXml()),
-            writeFile(`${outputDir}/manifest.json`, this.generateManifest(jsonContent, mdContent)),
+            writeFile(path.join(outputDir, 'report.json'), jsonContent),
+            writeFile(path.join(outputDir, 'report.md'), mdContent),
+            writeFile(path.join(outputDir, 'certificate.txt'), this.generateCertificateTxt()),
+            writeFile(path.join(outputDir, 'junit.xml'), this.generateJunitXml()),
+            writeFile(path.join(outputDir, 'manifest.json'), this.generateManifest(jsonContent, mdContent)),
         ]);
 
+        // Parallel write of per-battery logs
         await Promise.all(
             this.report.batteries.map(async b => {
                 const { id } = this.parseBatteryId(b.batteryId);
@@ -265,7 +261,7 @@ Issued by: APEX Business Systems Ltd.
                     `[${new Date().toISOString()}] BATTERY ${id} STARTED\n` +
                     `[${new Date().toISOString()}] CONFIG: ${JSON.stringify(b.details)}\n` +
                     `[${new Date().toISOString()}] STATUS: ${b.status}\n`;
-                await writeFile(`${evidenceDir}/battery-${id}.log`, logContent);
+                await writeFile(path.join(evidenceDir, `battery-${id}.log`), logContent);
             })
         );
     }
