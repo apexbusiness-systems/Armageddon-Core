@@ -15,6 +15,15 @@ import { getTemporalClient } from '@/lib/temporal';
 import { checkMembershipResponse, getRunAndVerifyAccess } from '@/lib/auth';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Maximum accepted request body size: 8 KB. Sufficient for the largest valid
+// RunRequest payload (organizationId + batteries array) while blocking
+// oversized bodies that could cause DoS or log injection.
+const MAX_BODY_BYTES = 8 * 1024;
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -69,6 +78,25 @@ function deriveRunSeed(runId: string, organizationId: string): number {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
+        // Validate Content-Type to prevent CSRF via form submissions and
+        // unexpected media-type confusion attacks.
+        const contentType = request.headers.get('content-type') ?? '';
+        if (!contentType.includes('application/json')) {
+            return NextResponse.json(
+                { success: false, error: 'Content-Type must be application/json' },
+                { status: 415 }
+            );
+        }
+
+        // Reject oversized bodies before parsing to prevent DoS.
+        const contentLength = Number(request.headers.get('content-length') ?? '0');
+        if (contentLength > MAX_BODY_BYTES) {
+            return NextResponse.json(
+                { success: false, error: 'Request body too large' },
+                { status: 413 }
+            );
+        }
+
         // 1. IP-based Rate Limiting (Pre-parsing)
         // Securely identify client IP via Next.js request.ip (handles trusted proxies)
         const ip = request.ip || 'unknown';
@@ -101,6 +129,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (!organizationId) {
              return NextResponse.json(
                 { success: false, error: 'organizationId is required' },
+                { status: 400 }
+            );
+        }
+
+        // Validate organizationId is a non-empty string (basic type guard before DB query).
+        if (typeof organizationId !== 'string' || organizationId.trim() === '') {
+            return NextResponse.json(
+                { success: false, error: 'organizationId must be a non-empty string' },
+                { status: 400 }
+            );
+        }
+
+        // Validate level is an integer within the allowed range.
+        if (level !== undefined && (!Number.isInteger(level) || level < 1 || level > 7)) {
+            return NextResponse.json(
+                { success: false, error: 'level must be an integer between 1 and 7' },
                 { status: 400 }
             );
         }

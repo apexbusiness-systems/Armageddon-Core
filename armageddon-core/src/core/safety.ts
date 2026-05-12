@@ -51,9 +51,16 @@ export class SafetyGuard {
   }
 
   /**
-   * Resets the singleton instance. FOR TESTING ONLY.
+   * Resets the singleton instance.
+   * FOR UNIT TESTS ONLY — calling this in production is a security violation.
+   * @throws SystemLockdownError if called in NODE_ENV=production
    */
   public static resetForTesting(): void {
+    if (process.env.NODE_ENV === 'production') {
+      throw new SystemLockdownError(
+        'resetForTesting() called in production environment — aborting to prevent safety bypass.'
+      );
+    }
     SafetyGuard.instance = null;
   }
 
@@ -120,6 +127,13 @@ export class SafetyGuard {
    * @throws SystemLockdownError if URL appears to be production or invalid
    */
   public validateTarget(url: string): void {
+    // Guard against excessively long URLs (log injection / buffer overflow attempts)
+    if (url.length > 2048) {
+      throw new SystemLockdownError(
+        `Target URL exceeds maximum allowed length of 2048 characters.`
+      );
+    }
+
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(url);

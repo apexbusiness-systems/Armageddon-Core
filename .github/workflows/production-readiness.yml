@@ -68,9 +68,3 @@ jobs:
 
       - name: Route integrity check
         run: node scripts/check-route-integrity.mjs
-
-      - name: OmniHub Atomic Flip - Battery 10 "The Mind-Killer" Circuit Breaker Loop
-        run: |
-          echo "Starting continuous execution loop for Battery 10 (The Mind-Killer)"
-          npx tsx armageddon-core/src/sim/circuit-breaker.ts &
-          sleep 5 # Allow simulation to run

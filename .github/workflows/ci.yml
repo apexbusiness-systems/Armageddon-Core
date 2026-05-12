@@ -1,14 +1,18 @@
-name: Cloudflare/Local CI
+name: Armageddon CI
 
 on:
   push:
-    branches: ["main", "refactor/*"]
+    branches: ["main", "refactor/*", "claude/*", "feat/*", "fix/*"]
   pull_request:
     branches: ["main"]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  cloudflare-local-build:
-    name: Cloudflare/local CI (${{ matrix.node-version }})
+  build-test:
+    name: Build & Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -17,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
@@ -25,7 +29,6 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
-        # This will automatically trigger 'postinstall' -> 'npm run build -w @armageddon/shared'
 
       - name: Verify Shared Lib Build
         run: ls -F packages/shared/dist/
@@ -33,24 +36,38 @@ jobs:
       - name: Build Core
         run: npm run build -w armageddon-core
 
-      - name: Build Cloudflare/local Site
+      - name: Build Site
         run: npm run build -w armageddon-site
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key' }}
 
-      # ═══════════════════════════════════════════════════════════
-      # APEX-POWER ZERO-FAILURE PROTOCOL
-      # ═══════════════════════════════════════════════════════════
+      # ── Tests ─────────────────────────────────────────────────────────────────────
+      - name: Unit Tests — Core
+        run: npm run test -w armageddon-core -- --reporter=verbose
+        env:
+          NODE_ENV: test
+          SIM_MODE: "true"
+          SANDBOX_TENANT: "ci-sandbox"
 
-      - name: Run Unit Tests (Core)
-        run: npm run test -w armageddon-core
+      - name: Unit Tests — Site
+        run: npm run test -w armageddon-site -- --reporter=verbose
 
-      - name: Run Unit Tests (Cloudflare/local Site)
-        run: npm run test -w armageddon-site
-
-      - name: Type Check (Core)
+      # ── Type Checks ─────────────────────────────────────────────────────────────
+      - name: Type Check — Core
         run: npm run typecheck -w armageddon-core
 
-      - name: Lint Check (Site)
+      - name: Type Check — Site
+        run: npm run typecheck -w armageddon-site
+
+      # ── Linting ─────────────────────────────────────────────────────────────────────
+      - name: Lint — Core
+        run: npm run lint -w armageddon-core
+
+      - name: Lint — Site
         run: npm run lint -w armageddon-site
+
+      # ── Security ───────────────────────────────────────────────────────────────────
+      - name: npm Audit Check
+        run: node scripts/audit-check.js
+        continue-on-error: true

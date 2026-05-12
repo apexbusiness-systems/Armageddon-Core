@@ -1,6 +1,7 @@
 // src/core/reporter.ts
 // ARMAGEDDON LEVEL 7 - REAL-TIME TELEMETRY
 // APEX Business Systems Ltd.
+// OPTIMIZED: Singleton reporter cache — one Supabase client per run
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
@@ -36,6 +37,10 @@ export interface RunProgress {
     updatedAt: string;
 }
 
+// Module-level cache: one SupabaseReporter per runId.
+// Avoids creating N Supabase clients (one per battery) for the same run.
+const reporterCache = new Map<string, SupabaseReporter>();
+
 /**
  * SupabaseReporter - Pushes real-time events to Supabase for frontend consumption.
  */
@@ -52,7 +57,9 @@ export class SupabaseReporter {
             throw new Error('[Reporter] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
         }
 
-        this.client = createClient(supabaseUrl, supabaseKey);
+        this.client = createClient(supabaseUrl, supabaseKey, {
+            auth: { persistSession: false },
+        });
         this.runId = runId;
         this.channel = this.client.channel(`run_telemetry_${runId}`);
     }
@@ -82,10 +89,8 @@ export class SupabaseReporter {
             })
         ]);
 
-        const error = dbResult.error;
-
-        if (error) {
-            console.error('[Reporter] Failed to push event:', error);
+        if (dbResult.error) {
+            console.error('[Reporter] Failed to push event:', dbResult.error);
         }
     }
 
@@ -118,10 +123,8 @@ export class SupabaseReporter {
             })
         ]);
 
-        const error = dbResult.error;
-
-        if (error) {
-            console.error(`[Reporter] Failed to push ${events.length} events:`, error);
+        if (dbResult.error) {
+            console.error(`[Reporter] Failed to push ${events.length} events:`, dbResult.error);
         }
     }
 
@@ -166,11 +169,33 @@ export class SupabaseReporter {
             console.error('[Reporter] Failed to finalize run:', error);
         }
     }
+
+    /**
+     * Unsubscribe Supabase channel and remove from cache.
+     * Call after finalizeRun to free resources.
+     */
+    dispose(): void {
+        this.client.removeChannel(this.channel);
+        reporterCache.delete(this.runId);
+    }
 }
 
 /**
- * Create a reporter instance for a run.
+ * Get-or-create a cached reporter for this runId.
+ * Ensures a single Supabase client per run regardless of how many batteries call it.
  */
 export function createReporter(runId: string): SupabaseReporter {
-    return new SupabaseReporter(runId);
+    let reporter = reporterCache.get(runId);
+    if (!reporter) {
+        reporter = new SupabaseReporter(runId);
+        reporterCache.set(runId, reporter);
+    }
+    return reporter;
+}
+
+/**
+ * Evict and dispose the reporter for a completed run.
+ */
+export function clearReporter(runId: string): void {
+    reporterCache.get(runId)?.dispose();
 }
