@@ -1,5 +1,5 @@
 import { MAX_TRANSPORT_LATENCY, MAX_HMAC_VERIFICATION_BUDGET } from './guard-rails';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 export function checkThresholds(latency: number, hmacTime: number) {
     if (latency > MAX_TRANSPORT_LATENCY || hmacTime > MAX_HMAC_VERIFICATION_BUDGET) {
