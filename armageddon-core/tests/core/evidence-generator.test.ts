@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { EvidenceGenerator, EvidenceOptions } from '../../src/core/evidence-generator';
 import { ArmageddonReport } from '../../src/temporal/activities';
@@ -7,8 +8,12 @@ import { ArmageddonReport } from '../../src/temporal/activities';
 // Mock fs module
 vi.mock('node:fs', () => ({
     existsSync: vi.fn(),
-    mkdirSync: vi.fn(),
-    writeFileSync: vi.fn()
+    readFileSync: vi.fn(),
+}));
+
+vi.mock('node:fs/promises', () => ({
+    mkdir: vi.fn(),
+    writeFile: vi.fn()
 }));
 
 describe('EvidenceGenerator', () => {
@@ -128,33 +133,37 @@ describe('EvidenceGenerator', () => {
             await generator.saveTo(outputDir);
 
             // Verify directory creation
-            expect(fs.mkdirSync).toHaveBeenCalledWith(outputDir, { recursive: true });
-            expect(fs.mkdirSync).toHaveBeenCalledWith(evidenceDir, { recursive: true });
+            expect(mkdir).toHaveBeenCalledWith(outputDir, { recursive: true });
+            expect(mkdir).toHaveBeenCalledWith(evidenceDir, { recursive: true });
 
             // Verify file writing
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(writeFile).toHaveBeenCalledWith(
                 path.join(outputDir, 'report.json'),
                 expect.any(String)
             );
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(writeFile).toHaveBeenCalledWith(
                 path.join(outputDir, 'report.md'),
                 expect.any(String)
             );
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(writeFile).toHaveBeenCalledWith(
                 path.join(outputDir, 'certificate.txt'),
                 expect.any(String)
             );
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(writeFile).toHaveBeenCalledWith(
                 path.join(outputDir, 'junit.xml'),
+                expect.any(String)
+            );
+            expect(writeFile).toHaveBeenCalledWith(
+                path.join(outputDir, 'manifest.json'),
                 expect.any(String)
             );
 
             // Verify logs writing
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(writeFile).toHaveBeenCalledWith(
                 path.join(evidenceDir, 'battery-1.log'),
                 expect.stringContaining('BATTERY 1 STARTED')
             );
-             expect(fs.writeFileSync).toHaveBeenCalledWith(
+             expect(writeFile).toHaveBeenCalledWith(
                 path.join(evidenceDir, 'battery-10.log'),
                 expect.stringContaining('BATTERY 10 STARTED')
             );
