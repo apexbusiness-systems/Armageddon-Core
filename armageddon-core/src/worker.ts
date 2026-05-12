@@ -8,8 +8,8 @@ import { HealthServer } from './infrastructure/health';
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MAX_RETRIES = 15;
-const BASE_RETRY_MS = 1000;
-const MAX_RETRY_MS = 30_000;
+const BASE_RETRY_MS = 1_000;   // Start at 1s
+const MAX_RETRY_MS = 30_000;   // Cap at 30s
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HEALTH MONITORING
@@ -19,7 +19,7 @@ const healthServer = new HealthServer(8081);
 healthServer.start();
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONNECTION WITH RETRY
+// CONNECTION WITH EXPONENTIAL BACKOFF RETRY
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function connectWithRetry(): Promise<NativeConnection> {
@@ -38,6 +38,7 @@ async function connectWithRetry(): Promise<NativeConnection> {
                 console.error(`[Worker] Failed to connect after ${MAX_RETRIES} attempts. Exiting.`);
                 throw err;
             }
+            // Exponential backoff with jitter: 1s, 2s, 4s, 8s ... capped at 30s
             const backoffMs = Math.min(BASE_RETRY_MS * 2 ** (attempt - 1), MAX_RETRY_MS);
             console.log(`[Worker] Waiting for Temporal... (retry in ${(backoffMs / 1000).toFixed(1)}s)`);
             await sleep(backoffMs);
@@ -68,7 +69,7 @@ export async function createArmageddonWorker(): Promise<Worker> {
         process.exit(1);
     }
 
-    // 2. Connect to Temporal with retry
+    // 2. Connect to Temporal with exponential backoff retry
     const connection = await connectWithRetry();
 
     // 3. Register Worker
@@ -87,7 +88,9 @@ export async function createArmageddonWorker(): Promise<Worker> {
 
 export async function runWorker() {
     const worker = await createArmageddonWorker();
+    const taskQueue = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
     console.log('[Worker] Armageddon Level 7 Worker started. Ready for destruction.');
+    console.log(`[Worker] PID: ${process.pid} | Node: ${process.version} | Queue: ${taskQueue}`);
     console.log('[Worker] Health Monitor: http://localhost:8081/health');
     await worker.run();
 }
