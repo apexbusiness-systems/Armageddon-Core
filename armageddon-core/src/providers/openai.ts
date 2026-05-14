@@ -4,14 +4,9 @@
 // DATE: 2026-02-06
 // REFACTORED: Extends BaseProvider to eliminate code duplication (SonarQube)
 
-import type {
-    LLMRequest,
-    LLMResponse,
-    OpenAIModel,
-    ProviderOptions,
-    CostConfig,
-} from './types';
-import { BaseProvider, type TokenUsage } from './base-provider';
+import type { CostConfig, LLMRequest, OpenAIModel, ProviderOptions } from './types';
+import { BaseProvider, type ProviderExecutionResult } from './base-provider';
+import { assertJsonResponse, mapStopFinishReason } from './provider-utils';
 
 /**
  * OpenAI pricing per 1M tokens (as of 2026)
@@ -60,12 +55,7 @@ export class OpenAIProvider extends BaseProvider {
         this.model = model;
     }
 
-    protected async executeRequest(request: LLMRequest): Promise<{
-        usage: TokenUsage;
-        content: string;
-        finishReason: LLMResponse['finishReason'];
-        raw: unknown;
-    }> {
+    protected async executeRequest(request: LLMRequest): Promise<ProviderExecutionResult> {
         const response = await this.makeAPIRequest(request);
 
         return {
@@ -75,7 +65,7 @@ export class OpenAIProvider extends BaseProvider {
                 totalTokens: response.usage.total_tokens,
             },
             content: response.choices[0]?.message?.content || '',
-            finishReason: this.mapFinishReason(response.choices[0]?.finish_reason),
+            finishReason: mapStopFinishReason(response.choices[0]?.finish_reason),
             raw: response,
         };
     }
@@ -105,20 +95,6 @@ export class OpenAIProvider extends BaseProvider {
             body: JSON.stringify(body),
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`[OpenAI] API Error ${response.status}: ${errorText}`);
-        }
-
-        return response.json() as Promise<OpenAICompletion>;
-    }
-
-    private mapFinishReason(reason: string | undefined): LLMResponse['finishReason'] {
-        switch (reason) {
-            case 'stop': return 'stop';
-            case 'length': return 'length';
-            case 'content_filter': return 'content_filter';
-            default: return 'error';
-        }
+        return assertJsonResponse<OpenAICompletion>(response, 'OpenAI');
     }
 }

@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import Image from 'next/image';
 import { getSupabase } from '@/lib/supabase';
+import { endSupabaseSession, startGithubOAuth } from '@/lib/client-auth-actions';
+import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import LockdownModal from './paywall/LockdownModal';
 import AuthControl from './AuthControl';
@@ -335,40 +337,13 @@ export default function DestructionConsole({
     }, [isRunning, addLine, onStatusChange, selectedBatteries, user, handleTrapTrigger, handleRunCompletion]);
 
     const handleLogin = async () => {
-        const sb = getSupabase();
-        if (!sb) {
-            console.error('Supabase not initialized - check environment variables');
-            return;
-        }
-        try {
-            const { error } = await sb.auth.signInWithOAuth({
-                provider: 'github',
-                options: {
-                    redirectTo: `${globalThis.location.origin}/`
-                }
-            });
-            if (error) {
-                console.error('Login error:', error);
-            }
-        } catch (err) {
-            console.error('Failed to initiate login:', err);
-        }
+        const sb = getRequiredSupabase('Supabase not initialized - check environment variables');
+        if (sb) await startGithubOAuth(sb, 'Login');
     };
 
     const handleLogout = async () => {
-        const sb = getSupabase();
-        if (!sb) {
-            console.error('Supabase not initialized');
-            return;
-        }
-        try {
-            const { error } = await sb.auth.signOut();
-            if (error) {
-                console.error('Logout error:', error);
-            }
-        } catch (err) {
-            console.error('Failed to logout:', err);
-        }
+        const sb = getRequiredSupabase('Supabase not initialized');
+        if (sb) await endSupabaseSession(sb);
     };
 
     const toggleBattery = (batteryId: string) => {

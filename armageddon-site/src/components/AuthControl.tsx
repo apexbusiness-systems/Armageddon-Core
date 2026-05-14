@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
+import AuthIdentityBadge from './AuthIdentityBadge';
 import { User } from '@supabase/supabase-js';
 import { useState } from 'react';
 
@@ -27,15 +28,7 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
         >
             <AnimatePresence>
                 {isLoggedIn && isHovered && (
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        className="mono-small text-signal/40 text-xs text-right hidden md:block"
-                    >
-                        <div>ID: {user?.email?.split('@')[0].toUpperCase() ?? 'OPERATOR'}</div>
-                        <div className="text-[var(--safe)]">CLEARANCE: LEVEL 7</div>
-                    </motion.div>
+                    <AuthIdentityBadge user={user} direction="right" align="right" />
                 )}
             </AnimatePresence>
             <motion.button
@@ -67,15 +60,7 @@ export default function AuthControl({ user, onLogin, onLogout }: Readonly<AuthCo
 
             <AnimatePresence>
                 {isLoggedIn && (
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="mono-small text-signal/40 text-xs text-left hidden md:block"
-                    >
-                        <div>ID: {user?.email?.split('@')[0].toUpperCase() ?? 'OPERATOR'}</div>
-                        <div className="text-[var(--safe)]">CLEARANCE: LEVEL 7</div>
-                    </motion.div>
+                    <AuthIdentityBadge user={user} direction="left" align="left" />
                 )}
             </AnimatePresence>
         </div>

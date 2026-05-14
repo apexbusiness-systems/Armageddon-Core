@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import SectionIntro from './SectionIntro';
+import RevealPanel from './RevealPanel';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COMPONENT
@@ -27,22 +29,13 @@ export default function CertificationSeal() {
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--aerospace)]/[0.02] to-transparent" />
 
             <div className="relative z-10 max-w-5xl mx-auto">
-                {/* Header */}
-                <motion.div
-                    className="text-center mb-20"
-                    initial={{ opacity: 0, y: 40 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8 }}
-                >
-                    <span className="mono-small text-[var(--aerospace)] tracking-[0.4em] block mb-4">
-                        CERTIFICATION ARTIFACT
-                    </span>
-                    <h2 className="display-large text-signal mb-6">THE ARTIFACT</h2>
-                    <p className="mono-data text-signal/50 max-w-xl mx-auto">
-                        Evidence-based certification. Not a promise—a receipt.
-                    </p>
-                </motion.div>
+                <SectionIntro
+                    eyebrow="CERTIFICATION ARTIFACT"
+                    title="THE ARTIFACT"
+                    titleClassName="display-large text-signal mb-6"
+                    description="Evidence-based certification. Not a promise—a receipt."
+                    descriptionClassName="mono-data text-signal/50 max-w-xl mx-auto"
+                />
 
                 {/* Seal */}
                 <motion.div
@@ -127,13 +120,7 @@ export default function CertificationSeal() {
                 </motion.div>
 
                 {/* Evidence bundle */}
-                <motion.div
-                    className="mt-24 grid md:grid-cols-3 gap-4"
-                    initial={{ opacity: 0, y: 40 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: 0.2 }}
-                >
+                <RevealPanel className="mt-24 grid md:grid-cols-3 gap-4">
                     {[
                         { icon: '{ }', name: 'armageddon-report.json', desc: 'Structured machine-readable results' },
                         { icon: '◎', name: 'armageddon-report.md', desc: 'Executive + engineering summary' },
@@ -155,7 +142,7 @@ export default function CertificationSeal() {
                             </div>
                         </motion.div>
                     ))}
-                </motion.div>
+                </RevealPanel>
             </div>
         </section>
     );

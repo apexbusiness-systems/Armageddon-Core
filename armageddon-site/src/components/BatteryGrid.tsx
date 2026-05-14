@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { BATTERIES } from '@armageddon/shared';
 import BatteryCard from './BatteryCard';
+import SectionIntro from './SectionIntro';
+import RevealPanel from './RevealPanel';
 
 export default function BatteryGrid() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -15,23 +16,11 @@ export default function BatteryGrid() {
             <div className="absolute inset-0 grid-bg opacity-50" />
 
             <div className="relative z-10 max-w-7xl mx-auto">
-                {/* Header */}
-                <motion.div
-                    className="text-center mb-20"
-                    initial={{ opacity: 0, y: 40 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8 }}
-                >
-                    <span className="mono-small text-[var(--aerospace)] tracking-[0.4em] block mb-4">
-                        ADVERSARIAL BATTERY MANIFEST
-                    </span>
-                    <h2 className="display-large text-signal mb-8">THE 13 BATTERIES</h2>
-                    <p className="mono-data text-signal/60 max-w-3xl mx-auto leading-relaxed">
-                        Concurrent adversarial operations. Batteries 10 & 13 execute 10,000 iterations
-                        with escape threshold &lt;0.01%. Sandboxed destruction only.
-                    </p>
-                </motion.div>
+                <SectionIntro
+                    eyebrow="ADVERSARIAL BATTERY MANIFEST"
+                    title="THE 13 BATTERIES"
+                    description="Concurrent adversarial operations. Batteries 10 & 13 execute 10,000 iterations with escape threshold <0.01%. Sandboxed destruction only."
+                />
 
                 {/* Battery Grid */}
                 <div className="grid lg:grid-cols-2 gap-4 mb-16">
@@ -50,13 +39,7 @@ export default function BatteryGrid() {
                 </div>
 
                 {/* Stats */}
-                <motion.div
-                    className="grid grid-cols-2 md:grid-cols-4 gap-4"
-                    initial={{ opacity: 0, y: 40 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: 0.2 }}
-                >
+                <RevealPanel className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="stat-block">
                         <div className="stat-value">13</div>
                         <div className="stat-label">Total Batteries</div>
@@ -73,7 +56,7 @@ export default function BatteryGrid() {
                         <div className="stat-value">FULL</div>
                         <div className="stat-label">Concurrency</div>
                     </div>
-                </motion.div>
+                </RevealPanel>
             </div>
         </section>
     );

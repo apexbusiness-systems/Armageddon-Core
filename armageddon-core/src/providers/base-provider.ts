@@ -27,6 +27,13 @@ export interface TokenUsage {
     totalTokens: number;
 }
 
+export interface ProviderExecutionResult {
+    usage: TokenUsage;
+    content: string;
+    finishReason: LLMResponse['finishReason'];
+    raw: unknown;
+}
+
 /**
  * BaseProvider - Abstract base class for LLM providers
  *
@@ -120,23 +127,13 @@ export abstract class BaseProvider implements ILLMProvider {
      * Execute the provider-specific API request
      * Must be implemented by subclasses
      */
-    protected abstract executeRequest(request: LLMRequest): Promise<{
-        usage: TokenUsage;
-        content: string;
-        finishReason: LLMResponse['finishReason'];
-        raw: unknown;
-    }>;
+    protected abstract executeRequest(request: LLMRequest): Promise<ProviderExecutionResult>;
 
     /**
      * Normalize response to common LLMResponse format
      */
     protected normalizeResponse(
-        response: {
-            usage: TokenUsage;
-            content: string;
-            finishReason: LLMResponse['finishReason'];
-            raw: unknown;
-        },
+        response: ProviderExecutionResult,
         latencyMs: number
     ): LLMResponse {
         return {
