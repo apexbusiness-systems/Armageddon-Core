@@ -16,7 +16,9 @@ concurrency:
 
 env:
   CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_ATS }}
+  CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CF_API_TOKEN_ATS: ${{ secrets.CLOUDFLARE_API_TOKEN_ATS }}
+  CF_AGENT_TOKEN: ${{ secrets.CLOUDFLARE_AGENT_TOKEN }}
   ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
   WORKER_NAME: armageddon-core
   ZONE_NAME: armageddon.icu
@@ -64,7 +66,9 @@ jobs:
           SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED: ${{ secrets.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED }}
           CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
           CLOUDFLARE_ID: ${{ secrets.CLOUDFLARE_ID }}
-          CLOUDFLARE_API_TOKEN_ATS: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN_ATS: ${{ env.CF_API_TOKEN_ATS }}
+          CLOUDFLARE_AGENT_TOKEN: ${{ env.CF_AGENT_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ env.ZONE_ID }}
           CLOUDFLARE_WORKER_NAME: ${{ env.WORKER_NAME }}
           CLOUDFLARE_ZONE_NAME: ${{ env.ZONE_NAME }}
