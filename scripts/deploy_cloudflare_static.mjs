@@ -6,11 +6,18 @@ import path from 'node:path';
 import process from 'node:process';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
 
 const execFileAsync = promisify(execFile);
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const API_BASE = 'https://api.cloudflare.com/client/v4';
+const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+
+if (proxyUrl) {
+  // Node fetch does not honor proxy env vars automatically in this runtime; force Cloudflare API calls through the configured proxy.
+  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+}
 const MIME_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.txt', 'text/plain; charset=utf-8'],
@@ -185,10 +192,21 @@ async function enableWorkersDev({ accountId, workerName, token }) {
  * Finds the Cloudflare Zone ID for a given domain name.
  */
 async function getZoneId({ token, zoneName }) {
+  if (process.env.CLOUDFLARE_ZONE_ID?.trim()) {
+    // Scoped Cloudflare tokens may not list zones; allow CI to provide the verified zone id directly.
+    return process.env.CLOUDFLARE_ZONE_ID.trim();
+  }
+
   const res = await apiFetch(`/zones?name=${encodeURIComponent(zoneName)}&status=active`, { token });
   const zone = res.result?.[0];
-  if (!zone) throw new Error(`Zone not found for ${zoneName}. Ensure the domain is added to this Cloudflare account.`);
+  if (!zone) throw new Error(`Zone not found for ${zoneName}. Set CLOUDFLARE_ZONE_ID or grant Zone Read for this domain.`);
   return zone.id;
+}
+
+async function preflightZoneAccess({ token, zoneId, zoneName }) {
+  // Read-only checks prove route/DNS scope before any Worker deploy mutation occurs.
+  await listDnsRecordsByName({ token, zoneId, name: zoneName });
+  await apiFetch(`/zones/${zoneId}/workers/routes`, { token });
 }
 
 /**
@@ -312,7 +330,12 @@ async function main() {
     throw new Error('Refusing deploy: apply supabase/migrations/20260508000000_armageddon_intake.sql first, then set SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED=true.');
   }
 
-  // ── 1. Build manifest & upload assets ──────────────────────────────────
+  // ── 1. Preflight zone access before any Cloudflare deployment mutation ───
+  const zoneId = await getZoneId({ token, zoneName });
+  await preflightZoneAccess({ token, zoneId, zoneName });
+  console.log(`[DNS] Zone access preflight passed for ${zoneName}`);
+
+  // ── 2. Build manifest & upload assets ──────────────────────────────────
   console.log(`[Cloudflare] Preparing static asset deployment: ${workerName}`);
   await writeDeploymentManifest(outputDir);
   const { manifest, byHash, fileCount } = await createManifest(outputDir);
@@ -321,19 +344,18 @@ async function main() {
   const completionJwt = await uploadAssets({ accountId, workerName, token, manifest, byHash });
   console.log('[Cloudflare] Assets uploaded');
 
-  // ── 2. Deploy worker ───────────────────────────────────────────────────
+  // ── 3. Deploy worker ───────────────────────────────────────────────────
   await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey });
   console.log('[Cloudflare] Worker deployed');
 
-  // ── 3. Enable workers.dev preview ─────────────────────────────────────
+  // ── 4. Enable workers.dev preview ─────────────────────────────────────
   const subdomain = await enableWorkersDev({ accountId, workerName, token });
   const previewUrl = subdomain ? `https://${workerName}.${subdomain}.workers.dev/` : null;
   if (previewUrl) console.log(`[Cloudflare] Preview URL: ${previewUrl}`);
 
-  // ── 4. Wire up armageddon.icu DNS + routes (zero Vercel) ──────────────
+  // ── 5. Wire up armageddon.icu DNS + routes (zero Vercel) ──────────────
   console.log(`[Cloudflare] Configuring ${zoneName} DNS + worker routes...`);
   try {
-    const zoneId = await getZoneId({ token, zoneName });
     console.log(`[DNS] Zone ID: ${zoneId}`);
 
     // Ensure root + www have proxied A records so worker routes intercept them
