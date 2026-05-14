@@ -12,6 +12,8 @@ const execFileAsync = promisify(execFile);
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const API_BASE = 'https://api.cloudflare.com/client/v4';
+// Keep Worker runtime compatibility pinned to wrangler.jsonc instead of drifting by deploy date.
+const WORKER_COMPATIBILITY_DATE = '2026-05-06';
 const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
 
 if (proxyUrl) {
@@ -150,7 +152,7 @@ async function deployWorker({ accountId, workerName, token, completionJwt, worke
   const scriptName = 'worker.mjs';
   const metadata = {
     main_module: scriptName,
-    compatibility_date: new Date().toISOString().slice(0, 10),
+    compatibility_date: WORKER_COMPATIBILITY_DATE,
     bindings: [
       { type: 'assets', name: 'ASSETS' },
       { type: 'secret_text', name: 'SUPABASE_URL', text: supabaseUrl },
@@ -314,7 +316,7 @@ async function writeDeploymentManifest(outputDir) {
 
 async function main() {
   const accountId = requiredEnv('CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_ID');
-  const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_TOKEN_ATS');
+  const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_TOKEN_ATS', 'CLOUDFLARE_AGENT_TOKEN');
   const workerName = process.env.CLOUDFLARE_WORKER_NAME?.trim() || 'armageddon-core';
   const outputDir = process.env.CLOUDFLARE_OUTPUT_DIR?.trim()
     ? path.resolve(process.env.CLOUDFLARE_OUTPUT_DIR.trim())
