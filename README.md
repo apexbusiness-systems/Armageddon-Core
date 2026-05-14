@@ -99,15 +99,21 @@ In case of containment breach:
 
 ## ✅ CI QUALITY GATES (ROOT)
 
-As of **2026-03-02 (v2.1.1)**, repository-root validation uses Bun command entrypoints:
+As of **2026-05-14 (docs version 2026.05.14)**, repository-root validation uses npm command entrypoints defined in `package.json`:
 
 ```bash
-bun lint
-bun typecheck
-bun run build
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
-These orchestrate deterministic workspace checks for `packages/shared`, `armageddon-core`, and `armageddon-site` through root `package.json` scripts.
+These orchestrate deterministic workspace checks for `packages/shared`, `armageddon-core`, and `armageddon-site` through root `package.json` scripts. Do not document Bun/Yarn/pnpm commands unless the package-manager contract changes in `package.json`.
+
+## 📚 DOCUMENTATION HUB
+
+Start with [`docs/README.md`](./docs/README.md) before onboarding, changing deployment flows, or updating operational docs. The documentation hub defines canonical docs, historical records, and anti-drift rules for new contributors and agents.
 
 ## 📜 LICENSE
 

@@ -2,8 +2,8 @@
 
 > **CLASSIFICATION**: INTERNAL EYES ONLY
 > **SEVERITY**: CRITICAL
-> **VERSION**: 2.1.0 ("Kinetic Moat")
-> **LAST UPDATED**: 2026-02-08
+> **VERSION**: 2.1.1 ("Kinetic Moat" docs refresh)
+> **LAST REVIEWED**: 2026-05-14
 
 ---
 
@@ -61,8 +61,14 @@ docker exec armageddon-worker-moat printenv | findstr SIM_MODE
    .\scripts\deploy_moat.ps1
    ```
 3. **Verification**:
-   The script automatically runs `verify_kinetic_moat.ts` (Bridge Check) and `npm run test:smoke` (Battery 01).
-   If script exits with `✅ DEPLOYMENT COMPLETE`, no further action is needed.
+   The script runs the Moat bridge verification path. After deployment, run the root verification gates when code changed:
+   ```powershell
+   npm run lint
+   npm run typecheck
+   npm run test
+   npm run build
+   ```
+   If script exits with `✅ DEPLOYMENT COMPLETE` and verification gates pass, no further action is needed.
 
 ### 2.2 ROTATING_KEYS (Supabase/Stripe)
 

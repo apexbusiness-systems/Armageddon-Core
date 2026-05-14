@@ -1,8 +1,10 @@
 # LAUNCH READINESS CHECKLIST [LEVEL 8]
 
 > **TARGET**: PROPRIETARY MOAT LAUNCH
-> **DATE**: 2026-03-02
+> **ORIGINAL DATE**: 2026-03-02
+> **LAST REVIEWED**: 2026-05-14
 > **STATUS**: **GO FOR LAUNCH**
+> **NOTE**: This is a launch-readiness snapshot. Use `docs/README.md` and `PRODUCTION_STATUS.md` for current onboarding and status.
 
 ---
 
@@ -19,7 +21,7 @@
 - [x] **Temporal Workflows**: Registered and poller active.
 - [x] **Database Migrations**: Schema compatible with `v2.1.0`.
 - [x] **Frontend**: Build passes.
-- [x] **CI Quality Gates**: Root `bun lint`, `bun typecheck`, and `bun run build` validated.
+- [x] **CI Quality Gates**: Root `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` validated.
 
 ## 3. SECURITY READINESS
 

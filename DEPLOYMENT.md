@@ -1,18 +1,19 @@
 # ARMAGEDDON DEPLOYMENT PROTOCOL [LEVEL 8]
 
 > **CLASSIFICATION**: PROPRIETARY / INTERNAL
-> **VERSION**: 2.0.0 (Moat Edition)
-> **DATE**: 2026-02-08
+> **VERSION**: 2.0.1 (Moat Edition docs refresh)
+> **LAST REVIEWED**: 2026-05-14
 
 ---
 
 ## 🛑 PRE-FLIGHT CHECKLIST
 
-Before initiating the "Proprietary Moat" deployment, ensure the following constraints are met:
+Before initiating the "Proprietary Moat" deployment, ensure the following constraints are met. The repository documentation source of truth is `docs/README.md`.
 
 - [ ] **Docker Engine** is active and healthy (`docker ps`).
 - [ ] **Secrets** are configured in `.env.moat` (See `SECRETS MANAGEMENT`).
 - [ ] **Repo Context** is clean (no uncommitted critical changes).
+- [ ] **Validation** has passed with `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` when code changed.
 
 ---
 

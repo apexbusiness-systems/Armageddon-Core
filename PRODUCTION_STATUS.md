@@ -1,7 +1,8 @@
 # ARMAGEDDON PRODUCTION STATUS
 
 > **DASHBOARD**: LIVE
-> **LAST UPDATED**: 2026-03-02
+> **LAST REVIEWED**: 2026-05-14
+> **DOCS VERSION**: 2026.05.14
 > **OPERATOR**: PROPRIETARY MOAT
 
 ---
@@ -35,13 +36,14 @@
 | :--------- | :------- | :------------------------- | :---------------------------------- |
 | 2026-02-08 | SEV-2    | Render Blueprint Failure   | Pivot to Proprietary Moat (Success) |
 | 2026-02-08 | SEV-3    | Docker Build Context Drift | Fixed via Root Context Build        |
-| 2026-03-02 | SEV-4    | Root Bun CI script drift   | Standardized root lint/typecheck/build gates |
+| 2026-03-02 | SEV-4    | Root CI script drift       | Standardized root lint/typecheck/build gates |
+| 2026-05-14 | SEV-4    | Documentation command drift | Corrected canonical docs to npm gates and added docs hub |
 
 ---
 
 ## 🔄 MAINTENANCE SCHEDULE
 
-- **Next Rotate**: 2026-05-08 (90 Days)
+- **Next Rotate**: 2026-08-12 (90 Days from 2026-05-14 review baseline)
 - **Patch Day**: Fridays 18:00 UTC
 
 ---
