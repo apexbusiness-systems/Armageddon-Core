@@ -149,7 +149,17 @@ async function compileWorkerSource(workerSourcePath) {
   return output.outputText;
 }
 
-async function deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey }) {
+async function getWorkerCompatibilityDate(workerSourcePath) {
+  const wranglerConfigPath = path.join(path.dirname(path.dirname(workerSourcePath)), 'wrangler.jsonc');
+  const wranglerConfig = await readFile(wranglerConfigPath, 'utf8');
+  const compatibilityDate = wranglerConfig.match(/"compatibility_date"\s*:\s*"([^"]+)"/)?.[1];
+  if (!compatibilityDate) throw new Error(`Missing compatibility_date in ${wranglerConfigPath}`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(compatibilityDate)) throw new Error(`Invalid compatibility_date in ${wranglerConfigPath}: ${compatibilityDate}`);
+  // Use wrangler.jsonc as the single runtime-compatibility source for direct API deploys.
+  return compatibilityDate;
+}
+
+async function deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, compatibilityDate, supabaseUrl, supabaseServiceRoleKey }) {
   const scriptName = 'worker.mjs';
   const metadata = {
     main_module: scriptName,
