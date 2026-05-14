@@ -12,8 +12,6 @@ const execFileAsync = promisify(execFile);
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const API_BASE = 'https://api.cloudflare.com/client/v4';
-// Keep Worker runtime compatibility pinned to wrangler.jsonc instead of drifting by deploy date.
-const WORKER_COMPATIBILITY_DATE = '2026-05-06';
 const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
 
 if (proxyUrl) {
@@ -148,11 +146,21 @@ async function compileWorkerSource(workerSourcePath) {
   return output.outputText;
 }
 
-async function deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey }) {
+async function getWorkerCompatibilityDate(workerSourcePath) {
+  const wranglerConfigPath = path.join(path.dirname(path.dirname(workerSourcePath)), 'wrangler.jsonc');
+  const wranglerConfig = await readFile(wranglerConfigPath, 'utf8');
+  const compatibilityDate = wranglerConfig.match(/"compatibility_date"\s*:\s*"([^"]+)"/)?.[1];
+  if (!compatibilityDate) throw new Error(`Missing compatibility_date in ${wranglerConfigPath}`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(compatibilityDate)) throw new Error(`Invalid compatibility_date in ${wranglerConfigPath}: ${compatibilityDate}`);
+  // Use wrangler.jsonc as the single runtime-compatibility source for direct API deploys.
+  return compatibilityDate;
+}
+
+async function deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, compatibilityDate, supabaseUrl, supabaseServiceRoleKey }) {
   const scriptName = 'worker.mjs';
   const metadata = {
     main_module: scriptName,
-    compatibility_date: WORKER_COMPATIBILITY_DATE,
+    compatibility_date: compatibilityDate,
     bindings: [
       { type: 'assets', name: 'ASSETS' },
       { type: 'secret_text', name: 'SUPABASE_URL', text: supabaseUrl },
@@ -337,6 +345,8 @@ async function main() {
   await preflightZoneAccess({ token, zoneId, zoneName });
   console.log(`[DNS] Zone access preflight passed for ${zoneName}`);
 
+  const compatibilityDate = await getWorkerCompatibilityDate(workerSourcePath);
+
   // ── 2. Build manifest & upload assets ──────────────────────────────────
   console.log(`[Cloudflare] Preparing static asset deployment: ${workerName}`);
   await writeDeploymentManifest(outputDir);
@@ -347,7 +357,7 @@ async function main() {
   console.log('[Cloudflare] Assets uploaded');
 
   // ── 3. Deploy worker ───────────────────────────────────────────────────
-  await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey });
+  await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, compatibilityDate, supabaseUrl, supabaseServiceRoleKey });
   console.log('[Cloudflare] Worker deployed');
 
   // ── 4. Enable workers.dev preview ─────────────────────────────────────
