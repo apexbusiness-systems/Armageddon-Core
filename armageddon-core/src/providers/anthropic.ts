@@ -4,14 +4,9 @@
 // DATE: 2026-02-06
 // REFACTORED: Extends BaseProvider to eliminate code duplication (SonarQube)
 
-import type {
-    LLMRequest,
-    LLMResponse,
-    AnthropicModel,
-    ProviderOptions,
-    CostConfig,
-} from './types';
-import { BaseProvider, type TokenUsage } from './base-provider';
+import type { AnthropicModel, CostConfig, LLMRequest, ProviderOptions } from './types';
+import { BaseProvider, type ProviderExecutionResult } from './base-provider';
+import { assertJsonResponse, mapStopFinishReason } from './provider-utils';
 
 /**
  * Anthropic pricing per 1M tokens (as of 2026)
@@ -51,19 +46,16 @@ export class AnthropicProvider extends BaseProvider {
     readonly model: AnthropicModel;
 
     constructor(options: ProviderOptions) {
-        const model = options.model as AnthropicModel;
-        const costConfig = options.costConfig || ANTHROPIC_COSTS[model];
-
-        super(options, 'https://api.anthropic.com/v1', 'ANTHROPIC_API_KEY', costConfig);
-        this.model = model;
+        super(
+            options,
+            'https://api.anthropic.com/v1',
+            'ANTHROPIC_API_KEY',
+            options.costConfig ?? ANTHROPIC_COSTS[options.model as AnthropicModel]
+        );
+        this.model = options.model as AnthropicModel;
     }
 
-    protected async executeRequest(request: LLMRequest): Promise<{
-        usage: TokenUsage;
-        content: string;
-        finishReason: LLMResponse['finishReason'];
-        raw: unknown;
-    }> {
+    protected async executeRequest(request: LLMRequest): Promise<ProviderExecutionResult> {
         const response = await this.makeAPIRequest(request);
 
         const content = response.content
@@ -78,7 +70,7 @@ export class AnthropicProvider extends BaseProvider {
                 totalTokens: response.usage.input_tokens + response.usage.output_tokens,
             },
             content,
-            finishReason: this.mapStopReason(response.stop_reason),
+            finishReason: mapStopFinishReason(response.stop_reason),
             raw: response,
         };
     }
@@ -103,20 +95,6 @@ export class AnthropicProvider extends BaseProvider {
             body: JSON.stringify(body),
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`[Anthropic] API Error ${response.status}: ${errorText}`);
-        }
-
-        return response.json() as Promise<AnthropicMessage>;
-    }
-
-    private mapStopReason(reason: string | null): LLMResponse['finishReason'] {
-        switch (reason) {
-            case 'end_turn': return 'stop';
-            case 'max_tokens': return 'length';
-            case 'stop_sequence': return 'stop';
-            default: return 'error';
-        }
+        return assertJsonResponse<AnthropicMessage>(response, 'Anthropic');
     }
 }

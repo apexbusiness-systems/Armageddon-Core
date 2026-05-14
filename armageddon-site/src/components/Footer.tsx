@@ -2,7 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { getSupabase } from '@/lib/supabase';
+import { getRequiredSupabase } from '@/lib/browser-supabase';
+import { startGithubOAuth } from '@/lib/client-auth-actions';
 import { useAuth } from '@/lib/useAuth';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -14,11 +15,8 @@ export default function Footer() {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleGetCertified = async () => {
-        const sb = getSupabase();
-        if (!sb) {
-            console.error('Supabase not initialized');
-            return;
-        }
+        const sb = getRequiredSupabase('Supabase not initialized');
+        if (!sb) return;
 
         setIsLoading(true);
         try {
@@ -30,17 +28,8 @@ export default function Footer() {
                 return;
             }
 
-            // If not logged in, trigger OAuth signup/login
-            const { error } = await sb.auth.signInWithOAuth({
-                provider: 'github',
-                options: {
-                    redirectTo: `${globalThis.location.origin}/`
-                }
-            });
-
-            if (error) {
-                console.error('Auth error:', error);
-            }
+            // If not logged in, trigger OAuth signup/login.
+            await startGithubOAuth(sb, 'Auth');
         } catch (error) {
             console.error('Failed to initiate auth:', error);
         } finally {
