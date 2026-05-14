@@ -12,6 +12,9 @@ const execFileAsync = promisify(execFile);
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const API_BASE = 'https://api.cloudflare.com/client/v4';
+// Keep Worker runtime compatibility pinned to wrangler.jsonc instead of drifting by deploy date.
+const WORKER_COMPATIBILITY_DATE = '2026-05-06';
+const DNS_MUTATION_ENABLED = process.env.CLOUDFLARE_MANAGE_DNS === 'true';
 const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
 
 if (proxyUrl) {
@@ -160,7 +163,7 @@ async function deployWorker({ accountId, workerName, token, completionJwt, worke
   const scriptName = 'worker.mjs';
   const metadata = {
     main_module: scriptName,
-    compatibility_date: compatibilityDate,
+    compatibility_date: WORKER_COMPATIBILITY_DATE,
     bindings: [
       { type: 'assets', name: 'ASSETS' },
       { type: 'secret_text', name: 'SUPABASE_URL', text: supabaseUrl },
@@ -216,6 +219,7 @@ async function getZoneId({ token, zoneName }) {
 async function preflightZoneAccess({ token, zoneId, zoneName }) {
   // Read-only checks prove route/DNS scope before any Worker deploy mutation occurs.
   await listDnsRecordsByName({ token, zoneId, name: zoneName });
+  await listDnsRecordsByName({ token, zoneId, name: `www.${zoneName}` });
   await apiFetch(`/zones/${zoneId}/workers/routes`, { token });
 }
 
@@ -226,6 +230,34 @@ async function preflightZoneAccess({ token, zoneId, zoneName }) {
 async function listDnsRecordsByName({ token, zoneId, name }) {
   const response = await apiFetch(`/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}`, { token });
   return response.result ?? [];
+}
+
+
+function isWorkerRoutableDnsRecord(record) {
+  // Worker routes only intercept traffic that reaches Cloudflare's proxy.
+  return ['A', 'AAAA', 'CNAME'].includes(record.type) && record.proxied === true;
+}
+
+async function verifyProxiedDnsRecord({ token, zoneId, name }) {
+  const records = await listDnsRecordsByName({ token, zoneId, name });
+  const routable = records.find(isWorkerRoutableDnsRecord);
+  if (!routable) {
+    throw new Error(`No Cloudflare-proxied DNS record found for ${name}. Since CLOUDFLARE_MANAGE_DNS is not true, update DNS manually or opt in to DNS mutation.`);
+  }
+  console.log(`[DNS] Verified Cloudflare-proxied ${routable.type} record for ${name}`);
+}
+
+async function ensureProductionDns({ token, zoneId, zoneName }) {
+  if (!DNS_MUTATION_ENABLED) {
+    // DNS is operator-owned by default; validate it instead of replacing manual records.
+    await verifyProxiedDnsRecord({ token, zoneId, name: zoneName });
+    await verifyProxiedDnsRecord({ token, zoneId, name: `www.${zoneName}` });
+    return;
+  }
+
+  // Explicit opt-in path for initial cutover automation.
+  await upsertProxiedDnsRecord({ token, zoneId, name: zoneName });
+  await upsertProxiedDnsRecord({ token, zoneId, name: `www.${zoneName}` });
 }
 
 async function deleteConflictingDnsRecords({ token, zoneId, name, keepRecordId }) {
@@ -343,9 +375,11 @@ async function main() {
   // ── 1. Preflight zone access before any Cloudflare deployment mutation ───
   const zoneId = await getZoneId({ token, zoneName });
   await preflightZoneAccess({ token, zoneId, zoneName });
+  if (!DNS_MUTATION_ENABLED) {
+    // Manual DNS cutovers must be proven before any Worker asset/script mutation.
+    await ensureProductionDns({ token, zoneId, zoneName });
+  }
   console.log(`[DNS] Zone access preflight passed for ${zoneName}`);
-
-  const compatibilityDate = await getWorkerCompatibilityDate(workerSourcePath);
 
   // ── 2. Build manifest & upload assets ──────────────────────────────────
   console.log(`[Cloudflare] Preparing static asset deployment: ${workerName}`);
@@ -357,7 +391,7 @@ async function main() {
   console.log('[Cloudflare] Assets uploaded');
 
   // ── 3. Deploy worker ───────────────────────────────────────────────────
-  await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, compatibilityDate, supabaseUrl, supabaseServiceRoleKey });
+  await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey });
   console.log('[Cloudflare] Worker deployed');
 
   // ── 4. Enable workers.dev preview ─────────────────────────────────────
@@ -370,9 +404,8 @@ async function main() {
   try {
     console.log(`[DNS] Zone ID: ${zoneId}`);
 
-    // Ensure root + www have proxied A records so worker routes intercept them
-    await upsertProxiedDnsRecord({ token, zoneId, name: zoneName });
-    await upsertProxiedDnsRecord({ token, zoneId, name: `www.${zoneName}` });
+    // DNS is verified by default; mutation requires CLOUDFLARE_MANAGE_DNS=true.
+    await ensureProductionDns({ token, zoneId, zoneName });
 
     // Register worker routes for root and www
     await upsertWorkerRoutes({
