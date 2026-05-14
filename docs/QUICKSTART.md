@@ -1,78 +1,86 @@
-# Run a Live Test RIGHT NOW — Quick Start
+# Armageddon Quick Start
 
-## Current Status
+**Docs version**: 2026.05.14<br>
+**Last reviewed**: 2026-05-14<br>
+**Primary package manager**: npm<br>
+**Verified against**: root `package.json`, `armageddon-core/package.json`, `armageddon-site/package.json`
 
-✅ **Frontend**: LIVE at [www.armageddon.icu](https://www.armageddon.icu)  
-✅ **Database**: Supabase configured  
-✅ **API Endpoint**: `/api/run` exists  
-❌ **Temporal Worker**: Not running (you need to start it)
+Use this guide for local development and first-run validation. Run commands from the repository root unless a step explicitly changes directories.
 
----
+## Prerequisites
 
-## What You Need to Run a Test
+- Node.js 22 for parity with CI (`>=20` is the workspace minimum).
+- npm with lockfile installs (`npm ci`).
+- Docker if you are running the local Temporal/Postgres Moat stack.
+- `.env.moat` or local environment variables for integrations that require Supabase/Temporal credentials. Never commit populated env files.
 
-### Option A: Local Worker (Fastest - 2 minutes)
+## Install and verify the repo
 
 ```bash
-# 1. Start Temporal server (if using docker-compose)
-docker-compose up -d
-
-# 2. Start the worker
-cd armageddon-core
-npm install
-npm run start:worker
-
-# 3. Visit the site and click RUN TEST
-# Site: https://www.armageddon.icu
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
-### Option B: Check What's Missing
+Expected result: all workspace checks complete without TypeScript, ESLint, test, or build failures.
 
-The `/api/run` endpoint tries to connect to:
+## Run the site locally
 
-- **Temporal**: `process.env.TEMPORAL_ADDRESS || 'localhost:7233'`
-- **Supabase**: Already configured ✅
-
-**If Temporal is not running**, the API will fail when you click "RUN TEST".
-
----
-
-## To Actually Run a Test
-
-1. **Start Temporal worker** (see above)
-2. Go to **www.armageddon.icu**
-3. **Sign up** (if there's auth) or just click around
-4. Click **"RUN TEST"** or **"INITIATE SEQUENCE"** button
-5. Watch the console for real-time updates
-
----
-
-## What Happens When You Click RUN TEST
-
-```
-Frontend → POST /api/run
-         → Creates armageddon_runs record in Supabase
-         → Triggers Temporal workflow
-         → 13 batteries execute
-         → Events stream back via WebSocket
-         → Results displayed on page
+```bash
+npm run dev -w armageddon-site
 ```
 
----
+Default Next.js URL: `http://localhost:3000`.
 
-## Current Blocker
+## Run the worker locally
 
-**The Temporal worker is not running.**
+```bash
+npm run worker -w armageddon-core
+```
 
-Once you start it (via docker-compose or `npm run start:worker`), the full flow should work.
+The worker uses the Temporal address from environment configuration, falling back to `localhost:7233` where the code supports a local default.
 
----
+## Run the local Moat stack
 
-## Next: What to Test
+Use this when you need Temporal/Postgres orchestration instead of isolated workspace commands.
 
-- Does the site have a working "RUN TEST" button?
-- Is there GitHub OAuth integration?
-- Does clicking the button show any error messages?
-- Check browser console and network tab when clicking
+```bash
+cp .env.moat.example .env.moat
+# Edit .env.moat locally; do not commit secrets.
+docker-compose -f docker-compose.moat.yml up -d
+npm run worker -w armageddon-core
+```
 
-**Let me know what you see when you visit the site!**
+PowerShell operators can use the deployment wrapper documented in `DEPLOYMENT.md`:
+
+```powershell
+.\scripts\deploy_moat.ps1
+```
+
+## Run a certification flow locally
+
+1. Start the local site: `npm run dev -w armageddon-site`.
+2. Start Temporal/Postgres via Docker if the flow needs orchestration.
+3. Start the worker: `npm run worker -w armageddon-core`.
+4. Open `http://localhost:3000`.
+5. Authenticate through GitHub OAuth if the route requires a user session.
+6. Start the run from the UI and monitor worker logs plus the browser network tab.
+
+## Troubleshooting matrix
+
+| Symptom | Likely cause | Verification | Fix |
+| --- | --- | --- | --- |
+| `/api/run` fails to enqueue | Temporal is unavailable | Check worker logs and Temporal port `7233` | Start Docker Moat stack and worker. |
+| Auth button does nothing | Supabase public env vars missing | Browser console logs Supabase initialization warning | Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. |
+| Rate-limit check fails during build | Service role credentials not available in local build | Build logs mention missing Supabase credentials | Expected for static/local builds unless testing server-side quota paths. |
+| Shared package imports fail | `packages/shared` not built | Check `packages/shared/dist/` | Run `npm ci` or `npm run build:shared`. |
+
+## Canonical follow-up docs
+
+- Documentation hub: `docs/README.md`
+- Deployment protocol: `DEPLOYMENT.md`
+- Operations runbooks: `OPS_RUNBOOKS.md`
+- Cloudflare deployment: `docs/CLOUDFLARE_DEPLOYMENT.md`
+- Sonar quality gate policy: `docs/compliance/SONAR_GATE_POLICY.md`
