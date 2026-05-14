@@ -17,6 +17,8 @@ type IntakePayload = {
 type FieldErrors = Partial<Record<keyof IntakePayload, string>>;
 
 const ALLOWED_TIERS = new Set(['Self-Serve', 'Verified', 'Certified', 'Enterprise']);
+const CANONICAL_HOST = 'armageddon.icu';
+const REDIRECT_HOSTS = new Set(['www.armageddon.icu']);
 const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   system_name: 160,
   contact_name: 160,
@@ -27,14 +29,33 @@ const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   source: 240,
 };
 
+function withProductionHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set('x-armageddon-edge', 'cloudflare-workers');
+  headers.set('x-armageddon-canonical-host', CANONICAL_HOST);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function canonicalRedirect(url: URL): Response | null {
+  if (!REDIRECT_HOSTS.has(url.hostname)) return null;
+
+  const canonicalUrl = new URL(url);
+  canonicalUrl.hostname = CANONICAL_HOST;
+  return withProductionHeaders(Response.redirect(canonicalUrl.toString(), 301));
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
+  return withProductionHeaders(new Response(JSON.stringify(body), {
     status,
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
     },
-  });
+  }));
 }
 
 function stripHtml(value: unknown, maxLength: number): string {
@@ -131,18 +152,22 @@ function intakeAssetRequest(request: Request): Request {
   return new Request(url, request);
 }
 
-export default {
+const intakeWorker = {
   async fetch(request: Request, env: IntakeEnv): Promise<Response> {
     const url = new URL(request.url);
+    const redirect = canonicalRedirect(url);
+    if (redirect) return redirect;
 
     if (url.pathname === '/api/intake') {
       return handleIntake(request, env);
     }
 
     if (url.pathname === '/intake') {
-      return env.ASSETS.fetch(intakeAssetRequest(request));
+      return withProductionHeaders(await env.ASSETS.fetch(intakeAssetRequest(request)));
     }
 
-    return env.ASSETS.fetch(request);
+    return withProductionHeaders(await env.ASSETS.fetch(request));
   },
 };
+
+export default intakeWorker;

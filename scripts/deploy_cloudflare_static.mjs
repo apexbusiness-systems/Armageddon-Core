@@ -1,11 +1,25 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import ts from 'typescript';
 import path from 'node:path';
 import process from 'node:process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
 
+const execFileAsync = promisify(execFile);
+
+const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const API_BASE = 'https://api.cloudflare.com/client/v4';
+// Keep Worker runtime compatibility pinned to wrangler.jsonc instead of drifting by deploy date.
+const WORKER_COMPATIBILITY_DATE = '2026-05-06';
+const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+
+if (proxyUrl) {
+  // Node fetch does not honor proxy env vars automatically in this runtime; force Cloudflare API calls through the configured proxy.
+  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+}
 const MIME_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.txt', 'text/plain; charset=utf-8'],
@@ -138,7 +152,7 @@ async function deployWorker({ accountId, workerName, token, completionJwt, worke
   const scriptName = 'worker.mjs';
   const metadata = {
     main_module: scriptName,
-    compatibility_date: new Date().toISOString().slice(0, 10),
+    compatibility_date: WORKER_COMPATIBILITY_DATE,
     bindings: [
       { type: 'assets', name: 'ASSETS' },
       { type: 'secret_text', name: 'SUPABASE_URL', text: supabaseUrl },
@@ -180,38 +194,71 @@ async function enableWorkersDev({ accountId, workerName, token }) {
  * Finds the Cloudflare Zone ID for a given domain name.
  */
 async function getZoneId({ token, zoneName }) {
+  if (process.env.CLOUDFLARE_ZONE_ID?.trim()) {
+    // Scoped Cloudflare tokens may not list zones; allow CI to provide the verified zone id directly.
+    return process.env.CLOUDFLARE_ZONE_ID.trim();
+  }
+
   const res = await apiFetch(`/zones?name=${encodeURIComponent(zoneName)}&status=active`, { token });
   const zone = res.result?.[0];
-  if (!zone) throw new Error(`Zone not found for ${zoneName}. Ensure the domain is added to this Cloudflare account.`);
+  if (!zone) throw new Error(`Zone not found for ${zoneName}. Set CLOUDFLARE_ZONE_ID or grant Zone Read for this domain.`);
   return zone.id;
+}
+
+async function preflightZoneAccess({ token, zoneId, zoneName }) {
+  // Read-only checks prove route/DNS scope before any Worker deploy mutation occurs.
+  await listDnsRecordsByName({ token, zoneId, name: zoneName });
+  await apiFetch(`/zones/${zoneId}/workers/routes`, { token });
 }
 
 /**
  * Ensures armageddon.icu has a proxied A record (required for worker routes).
  * Upserts: if a record exists for the name, updates it; otherwise creates it.
  */
-async function upsertProxiedDnsRecord({ token, zoneId, name, content = '192.0.2.1' }) {
-  const existing = await apiFetch(`/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}&type=A`, { token });
-  const record = existing.result?.[0];
-  if (record) {
-    if (record.proxied && record.content === content) {
-      console.log(`[DNS] A record for ${name} already proxied ✓`);
-      return record;
+async function listDnsRecordsByName({ token, zoneId, name }) {
+  const response = await apiFetch(`/zones/${zoneId}/dns_records?name=${encodeURIComponent(name)}`, { token });
+  return response.result ?? [];
+}
+
+async function deleteConflictingDnsRecords({ token, zoneId, name, keepRecordId }) {
+  const records = await listDnsRecordsByName({ token, zoneId, name });
+  for (const record of records) {
+    if (record.id === keepRecordId) continue;
+    if (record.type === 'A' || record.type === 'AAAA' || record.type === 'CNAME') {
+      await apiFetch(`/zones/${zoneId}/dns_records/${record.id}`, { token, method: 'DELETE' });
+      console.log(`[DNS] Deleted conflicting ${record.type} record for ${name}`);
     }
-    await apiFetch(`/zones/${zoneId}/dns_records/${record.id}`, {
-      token, method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'A', name, content, proxied: true, ttl: 1 }),
-    });
-    console.log(`[DNS] Updated A record for ${name} → proxied`);
+  }
+}
+
+async function upsertProxiedDnsRecord({ token, zoneId, name, content = '192.0.2.1' }) {
+  const records = await listDnsRecordsByName({ token, zoneId, name });
+  const record = records.find((item) => item.type === 'A');
+  let keepRecordId;
+  if (record) {
+    if (!record.proxied || record.content !== content || record.ttl !== 1) {
+      const updated = await apiFetch(`/zones/${zoneId}/dns_records/${record.id}`, {
+        token, method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'A', name, content, proxied: true, ttl: 1 }),
+      });
+      keepRecordId = updated.result?.id ?? record.id;
+      console.log(`[DNS] Updated A record for ${name} → Cloudflare-proxied placeholder`);
+    } else {
+      keepRecordId = record.id;
+      console.log(`[DNS] A record for ${name} already Cloudflare-proxied ✓`);
+    }
   } else {
-    await apiFetch(`/zones/${zoneId}/dns_records`, {
+    const created = await apiFetch(`/zones/${zoneId}/dns_records`, {
       token, method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'A', name, content, proxied: true, ttl: 1 }),
     });
-    console.log(`[DNS] Created proxied A record for ${name}`);
+    keepRecordId = created.result?.id;
+    console.log(`[DNS] Created Cloudflare-proxied A record for ${name}`);
   }
+
+  await deleteConflictingDnsRecords({ token, zoneId, name, keepRecordId });
 }
 
 /**
@@ -220,11 +267,21 @@ async function upsertProxiedDnsRecord({ token, zoneId, name, content = '192.0.2.
  */
 async function upsertWorkerRoutes({ token, zoneId, workerName, patterns }) {
   const existing = await apiFetch(`/zones/${zoneId}/workers/routes`, { token });
-  const existingPatterns = new Set((existing.result ?? []).map(r => r.pattern));
+  const routesByPattern = new Map((existing.result ?? []).map((route) => [route.pattern, route]));
 
   for (const pattern of patterns) {
-    if (existingPatterns.has(pattern)) {
-      console.log(`[Routes] Route already registered: ${pattern}`);
+    const route = routesByPattern.get(pattern);
+    if (route?.script === workerName) {
+      console.log(`[Routes] Route already registered: ${pattern} → ${workerName}`);
+      continue;
+    }
+    if (route?.id) {
+      await apiFetch(`/zones/${zoneId}/workers/routes/${route.id}`, {
+        token, method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pattern, script: workerName }),
+      });
+      console.log(`[Routes] Updated route: ${pattern} → ${workerName}`);
       continue;
     }
     await apiFetch(`/zones/${zoneId}/workers/routes`, {
@@ -236,12 +293,37 @@ async function upsertWorkerRoutes({ token, zoneId, workerName, patterns }) {
   }
 }
 
+async function getGitCommit() {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot });
+    return stdout.trim();
+  } catch {
+    return process.env.GITHUB_SHA?.trim() || 'unknown';
+  }
+}
+
+async function writeDeploymentManifest(outputDir) {
+  const deployment = {
+    provider: 'cloudflare-workers',
+    canonicalHost: 'armageddon.icu',
+    redirectHost: 'www.armageddon.icu',
+    sourceCommit: await getGitCommit(),
+    builtAt: new Date().toISOString(),
+  };
+  await writeFile(path.join(outputDir, 'deployment.json'), `${JSON.stringify(deployment, null, 2)}\n`);
+  console.log(`[Cloudflare] Wrote deployment manifest for commit ${deployment.sourceCommit}`);
+}
+
 async function main() {
   const accountId = requiredEnv('CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_ID');
-  const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_TOKEN_ATS');
+  const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_TOKEN_ATS', 'CLOUDFLARE_AGENT_TOKEN');
   const workerName = process.env.CLOUDFLARE_WORKER_NAME?.trim() || 'armageddon-core';
-  const outputDir = path.resolve(process.env.CLOUDFLARE_OUTPUT_DIR?.trim() || 'armageddon-site/out');
-  const workerSourcePath = path.resolve(process.env.CLOUDFLARE_WORKER_SOURCE?.trim() || 'armageddon-site/src/intake-handler.ts');
+  const outputDir = process.env.CLOUDFLARE_OUTPUT_DIR?.trim()
+    ? path.resolve(process.env.CLOUDFLARE_OUTPUT_DIR.trim())
+    : path.join(repoRoot, 'armageddon-site', 'out');
+  const workerSourcePath = process.env.CLOUDFLARE_WORKER_SOURCE?.trim()
+    ? path.resolve(process.env.CLOUDFLARE_WORKER_SOURCE.trim())
+    : path.join(repoRoot, 'armageddon-site', 'src', 'intake-handler.ts');
   const zoneName = process.env.CLOUDFLARE_ZONE_NAME?.trim() || 'armageddon.icu';
   const supabaseUrl = requiredEnv('SUPABASE_URL');
   const supabaseServiceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY');
@@ -250,27 +332,32 @@ async function main() {
     throw new Error('Refusing deploy: apply supabase/migrations/20260508000000_armageddon_intake.sql first, then set SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED=true.');
   }
 
-  // ── 1. Build manifest & upload assets ──────────────────────────────────
+  // ── 1. Preflight zone access before any Cloudflare deployment mutation ───
+  const zoneId = await getZoneId({ token, zoneName });
+  await preflightZoneAccess({ token, zoneId, zoneName });
+  console.log(`[DNS] Zone access preflight passed for ${zoneName}`);
+
+  // ── 2. Build manifest & upload assets ──────────────────────────────────
   console.log(`[Cloudflare] Preparing static asset deployment: ${workerName}`);
+  await writeDeploymentManifest(outputDir);
   const { manifest, byHash, fileCount } = await createManifest(outputDir);
   console.log(`[Cloudflare] Manifest ready: ${fileCount} files`);
 
   const completionJwt = await uploadAssets({ accountId, workerName, token, manifest, byHash });
   console.log('[Cloudflare] Assets uploaded');
 
-  // ── 2. Deploy worker ───────────────────────────────────────────────────
+  // ── 3. Deploy worker ───────────────────────────────────────────────────
   await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey });
   console.log('[Cloudflare] Worker deployed');
 
-  // ── 3. Enable workers.dev preview ─────────────────────────────────────
+  // ── 4. Enable workers.dev preview ─────────────────────────────────────
   const subdomain = await enableWorkersDev({ accountId, workerName, token });
   const previewUrl = subdomain ? `https://${workerName}.${subdomain}.workers.dev/` : null;
   if (previewUrl) console.log(`[Cloudflare] Preview URL: ${previewUrl}`);
 
-  // ── 4. Wire up armageddon.icu DNS + routes (zero Vercel) ──────────────
+  // ── 5. Wire up armageddon.icu DNS + routes (zero Vercel) ──────────────
   console.log(`[Cloudflare] Configuring ${zoneName} DNS + worker routes...`);
   try {
-    const zoneId = await getZoneId({ token, zoneName });
     console.log(`[DNS] Zone ID: ${zoneId}`);
 
     // Ensure root + www have proxied A records so worker routes intercept them
@@ -285,9 +372,7 @@ async function main() {
 
     console.log(`[Cloudflare] ✅ ${zoneName} fully wired to Cloudflare Workers — zero Vercel`);
   } catch (err) {
-    // Non-fatal: worker is deployed, routes just need manual zone wiring if token lacks zone perms
-    console.warn(`[DNS] Warning: Could not auto-configure zone routes: ${err.message}`);
-    console.warn('[DNS] Worker deployed. Add routes manually in Cloudflare dashboard if needed.');
+    throw new Error(`Cloudflare zone wiring failed after worker deploy; production cutover is incomplete and must not be treated as successful: ${err.message}`);
   }
 
   console.log('[Cloudflare] Deployment complete');
