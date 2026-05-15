@@ -1,5 +1,10 @@
 # Armageddon Launch Prep Prompt (Integrated)
 
+
+**Last reviewed:** 2026-05-15<br>
+**Status:** Historical/instructional launch-prep prompt.
+
+
 ## DELIVERABLES (REQUIRED)
 1) Repo Scope Map (architecture + services + packages + entrypoints + environments)
 2) **PR Stabilization Ledger**

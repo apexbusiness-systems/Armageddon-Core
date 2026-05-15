@@ -99,7 +99,7 @@ In case of containment breach:
 
 ## ✅ CI QUALITY GATES (ROOT)
 
-As of **2026-05-14 (docs version 2026.05.14)**, repository-root validation uses npm command entrypoints defined in `package.json`:
+As of **2026-05-15 (docs version 2026.05.15)**, repository-root validation uses npm command entrypoints defined in `package.json`:
 
 ```bash
 npm ci

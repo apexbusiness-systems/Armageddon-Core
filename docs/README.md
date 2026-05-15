@@ -1,7 +1,7 @@
 # Armageddon Documentation Hub
 
-**Docs version**: 2026.05.14<br>
-**Last reviewed**: 2026-05-14<br>
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15<br>
 **Primary package manager**: npm<br>
 **Runtime baseline**: Node.js 22 in CI, Node.js >=20 for workspaces
 
@@ -13,13 +13,14 @@ This hub is the canonical entry point for onboarding engineers and agents. If a 
 | --- | --- | --- |
 | Install and run locally | [`docs/QUICKSTART.md`](./QUICKSTART.md) | Verified local setup, worker start, tests, and build commands. |
 | Understand repo rules | [`../AGENTS.md`](../AGENTS.md) | Agent and contributor guardrails that prevent drift. |
-| Deploy Cloudflare edge | [`docs/CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) | Cloudflare Workers deployment path for the public site. |
+| Deploy Cloudflare edge | [`docs/CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) | Static Cloudflare edge deployment path for the public site. |
 | Deploy local Moat | [`../DEPLOYMENT.md`](../DEPLOYMENT.md) | Local Docker/Temporal Moat protocol. |
 | Operate incidents | [`../OPS_RUNBOOKS.md`](../OPS_RUNBOOKS.md) | SEV response, key rotation, stuck workflow triage. |
 | Security policy | [`../SECURITY.md`](../SECURITY.md) | Vulnerability reporting and security expectations. |
 | Authorized use | [`../ACCEPTABLE_USE.md`](../ACCEPTABLE_USE.md) | Permitted and prohibited use boundaries. |
+| Current release posture | [`../PRODUCTION_STATUS.md`](../PRODUCTION_STATUS.md) | Repository-verified production-readiness snapshot. |
 | Sonar quality gate | [`docs/compliance/SONAR_GATE_POLICY.md`](./compliance/SONAR_GATE_POLICY.md) | Duplication and quality-gate expectations. |
-| Documentation audit | [`docs/DOCUMENTATION_AUDIT_2026-05-14.md`](./DOCUMENTATION_AUDIT_2026-05-14.md) | Inventory of every reviewed markdown/text/html document. |
+| Documentation audit | [`docs/DOCUMENTATION_AUDIT_2026-05-15.md`](./DOCUMENTATION_AUDIT_2026-05-15.md) | Inventory of reviewed Markdown, text, HTML, README, runbook, status, audit, and map documents. |
 
 ## Verified root commands
 
@@ -46,22 +47,33 @@ npm run build:cloudflare -w armageddon-site
 
 | Path | Role | Notes |
 | --- | --- | --- |
-| `armageddon-core/` | Temporal worker and adversarial engine | TypeScript source, provider adapters, simulation, tests. |
-| `armageddon-site/` | Next.js public/control-plane UI | App routes, components, API routes, Cloudflare export config. |
-| `packages/shared/` | Shared constants/types | Built by root `postinstall`. |
-| `scripts/` | Operational automation | Audit, route integrity, Cloudflare deploy, Moat scripts. |
-| `.github/workflows/` | CI/CD gates | Build/test, production-readiness, SonarCloud, secret scanning, Cloudflare deploy. |
-| `docs/` | Canonical and historical documentation | Use this hub before adding new root-level docs. |
+| `armageddon-core/` | Temporal worker and adversarial engine | TypeScript source, provider adapters, simulation, Python bridge integration, tests. |
+| `armageddon-site/` | Next.js public/control-plane UI | App routes, components, API routes, static Cloudflare export config. |
+| `packages/shared/` | Shared constants/types | Built by root `postinstall`; exports battery display metadata and gate defaults. |
+| `scripts/` | Operational automation | Audit, route integrity, Cloudflare deploy, Moat deploy/kill/verify scripts. |
+| `.github/workflows/` | CI/CD gates | CI, production-readiness, SonarCloud, secret scanning, Cloudflare deploy. |
+| `docs/` | Canonical, supporting, and historical documentation | Use this hub before adding new root-level docs. |
+| `supabase/migrations/` | Database schema changes | SQL migrations for Armageddon run, event, auth, and rate-limit persistence. |
+| `docker-compose.moat.yml` | Local Moat runtime | Current local Temporal/Postgres/worker containment stack. |
+| `docker-compose.yml` | Local development support runtime | Developer Temporal/Postgres/worker stack. |
 
 ## Documentation lifecycle
 
 | Status | Meaning | Required action |
 | --- | --- | --- |
 | Canonical | Current operating truth | Keep linked from this hub and update with code changes. |
-| Supporting | Useful background or design context | Keep accurate enough to avoid contradicting canonical docs. |
-| Historical record | Past audit, launch, or incident snapshot | Do not rewrite factual history; add superseding links when needed. |
-| Legacy candidate | Valuable content but wrong location or stale commands | Migrate or archive in a dedicated cleanup PR. |
-| Generated artifact | Tool output or captured result | Regenerate from source instead of hand-editing when possible. |
+| Supporting | Useful background, setup, design, or product context | Keep accurate enough to avoid contradicting canonical docs. |
+| Historical record | Past audit, launch, readiness, benchmark, or incident snapshot | Do not rewrite factual history; add superseding links when needed. |
+| External/generic agent reference | Skill or methodology content not specific to current package scripts | Do not promote sample commands as repository commands unless verified. |
+| Generated artifact | Tool output or captured result | Remove from source control unless intentionally tracked and reviewed. |
+| Deleted stale artifact | Proven irrelevant to current source of truth | Record deletion in the latest documentation audit. |
+
+## Active cleanup decisions from 2026-05-15
+
+- Removed obsolete Render blueprint files because the repository no longer uses Render as an active deployment path.
+- Removed generated test-output and push-log artifacts from tracked source.
+- Kept historical audit/readiness records when they contain dated evidence.
+- Converted current status language to repository-verifiable posture instead of unverifiable live runtime claims.
 
 ## Anti-drift requirements for agents
 
@@ -69,5 +81,5 @@ npm run build:cloudflare -w armageddon-site
 - Run `npm run docs:check` after editing docs to catch stale commands and conversational drift.
 - Verify workflow names against `.github/workflows/` before citing CI gates.
 - Prefer absolute dates over relative language such as "today" or "right now".
-- Keep deployment docs explicit about target: Cloudflare edge vs local Moat vs historical Render/Vercel references.
-- Mark unknown remote/CI state as `UNVERIFIED` instead of assuming success.
+- Keep deployment docs explicit about target: Cloudflare static edge vs local Moat vs historical provider references.
+- Mark unknown remote/CI/runtime state as `UNVERIFIED` instead of assuming success.

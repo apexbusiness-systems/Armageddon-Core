@@ -1,5 +1,11 @@
 # Performance Optimizations
 
+
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15
+**Scope**: Core performance optimization note.
+
+
 ## Reporter Batching (Implemented: 2026-02-06)
 
 ### Problem

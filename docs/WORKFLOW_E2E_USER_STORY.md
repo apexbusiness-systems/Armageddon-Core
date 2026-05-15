@@ -1,5 +1,11 @@
 # Armageddon E2E User Story: Onboarding → Operation → Certification → Artifact Export
 
+
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15
+**Scope**: E2E operator story and product QA invariants.
+
+
 ## Objective
 Define a deterministic end-to-end workflow for a first-time operator to onboard into Armageddon, execute a full certification campaign through the UI/UX, receive certification, and print/download/export final artifacts with verifiable audit trace.
 

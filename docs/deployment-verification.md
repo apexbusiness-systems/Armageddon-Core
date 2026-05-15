@@ -1,7 +1,8 @@
 # Deployment Verification Commands — Cloudflare/Local Proof Gates
 
-**Date:** 2026-05-06
-**Scope:** Non-destructive verification commands for proving the local Docker Moat and local frontend path before deprecating legacy preview-host production reliance.
+**Date:** 2026-05-06<br>
+**Last reviewed:** 2026-05-15<br>
+**Scope:** Non-destructive verification commands for proving the local Docker Moat, local frontend path, and static Cloudflare build path.
 **Safety:** These commands do not alter test batteries, branding copy, certification copy, or production secrets.
 
 ## Secret Handling Rules
@@ -17,7 +18,7 @@ Run from repository root:
 
 ```bash
 git status --short --branch
-rg -n --hidden -S 'legacy-preview-host|wrangler|cloudflare|render|docker-compose\.moat|deploy_moat|kill_moat' \
+rg -n --hidden -S 'legacy-preview-host|wrangler|cloudflare|docker-compose\.moat|deploy_moat|kill_moat' \
   -g '*.{md,json,yml,yaml,toml,js,ts,tsx,ps1,env,example}' \
   -g '!node_modules' \
   -g '!vendor' \
@@ -113,12 +114,25 @@ Pass criteria:
 
 ## Gate 5 — Cloudflare Frontend Proof
 
-No Cloudflare command is defined in this repository yet. Add Cloudflare configuration only after Gates 1-4 pass.
+Build the static site export from the repository root:
 
-Minimum acceptance criteria for the future Cloudflare patch:
+```bash
+npm run build:cloudflare -w armageddon-site
+```
 
-- Cloudflare config is committed as code.
-- New dependencies are justified by runtime compatibility, performance, cost, and security impact.
+Deploy only from an operator environment with Cloudflare credentials available through secure environment variables:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=<account-id> \
+CLOUDFLARE_API_TOKEN=<pages-or-workers-token> \
+CLOUDFLARE_WORKER_NAME=armageddon-core \
+node scripts/deploy_cloudflare_static.mjs
+```
+
+Pass criteria:
+
+- Static export completes and produces `armageddon-site/out`.
+- The deploy script reports successful asset upload and route verification.
 - `/api/run` Temporal dispatch remains local/Moat-backed unless Cloudflare compatibility is explicitly proven.
 - Local Moat verification continues to pass unchanged.
 
@@ -133,7 +147,7 @@ Before treating the legacy preview-host provider as fully decommissioned, confir
 - [ ] No legacy preview-host config file remains in the repository.
 - [ ] Active README assets are repository-local or Cloudflare-hosted and load.
 - [ ] Footer deployment copy reflects Cloudflare/local Moat posture.
-- [ ] Cloudflare frontend proof exists, or local-only replacement is explicitly accepted.
+- [ ] Cloudflare static frontend proof exists, or local-only replacement is explicitly accepted.
 - [ ] `/api/run` Temporal dispatch is still backed by a proven local/Moat service.
 - [ ] Provider GitHub integration / required check is removed from provider or GitHub settings if it still appears.
 - [ ] Post-change `rg` scan shows only intentional historical/audit or legacy-provider audit references remain.

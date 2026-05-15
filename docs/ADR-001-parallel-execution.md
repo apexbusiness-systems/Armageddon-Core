@@ -1,5 +1,12 @@
 # ADR 001: Parallel Battery Execution
 
+
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15
+**Status**: Accepted
+**Scope**: Parallel battery execution decision record.
+
+
 ## Status
 Accepted
 

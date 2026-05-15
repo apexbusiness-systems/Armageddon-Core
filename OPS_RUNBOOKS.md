@@ -3,7 +3,7 @@
 > **CLASSIFICATION**: INTERNAL EYES ONLY
 > **SEVERITY**: CRITICAL
 > **VERSION**: 2.1.1 ("Kinetic Moat" docs refresh)
-> **LAST REVIEWED**: 2026-05-14
+> **LAST REVIEWED**: 2026-05-15
 
 ---
 
@@ -109,7 +109,7 @@ docker exec armageddon-worker-moat printenv | findstr SIM_MODE
 
 ### 4.1 ADD_CERTIFIED_ORG
 
-Reflexively handled via `admin-tools` scripts (TBD).
+Handled by validated operator runbooks and repository scripts only; no `admin-tools` automation is defined in this repository as of 2026-05-15.
 
 ### 4.2 PROVISION_SANDBOX
 

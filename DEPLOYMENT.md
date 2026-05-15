@@ -1,8 +1,8 @@
 # ARMAGEDDON DEPLOYMENT PROTOCOL [LEVEL 8]
 
 > **CLASSIFICATION**: PROPRIETARY / INTERNAL
-> **VERSION**: 2.0.1 (Moat Edition docs refresh)
-> **LAST REVIEWED**: 2026-05-14
+> **VERSION**: 2.0.2 (Moat Edition docs refresh)
+> **LAST REVIEWED**: 2026-05-15
 
 ---
 

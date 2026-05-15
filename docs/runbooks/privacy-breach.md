@@ -1,5 +1,10 @@
 # Privacy Breach Runbook
 
+
+**Last reviewed:** 2026-05-15<br>
+**Status:** Privacy breach response runbook.
+
+
 ## Canadian Law Obligations
 
 ### PIPEDA (s.10.1 — federal)
