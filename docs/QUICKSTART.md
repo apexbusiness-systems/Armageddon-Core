@@ -1,7 +1,7 @@
 # Armageddon Quick Start
 
-**Docs version**: 2026.05.14<br>
-**Last reviewed**: 2026-05-14<br>
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15<br>
 **Primary package manager**: npm<br>
 **Verified against**: root `package.json`, `armageddon-core/package.json`, `armageddon-site/package.json`
 

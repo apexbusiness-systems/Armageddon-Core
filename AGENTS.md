@@ -1,8 +1,8 @@
 # ARMAGEDDON Agent Operating Instructions
 
 **Scope**: Entire repository.<br>
-**Docs version**: 2026.05.14<br>
-**Last reviewed**: 2026-05-14
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15
 
 ## Non-negotiable workflow
 
@@ -34,5 +34,5 @@ npx --yes jscpd --min-lines 5 --min-tokens 50 --reporters console --mode strict 
 - Update dates using ISO format: `YYYY-MM-DD`.
 - Add a `Last reviewed` or `Last updated` line to new operational documents.
 - If a document is historical, mark it `Historical record` instead of rewriting history.
-- Prefer updating `docs/README.md` and `docs/DOCUMENTATION_AUDIT_2026-05-14.md` when adding, moving, or deprecating docs.
+- Prefer updating `docs/README.md` and `docs/DOCUMENTATION_AUDIT_2026-05-15.md` when adding, moving, or deprecating docs.
 - Do not create conversational docs that ask the reader to report back; write executable, verifiable steps.

@@ -1,8 +1,9 @@
 # Deployment Audit — Cloudflare/Local Migration Gate
 
-**Date:** 2026-05-06
-**Scope:** Audit deployment dependencies and identify the minimum safe path to deprecate legacy preview-host production reliance after Cloudflare/local proof.
-**Patch status:** Documentation-only. No runtime code, test batteries, branding copy, or certification copy changed.
+**Date:** 2026-05-06<br>
+**Last reviewed:** 2026-05-15<br>
+**Scope:** Historical audit of deployment dependencies and legacy preview-host decommission gates.
+**Patch status:** Historical record with 2026-05-15 superseding notes. Current deployment posture is tracked in `PRODUCTION_STATUS.md` and `docs/DOCUMENTATION_AUDIT_2026-05-15.md`.
 
 ## 1. Current Deployment Paths
 
@@ -30,13 +31,13 @@ Moat services currently include:
 
 `armageddon-site` exposes standard Next.js scripts (`dev`, `build`, `start`). The Moat compose file does not currently define a Next.js site container, so the local UI path is a separate process until an explicit site service is approved and proven.
 
-### Render Blueprint — stale/deprecated candidate
+### Render Blueprint — removed
 
-`render.yaml` defines a Docker worker on Render, but repository status documentation records a pivot away from Render after blueprint failure. Treat this as stale infrastructure residue unless a fresh Render path is explicitly re-approved.
+The deprecated `render.yaml` blueprint and duplicate `renderyaml` file were removed on 2026-05-15 because no root script or workflow consumes Render deployment and the active deployment posture is Moat plus static Cloudflare edge.
 
-### Cloudflare — signaled, not yet proven
+### Cloudflare static edge — configured, runtime proof still external
 
-Cloudflare appears in UI status copy, but this repository currently has no `wrangler.toml`, OpenNext Cloudflare adapter config, Cloudflare Pages config, or Cloudflare deploy script. Cloudflare is therefore not a proven deployment path yet.
+The repository now contains `armageddon-site/wrangler.jsonc`, `scripts/deploy_cloudflare_static.mjs`, and `docs/CLOUDFLARE_DEPLOYMENT.md`. These files define a static Cloudflare edge deployment path for the site. Actual Cloudflare account deployment health still requires fresh operator evidence from Cloudflare.
 
 ## 2. Legacy Preview-Host Artifacts and Status
 
@@ -49,7 +50,7 @@ Cloudflare appears in UI status copy, but this repository currently has no `wran
 | README hosted image URLs | `README.md` uses repository-local image assets | Migrated | No external preview-host asset dependency remains. |
 | Footer deployment badge/copy | `armageddon-site/src/components/Footer.tsx` | Migrated | Shows Cloudflare/local Moat deployment posture. |
 | Readiness deployment references | `docs/READINESS_ASSESSMENT.md` | Migrated | Checklist now points at Cloudflare/local deployment. |
-| Render blueprint | `render.yaml` | Stale/deprecated candidate | Deprecate separately from legacy preview host after approval. |
+| Render blueprint | `render.yaml`, `renderyaml` | Removed on 2026-05-15 | Reintroduce only with a new deployment decision record. |
 
 ## 3. Cloudflare/Local Replacement Plan
 
@@ -63,7 +64,7 @@ Build and start `armageddon-site` outside any legacy preview host. This establis
 
 ### Gate C — prove Cloudflare frontend third
 
-Only after local proof, add the minimum Cloudflare Pages/OpenNext configuration needed to build the frontend target. Do not route Temporal workflow dispatch through Cloudflare until compatibility is explicitly proven.
+Use `npm run build:cloudflare -w armageddon-site` and `scripts/deploy_cloudflare_static.mjs` for static edge proof. Do not route Temporal workflow dispatch through Cloudflare until compatibility is explicitly proven.
 
 ### Gate D — preserve Temporal API safety
 
@@ -89,11 +90,11 @@ Completed migration records:
 Current repository constraints:
 
 - No package dependency changes.
-- No package script changes.
-- No Docker compose changes.
-- No branding or certification copy changes.
-- No test battery changes.
-- Active deployment UI/README copy now uses Cloudflare/local wording and repository-local assets.
+- Current package scripts remain npm-based.
+- Docker compose remains focused on local Moat/development operation.
+- Branding and certification copy are outside this historical audit update.
+- Test batteries are outside this historical audit update.
+- Active deployment UI/README copy uses Cloudflare/local wording and repository-local assets.
 
 ## 5. Risk Register
 

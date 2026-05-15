@@ -12,7 +12,7 @@ const EXCLUDED_PREFIXES = [
   'docs/launch-prep/',
 ];
 const EXCLUDED_FILES = new Set([
-  'docs/DOCUMENTATION_AUDIT_2026-05-14.md',
+  'docs/DOCUMENTATION_AUDIT_2026-05-15.md',
   'audit_log.md',
 ]);
 const FORBIDDEN_PATTERNS = [

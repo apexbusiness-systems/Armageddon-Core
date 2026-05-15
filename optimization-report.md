@@ -1,5 +1,10 @@
 # Performance Optimization Verification Report
 
+
+**Last reviewed:** 2026-05-15<br>
+**Status:** Historical performance optimization report.
+
+
 ## Overview
 This report documents the verification of the batch insert optimization in `armageddon-core/src/temporal/activities.ts`. The original code used a sequential N+1 loop to push events to Supabase, which was highly inefficient due to network round-trips. The optimized version uses `SupabaseReporter.pushEvents` to batch inserts.
 

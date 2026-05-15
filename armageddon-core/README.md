@@ -1,5 +1,11 @@
 # Armageddon Core - Adversarial Engine
 
+
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15
+**Scope**: Core worker/adversarial engine package README.
+
+
 The certification engine for Armageddon Level 7.
 
 ## Performance & Concurrency

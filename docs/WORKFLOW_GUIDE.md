@@ -1,6 +1,10 @@
 # Armageddon Test Suite — Complete Workflow Guide
 
-![Complete Testing Workflow](C:\Users\sinyo.gemini\antigravity\brain\a816da88-a331-4272-ab50-28d340eda56c\armageddon_workflow_flowchart.webp)
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15<br>
+**Scope**: Operator workflow reference for onboarding, run execution, monitoring, completion, and artifact review.
+
+Visual map: [`docs/workflow_flowchart.html`](./workflow_flowchart.html).
 
 ---
 
@@ -9,7 +13,7 @@
 ### Step 1.1: Account Creation
 
 ```
-User → armageddon.apex.com → Sign Up
+User → configured Armageddon site origin → Sign Up
 ├─ Email + Password (traditional)
 └─ GitHub OAuth (recommended)
 ```
@@ -141,7 +145,7 @@ User Browser ←──[WebSocket]──→ Supabase Realtime
 ### Workflow Completion
 
 ```
-All 13 batteries complete
+Requested workflow batteries complete
 ↓
 Generate final report
 ↓

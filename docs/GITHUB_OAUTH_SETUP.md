@@ -1,75 +1,63 @@
 # GitHub OAuth Setup Guide
 
-## Fix LOGIN Button on armageddon.icu
+**Docs version**: 2026.05.15<br>
+**Last reviewed**: 2026-05-15<br>
+**Scope**: Supabase GitHub provider setup for local and production site login
 
-### Step 1: Create GitHub OAuth App
+Use this runbook when the LOGIN control on `armageddon-site` does not complete GitHub OAuth. Do not commit GitHub OAuth client secrets or Supabase service-role keys.
 
-1. Go to https://github.com/settings/developers
-2. Click **"New OAuth App"**
-3. Fill in:
+## Step 1: Create a GitHub OAuth app
+
+1. Open <https://github.com/settings/developers>.
+2. Select **New OAuth App**.
+3. Configure the app:
    - **Application name**: `Armageddon Test Suite`
    - **Homepage URL**: `https://www.armageddon.icu`
-   - **Authorization callback URL**: `https://qhjqselqpkfqjfpuxykb.supabase.co/auth/v1/callback`
-4. Click **"Register application"**
-5. **Copy the Client ID** (you'll need this)
-6. Click **"Generate a new client secret"**
-7. **Copy the Client Secret** immediately (you can't see it again)
+   - **Authorization callback URL**: Supabase Auth callback URL for the active project.
+4. Register the application.
+5. Copy the Client ID into the secure operator vault.
+6. Generate one client secret and store it in the secure operator vault immediately.
 
----
+## Step 2: Configure the Supabase GitHub provider
 
-### Step 2: Configure Supabase GitHub Provider
+1. In the Supabase dashboard, open **Authentication** → **Providers**.
+2. Expand **GitHub**.
+3. Enable the provider.
+4. Paste the GitHub Client ID and Client Secret from the secure operator vault.
+5. Save the provider configuration.
 
-1. In Supabase Dashboard, go to **Authentication** → **Providers**
-2. Find **GitHub** in the provider list
-3. Click to expand GitHub settings
-4. Enable the toggle
-5. Paste:
-   - **Client ID** from GitHub
-   - **Client Secret** from GitHub
-6. Click **Save**
+## Step 3: Configure site URLs
 
----
+Add every approved callback origin in Supabase Auth URL configuration:
 
-### Step 3: Update Site URLs (Already Done ✅)
+- Local development: `http://localhost:3000`
+- Production site: `https://www.armageddon.icu`
 
-You already have:
+Verify the deployed site origin before adding it. Do not add wildcard redirect URLs.
 
-- ✅ Site URL: `http://localhost:3000` (for local dev)
+## Step 4: Test locally
 
-**Add Production URL**:
-
-- In **Auth URL Configuration**, add: `https://www.armageddon.icu`
-
----
-
-### Step 4: Test
-
-**Local Testing**:
+Run from the repository root:
 
 ```bash
-cd armageddon-site
-npm run dev
-# Visit localhost:3000, click LOGIN
+npm run dev -w armageddon-site
 ```
 
-**Production Testing**:
+Then open `http://localhost:3000`, select LOGIN, complete GitHub consent, and confirm the authenticated identity renders in the site UI.
 
-- Visit https://www.armageddon.icu
-- Click **LOGIN**
-- Should redirect to GitHub OAuth consent screen
-- After approval, redirects back to site logged in
+## Step 5: Test production
 
----
+1. Open the verified production URL.
+2. Select LOGIN.
+3. Confirm GitHub consent appears.
+4. Complete consent.
+5. Confirm the browser returns to the production site with an authenticated session.
 
 ## Troubleshooting
 
-**Button still doesn't work?**
-
-- Check browser console (F12) for errors
-- Verify callback URL exactly matches: `https://qhjqselqpkfqjfpuxykb.supabase.co/auth/v1/callback`
-- Ensure GitHub OAuth app is not suspended
-
-**Redirect loops?**
-
-- Make sure Site URL is set correctly in Supabase
-- Check that redirect URL in `AuthControl.tsx` matches site URL
+| Symptom | Verification | Fix |
+| --- | --- | --- |
+| Login button does not redirect | Browser console shows Supabase or auth initialization error | Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. |
+| GitHub reports callback mismatch | GitHub OAuth app callback differs from Supabase Auth callback URL | Update the GitHub OAuth app callback URL to the exact Supabase Auth callback URL. |
+| Redirect loop after consent | Supabase Site URL or redirect allow-list is incomplete | Add the exact local or production origin; remove wildcard entries. |
+| Production succeeds but local fails | Local origin is missing from Supabase Auth URL config | Add `http://localhost:3000` for local development. |

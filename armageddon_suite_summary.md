@@ -1,7 +1,8 @@
 # ARMAGEDDON SUITE SUMMARY - ENTERPRISE AUDIT
 
-**Date:** 2026-01-25
-**Status:** OPTIMIZED & HARDENED
+**Date:** 2026-01-25<br>
+**Last reviewed:** 2026-05-15<br>
+**Status:** Historical record — not current release posture<br>
 **Version:** 1.2.0
 
 ## 📊 Executive Summary
@@ -58,7 +59,7 @@ The suite now operates in two layers:
 
 2.  **Implement Asset Verification (Battery 8):**
     - Write a script to verify build artifacts (check for `dist/index.html`, `favicon.ico`).
-    - Move from placeholder to real verification.
+    - Move from static simulation to runtime asset verification.
 
 3.  **Telemetry Integration:**
     - Enhance `SupabaseReporter` to batch events for higher throughput during "God Mode" (10,000 iterations).
