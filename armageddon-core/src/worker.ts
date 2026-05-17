@@ -1,6 +1,7 @@
 import { Worker, NativeConnection } from '@temporalio/worker';
 import * as activities from './temporal/activities';
 import { safetyGuard } from './core/safety';
+import { getAttestationPublicKey } from './core/attestation';
 import { HealthServer } from './infrastructure/health';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -62,6 +63,23 @@ export async function createArmageddonWorker(): Promise<Worker> {
     } catch (err) {
         console.error('[Worker] SAFETY LOCKDOWN. REFUSING TO START.');
         console.error(err);
+        healthServer.setWorkerState('STOPPED');
+        process.exit(1);
+    }
+
+    // 1b. Report attestation key state at boot so operators can immediately
+    //     see whether certificates will carry a stable verification key
+    //     (env-seeded) or a per-process key (ephemeral). Public key only —
+    //     the seed never leaves process memory.
+    try {
+        const attest = getAttestationPublicKey();
+        if (attest.source === 'env') {
+            console.log(`[Worker] Attestation: spec=${attest.spec} algorithm=${attest.algorithm} keyId=${attest.keyId} source=env`);
+        } else {
+            console.warn(`[Worker] Attestation: spec=${attest.spec} algorithm=${attest.algorithm} keyId=${attest.keyId} source=EPHEMERAL — set ARMAGEDDON_ATTESTATION_SEED for stable public-key publishing.`);
+        }
+    } catch (err) {
+        console.error('[Worker] Failed to derive attestation key:', err instanceof Error ? err.message : err);
         healthServer.setWorkerState('STOPPED');
         process.exit(1);
     }

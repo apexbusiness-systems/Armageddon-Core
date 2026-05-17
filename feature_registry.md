@@ -1,8 +1,25 @@
 # Feature Registry — ARMAGEDDON Test Suite
 
-**Docs version**: 2026.05.15<br>
-**Last updated**: 2026-05-15<br>
-**Scope**: Armageddon Level 7 certification engine surfaces verified against `armageddon-core/src/temporal/activities.ts`, `armageddon-core/src/temporal/workflows.ts`, and `packages/shared/src/gate.ts`.
+**Docs version**: 2026.05.17<br>
+**Last updated**: 2026-05-17<br>
+**Scope**: Armageddon Level 7 certification engine surfaces verified against `armageddon-core/src/temporal/activities.ts`, `armageddon-core/src/temporal/workflows.ts`, `armageddon-core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`.
+
+## Domain: Cryptographic Attestation (NEW)
+
+- **Feature:** Tamper-Evident Certification Receipts
+  - **Location:** `armageddon-core/src/core/attestation.ts`, `armageddon-core/src/core/evidence-generator.ts`
+  - **Scope:** Ed25519 detached signatures + RFC 6962 SHA-256 Merkle audit tree over every battery result and run metadata; embedded in `report.json`, `certificate.txt`, `report.md`, `manifest.json`; emitted as standalone `attestation.json` + executable zero-dependency `verify.mjs`.
+  - **Status:** Implemented and validated end-to-end. Compliance alignment: EU AI Act Article 12 (Aug 2026), CAP-SRP v1.0, RFC 6962, NIST AI RMF.
+
+- **Feature:** Attestation Public-Key Endpoint
+  - **Location:** `armageddon-site/src/app/api/attestation/pubkey/route.ts`, `armageddon-site/src/lib/attestation-pubkey.ts`
+  - **Scope:** `GET /api/attestation/pubkey` (Node runtime, 24h immutable cache) publishes the Ed25519 verification key derived from `ARMAGEDDON_ATTESTATION_SEED`. Fails closed with HTTP 503 when no seed is configured.
+  - **Status:** Implemented and live-tested.
+
+- **Feature:** Attestation Status Badge (UI)
+  - **Location:** `armageddon-site/src/components/AttestationBadge.tsx`
+  - **Scope:** Surfaces `OFFLINE_VERIFY` / `EPHEMERAL_KEY` / `KEY_UNAVAILABLE` in the Destruction Console header. Powers the cryptographic-evidence narrative in the exported JSON bundle.
+  - **Status:** Implemented and validated via jsdom unit tests.
 
 ## Certification Execution Defaults
 

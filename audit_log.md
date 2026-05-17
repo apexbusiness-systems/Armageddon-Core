@@ -1,7 +1,77 @@
 # Audit Log - ARMAGEDDON Test Suite
 
-**Last reviewed:** 2026-05-15<br>
+**Last reviewed:** 2026-05-17<br>
 **Status:** Historical record — do not use as current release posture.
+
+## Session: 2026-05-17 — Cryptographic Attestation Layer (LEVEL 9)
+
+**Objective:** Convert Armageddon certification receipts from informational
+JSON into tamper-evident, offline-verifiable cryptographic artifacts, aligned
+to EU AI Act Article 12 (Aug 2026), CAP-SRP v1.0, and RFC 6962.
+
+### Scope
+
+- New module `armageddon-core/src/core/attestation.ts`:
+  - Ed25519 signing via Node built-in `node:crypto` (zero new dependencies).
+  - RFC 6962-style SHA-256 Merkle tree with `0x00`/`0x01` domain separation.
+  - RFC 8785-style canonical JSON serialization (deterministic key order,
+    `undefined` drop, non-finite rejection).
+  - Env-seeded key management (`ARMAGEDDON_ATTESTATION_SEED`) with ephemeral
+    fallback for local development.
+  - Standalone verifier emitter — ships a self-contained `verify.mjs` next
+    to every report; third parties verify with zero dependencies.
+- `EvidenceGenerator` now embeds the attestation in `report.json`,
+  `certificate.txt`, `report.md`, `manifest.json` and emits a separate
+  `attestation.json` artifact + executable `verify.mjs`.
+- New public endpoint `GET /api/attestation/pubkey` (Node runtime, 24h
+  immutable cache) for third-party key pinning. Fails closed with HTTP 503
+  when no seed is configured — never publishes a key the signer will not
+  actually use.
+- `DestructionConsole` now surfaces an `AttestationBadge` (OFFLINE_VERIFY /
+  EPHEMERAL_KEY / KEY_UNAVAILABLE) and embeds the published key in the
+  exported JSON evidence bundle.
+
+### Validation Evidence
+
+| Gate | Before | After | Delta |
+|------|--------|-------|-------|
+| `armageddon-core` test count | 77 | 118 | +41 |
+| `armageddon-site` test count | 29 | 42 | +13 |
+| Typecheck | clean | clean | — |
+| Lint | clean | clean | — |
+| `npm run certify:armageddon` | passes | passes | — |
+| New dependencies added | n/a | 0 | — |
+
+### Tamper-evidence Demonstration (`scripts/demo_attestation.ts`)
+
+Reproducible run with `ARMAGEDDON_ATTESTATION_SEED=c0ffee…c0ff`:
+
+| Scenario | Expected | Observed |
+|----------|----------|----------|
+| Clean `report.json` | `[VALID]` exit 0 | `[VALID]` exit 0 |
+| Battery status flipped PASSED→FAILED | `MERKLE_MISMATCH` exit 1 | `MERKLE_MISMATCH` exit 1 |
+| Signature first byte flipped | `SIGNATURE_INVALID` exit 1 | `SIGNATURE_INVALID` exit 1 |
+| `--pubkey` matches embedded key | `[VALID]` exit 0 | `[VALID]` exit 0 |
+| `--pubkey` mismatch | `KEY_MISMATCH` exit 1 | `KEY_MISMATCH` exit 1 |
+
+Cross-workspace key contract: a live `next start` of the site with the same
+seed returns `keyId=ec2eaac6f444c794`,
+`publicKey=zF9UEEbPwuIPvi7zvpYQC5OC2LZJQTA7TBu7ks1Ir2Q=` — byte-identical to
+the signer's output. See `attestation-demo-evidence.json` for the durable
+summary.
+
+### Operator Notes
+
+- Production deployments **must** set `ARMAGEDDON_ATTESTATION_SEED` (32-byte
+  hex, base64, or base64url) so the public key remains stable across
+  process restarts and `/api/attestation/pubkey` serves a reproducible key.
+- The seed never leaves the signer process. Only the *public* key appears
+  in artifacts and on the `/api/attestation/pubkey` endpoint.
+- Customers and auditors verify any report with:
+  `node verify.mjs report.json [--pubkey <base64>]`
+- Cache headers on `/api/attestation/pubkey` are 24h immutable. Rotate the
+  seed by setting a new `ARMAGEDDON_ATTESTATION_SEED` and restarting the
+  signer + site; the new `keyId` will appear on the next cache window.
 
 
 ## Session: 2026-01-25 - Initial Audit & Optimization

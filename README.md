@@ -25,6 +25,7 @@
 - **Proprietary Moat**: Docker-based containment field, fully decoupled from cloud providers.
 - **Kinetic Engine**: Node.js/Python hybrid execution context for adversarial batteries.
 - **Zero-Failure Tolerance**: Automated "Kill Switch" protocols.
+- **Tamper-Evident Receipts**: Every certification report is Ed25519-signed with a SHA-256 Merkle audit tree (RFC 6962). Third parties verify offline with the shipped `verify.mjs` — zero dependencies. Public verification key is published at `/api/attestation/pubkey`.
 
 ## 🏗 ARCHITECTURE (PROPRIETARY)
 

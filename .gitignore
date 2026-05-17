@@ -16,3 +16,6 @@ yarn-error.log*
 .env.*
 !.env.example
 !.env.*.example
+
+# Local attestation demo summary (generated on-demand)
+attestation-demo-evidence.json

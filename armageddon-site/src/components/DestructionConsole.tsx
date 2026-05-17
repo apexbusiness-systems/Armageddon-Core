@@ -10,6 +10,7 @@ import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import LockdownModal from './paywall/LockdownModal';
 import AuthControl from './AuthControl';
+import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -140,6 +141,7 @@ export default function DestructionConsole({
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const user = useAuth();
+    const attestationPubKey = useAttestationPubKey();
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
     // Removed unused userTier
     const [canCustomize, setCanCustomize] = useState(false);
@@ -364,6 +366,15 @@ export default function DestructionConsole({
             complianceMode: localStorage.getItem('complianceMode') || 'STRICT',
             timestamp: new Date().toISOString(),
             runId: runId || 'unknown',
+            attestation: attestationPubKey
+                ? {
+                      spec: attestationPubKey.spec,
+                      algorithm: attestationPubKey.algorithm,
+                      keyId: attestationPubKey.keyId,
+                      publicKey: attestationPubKey.publicKey,
+                      note: 'Fetch the canonical certificate (report.json) from the run pipeline; verify with `node verify.mjs report.json --pubkey <publicKey>`.',
+                  }
+                : { note: 'Attestation key not configured on this instance.' },
             logs: terminalLines
         };
         const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
@@ -542,6 +553,9 @@ export default function DestructionConsole({
                                     <span className={`mono-small ${isRunning ? 'text-[var(--safe)]' : 'text-zinc-500'} opacity-70`}>
                                         {isRunning ? 'ONLINE' : 'STANDBY'}
                                     </span>
+                                </div>
+                                <div className="border-l border-white/10 pl-4">
+                                    <AttestationBadge />
                                 </div>
                             </div>
                         </div>
