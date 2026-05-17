@@ -210,6 +210,72 @@ describe('attestation: key management', () => {
     });
 });
 
+describe('attestation: details normalization (JSON-equivalent semantics)', () => {
+    // The signer must see the exact same battery `details` shape that the
+    // verifier reconstructs from the published `report.json`. These tests
+    // pin the explicit normalizer to JSON-roundtrip semantics so any drift
+    // is caught at unit-test time, not at signature-validation time.
+    afterEach(() => resetAttestationKeyForTesting());
+
+    function detailsLeafFor(details: Record<string, unknown>): string {
+        const att = createAttestation(
+            mkInput({ batteries: [{
+                batteryId: 'BX_NORMALIZE',
+                status: 'PASSED',
+                iterations: 1,
+                blockedCount: 0,
+                breachCount: 0,
+                driftScore: 0,
+                duration: 0,
+                details,
+            }] }),
+        );
+        return att.leaves[1].hash; // META is leaves[0]
+    }
+
+    it('matches JSON.stringify→JSON.parse for typical objects', () => {
+        withSeed(STABLE_HEX_SEED, () => {
+            const a = detailsLeafFor({ a: 1, b: 'x', c: true, d: [1, 2], e: { nested: 'y' } });
+            const b = detailsLeafFor(
+                JSON.parse(JSON.stringify({ a: 1, b: 'x', c: true, d: [1, 2], e: { nested: 'y' } })) as Record<string, unknown>,
+            );
+            expect(a).toBe(b);
+        });
+    });
+
+    it('drops undefined properties (matches JSON.stringify)', () => {
+        withSeed(STABLE_HEX_SEED, () => {
+            const withUndef = detailsLeafFor({ a: 1, b: undefined });
+            const without = detailsLeafFor({ a: 1 });
+            expect(withUndef).toBe(without);
+        });
+    });
+
+    it('coerces non-finite numbers to null (matches JSON.stringify)', () => {
+        withSeed(STABLE_HEX_SEED, () => {
+            const fromNaN = detailsLeafFor({ value: Number.NaN });
+            const fromNull = detailsLeafFor({ value: null });
+            expect(fromNaN).toBe(fromNull);
+            expect(detailsLeafFor({ value: Number.POSITIVE_INFINITY })).toBe(fromNull);
+            expect(detailsLeafFor({ value: Number.NEGATIVE_INFINITY })).toBe(fromNull);
+        });
+    });
+
+    it('replaces undefined/function/symbol in arrays with null', () => {
+        withSeed(STABLE_HEX_SEED, () => {
+            const fromUndef = detailsLeafFor({ arr: [1, undefined, 3] });
+            const fromNull = detailsLeafFor({ arr: [1, null, 3] });
+            expect(fromUndef).toBe(fromNull);
+        });
+    });
+
+    it('rejects bigints (no JSON representation)', () => {
+        withSeed(STABLE_HEX_SEED, () => {
+            expect(() => detailsLeafFor({ big: 1n })).toThrow(/bigint/);
+        });
+    });
+});
+
 describe('attestation: createAttestation/verifyAttestation', () => {
     afterEach(() => resetAttestationKeyForTesting());
 
