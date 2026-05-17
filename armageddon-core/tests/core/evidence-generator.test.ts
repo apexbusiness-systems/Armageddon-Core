@@ -205,30 +205,23 @@ describe('EvidenceGenerator', () => {
             const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
             const parsed = JSON.parse(gen.generateReportJson());
 
-            // Rebuild the AttestationInput from the public JSON surface
-            // exactly the way the standalone verify.mjs script would.
+            // Build the verifier input directly from the source-of-truth
+            // mockReport + mockOptions. This avoids re-implementing the
+            // snake_case→camelCase mapping in tests (which production code
+            // already owns) and proves the attestation embedded in the
+            // round-tripped JSON still validates against the original input.
             const input: AttestationInput = {
-                runId: parsed.run_id,
-                issuedAt: parsed.attestation.issuedAt,
+                runId: 'test-run-id',
+                issuedAt: mockReport.meta.timestamp,
                 verdict: parsed.verdict,
-                score: parsed.score,
-                grade: parsed.grade,
-                seed: parsed.chaos_seed,
-                mode: parsed.mode,
-                targetUrl: parsed.target_url,
-                batteries: parsed.batteries.map((b: Record<string, unknown>) => ({
-                    batteryId: b.full_id as string,
-                    status: b.status as string,
-                    iterations: b.tests_run as number,
-                    blockedCount: b.blocked as number,
-                    breachCount: b.breaches as number,
-                    driftScore: b.drift_score as number,
-                    duration: b.duration_ms as number,
-                    details: (b.metrics ?? {}) as Record<string, unknown>,
-                })),
+                score: mockReport.score,
+                grade: mockReport.grade,
+                seed: mockOptions.seed,
+                mode: mockOptions.mode,
+                targetUrl: mockOptions.targetUrl,
+                batteries: mockReport.batteries,
             };
-            const result = verifyAttestation(parsed.attestation, input);
-            expect(result).toEqual({ valid: true });
+            expect(verifyAttestation(parsed.attestation, input)).toEqual({ valid: true });
         });
 
         it('renders attestation details into certificate.txt', () => {

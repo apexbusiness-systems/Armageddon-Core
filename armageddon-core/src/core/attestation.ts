@@ -313,20 +313,67 @@ export interface AttestationInput {
 }
 
 /**
- * Project arbitrary details onto a JSON-roundtripped view so the in-memory
- * signer sees exactly the same value shape that the standalone verifier will
- * reconstruct from the published `report.json`.
+ * Recursively project a value onto the same shape that survives
+ * `JSON.stringify` → `JSON.parse`. We must NOT use `structuredClone` here:
+ * structuredClone preserves `undefined`, custom prototypes, and other
+ * fields that the published `report.json` (which goes through JSON
+ * serialization) does not carry — and the standalone verifier reads from
+ * that JSON, so any divergence would invalidate every signature.
  *
- * IMPORTANT: This intentionally uses `JSON.parse(JSON.stringify(...))` and
- * NOT `structuredClone`. The JSON round-trip drops `undefined` properties,
- * coerces non-finite numbers to `null`, and skips functions/symbols —
- * exactly matching what the published JSON the verifier will read contains.
- * `structuredClone` preserves `undefined` and would silently diverge.
+ * Semantics (mirrors JSON.stringify):
+ *   • `undefined` / function / symbol values: dropped in objects,
+ *     converted to `null` in arrays.
+ *   • Non-finite numbers (NaN, ±Infinity): coerced to `null`.
+ *   • `bigint`: rejected — JSON cannot represent it.
+ *   • Everything else: returned as-is (primitives) or recursively normalized.
+ *
+ * Implementing this explicitly (rather than `JSON.parse(JSON.stringify())`)
+ * keeps the intent visible and avoids the indirect serialization round-trip.
+ */
+function jsonNormalizeValue(value: unknown): unknown {
+    if (value === null) return null;
+    const type = typeof value;
+    if (type === 'string' || type === 'boolean') return value;
+    if (type === 'number') {
+        return Number.isFinite(value as number) ? value : null;
+    }
+    if (type === 'bigint') {
+        throw new TypeError('jsonNormalizeValue: bigint values are not representable in JSON');
+    }
+    if (type === 'undefined' || type === 'function' || type === 'symbol') {
+        return undefined; // marker — callers handle the array/object distinction
+    }
+    if (Array.isArray(value)) {
+        return value.map(v => {
+            const normalized = jsonNormalizeValue(v);
+            return normalized === undefined ? null : normalized;
+        });
+    }
+    if (type === 'object') {
+        const obj = value as Record<string, unknown>;
+        const out: Record<string, unknown> = {};
+        for (const key of Object.keys(obj)) {
+            const normalized = jsonNormalizeValue(obj[key]);
+            if (normalized !== undefined) {
+                out[key] = normalized;
+            }
+        }
+        return out;
+    }
+    return undefined;
+}
+
+/**
+ * Project battery `details` onto the JSON-equivalent shape the verifier sees
+ * after reading the published `report.json`. See `jsonNormalizeValue` for
+ * the exact semantics.
  */
 function normalizeDetails(details: Record<string, unknown> | undefined): Record<string, unknown> {
     if (!details) return {};
-    // NOSONAR: JSON round-trip is the required normalization, not deep clone.
-    return JSON.parse(JSON.stringify(details)) as Record<string, unknown>;
+    const normalized = jsonNormalizeValue(details);
+    return (normalized && typeof normalized === 'object' && !Array.isArray(normalized))
+        ? (normalized as Record<string, unknown>)
+        : {};
 }
 
 /**
