@@ -6,6 +6,12 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ArmageddonReport } from '../temporal/activities';
+import {
+    Attestation,
+    AttestationInput,
+    createAttestation,
+    renderStandaloneVerifier,
+} from './attestation';
 
 export interface EvidenceOptions {
     seed: number;
@@ -30,11 +36,50 @@ export class EvidenceGenerator {
     private readonly report: ArmageddonReport;
     private readonly runId: string;
     private readonly options: EvidenceOptions;
+    private cachedAttestation: Attestation | null = null;
 
     constructor(report: ArmageddonReport, runId: string, options: EvidenceOptions) {
         this.report = report;
         this.runId = runId;
         this.options = options;
+    }
+
+    private computeVerdict(): 'CERTIFIED' | 'FAILED' {
+        return (this.report.status === 'COMPLETED' || this.report.status === 'PASSED') && this.report.score >= 90
+            ? 'CERTIFIED'
+            : 'FAILED';
+    }
+
+    private buildAttestationInput(): AttestationInput {
+        return {
+            runId: this.runId,
+            issuedAt: this.report.meta.timestamp,
+            verdict: this.computeVerdict(),
+            score: this.report.score,
+            grade: this.report.grade,
+            seed: this.options.seed,
+            mode: this.options.mode,
+            targetUrl: this.options.targetUrl,
+            batteries: this.report.batteries.map(b => ({
+                batteryId: b.batteryId,
+                status: b.status,
+                iterations: b.iterations,
+                blockedCount: b.blockedCount,
+                breachCount: b.breachCount,
+                driftScore: b.driftScore,
+                duration: b.duration,
+                details: b.details,
+            })),
+        };
+    }
+
+    /**
+     * Build (or reuse) the cryptographic attestation for this report.
+     * Deterministic: same report + same signing key → same attestation.
+     */
+    public getAttestation(): Attestation {
+        this.cachedAttestation ??= createAttestation(this.buildAttestationInput());
+        return this.cachedAttestation;
     }
 
     private parseBatteryId(fullId: string): { id: number; name: string } {
@@ -51,7 +96,8 @@ export class EvidenceGenerator {
     }
 
     public generateReportJson(): string {
-        const verdict = (this.report.status === 'COMPLETED' || this.report.status === 'PASSED') && this.report.score >= 90 ? 'CERTIFIED' : 'FAILED';
+        const verdict = this.computeVerdict();
+        const attestation = this.getAttestation();
 
         const fullReport = {
             run_id: this.runId,
@@ -73,17 +119,24 @@ export class EvidenceGenerator {
                     tests_run: b.iterations,
                     blocked: b.blockedCount,
                     breaches: b.breachCount,
+                    drift_score: b.driftScore,
                     metrics: b.details
                 };
             }),
+            attestation,
             legal_notice: LEGAL_HEADER_MD.replace('> ', '')
         };
         return JSON.stringify(fullReport, null, 2);
     }
 
+    public generateAttestationJson(): string {
+        return JSON.stringify(this.getAttestation(), null, 2);
+    }
+
     public generateReportMd(): string {
-        const verdict = (this.report.status === 'COMPLETED' || this.report.status === 'PASSED') && this.report.score >= 90 ? 'CERTIFIED' : 'FAILED';
+        const verdict = this.computeVerdict();
         const date = new Date(this.report.meta.timestamp).toUTCString();
+        const attestation = this.getAttestation();
 
         let md = `# ARMAGEDDON LEVEL 7 CERTIFICATION REPORT\n\n`;
         md += `${LEGAL_HEADER_MD}\n\n`;
@@ -96,6 +149,15 @@ export class EvidenceGenerator {
         md += `- **Mode:** ${this.options.mode}\n`;
         md += `- **Seed:** ${this.options.seed}\n`;
         if (this.options.targetUrl) md += `- **Target:** ${this.options.targetUrl}\n`;
+
+        md += `\n## Tamper-Evident Attestation\n\n`;
+        md += `> Verify offline: \`node verify.mjs report.json\`\n\n`;
+        md += `- **Spec:** \`${attestation.spec}\`\n`;
+        md += `- **Algorithm:** \`${attestation.algorithm}\`\n`;
+        md += `- **Chain ID:** \`${attestation.chainId}\`\n`;
+        md += `- **Key ID:** \`${attestation.keyId}\`\n`;
+        md += `- **Merkle Root:** \`${attestation.merkleRoot}\`\n`;
+        md += `- **Digest:** \`${attestation.digest}\`\n`;
 
         md += `\n## Battery Results\n\n`;
         md += `| ID | Battery Name | Status | Duration | Iterations | Blocked | Breaches |\n`;
@@ -121,7 +183,8 @@ export class EvidenceGenerator {
     }
 
     public generateCertificateTxt(): string {
-        const verdict = (this.report.status === 'COMPLETED' || this.report.status === 'PASSED') && this.report.score >= 90 ? 'CERTIFIED' : 'FAILED';
+        const verdict = this.computeVerdict();
+        const attestation = this.getAttestation();
         const passedCount = this.report.batteries.filter(b => b.status === 'PASSED').length;
         const failedCount = this.report.batteries.filter(b => b.status === 'FAILED').length;
 
@@ -161,6 +224,15 @@ Level 7 God Mode:
   Status:               ${verdict}
 
 VERDICT: ${verdict}
+
+Tamper-Evident Attestation:
+  Spec:               ${attestation.spec}
+  Algorithm:          ${attestation.algorithm}
+  Chain ID:           ${attestation.chainId}
+  Key ID:             ${attestation.keyId}
+  Merkle Root:        ${attestation.merkleRoot}
+  Digest:             ${attestation.digest}
+  Verify offline:     node verify.mjs report.json
 
 ${LEGAL_DISCLAIMER}
 
@@ -220,6 +292,7 @@ Issued by: APEX Business Systems Ltd.
             aibom = { error: 'Failed to read package.json' };
         }
 
+        const attestation = this.getAttestation();
         const manifest = {
             run_id: this.runId,
             timestamp: new Date().toISOString(),
@@ -230,6 +303,15 @@ Issued by: APEX Business Systems Ltd.
             hashes: {
                 report_json: jsonHash,
                 report_md: mdHash
+            },
+            attestation: {
+                spec: attestation.spec,
+                algorithm: attestation.algorithm,
+                chainId: attestation.chainId,
+                keyId: attestation.keyId,
+                publicKey: attestation.publicKey,
+                merkleRoot: attestation.merkleRoot,
+                digest: attestation.digest,
             },
             aibom
         };
@@ -250,12 +332,14 @@ Issued by: APEX Business Systems Ltd.
 
         const jsonContent = this.generateReportJson();
         const mdContent = this.generateReportMd();
-        
+
         fs.writeFileSync(path.join(outputDir, 'report.json'), jsonContent);
         fs.writeFileSync(path.join(outputDir, 'report.md'), mdContent);
         fs.writeFileSync(path.join(outputDir, 'certificate.txt'), this.generateCertificateTxt());
         fs.writeFileSync(path.join(outputDir, 'junit.xml'), this.generateJunitXml());
         fs.writeFileSync(path.join(outputDir, 'manifest.json'), this.generateManifest(jsonContent, mdContent));
+        fs.writeFileSync(path.join(outputDir, 'attestation.json'), this.generateAttestationJson());
+        fs.writeFileSync(path.join(outputDir, 'verify.mjs'), renderStandaloneVerifier(), { mode: 0o755 });
 
 
         // Create per-battery logs (stubbed for now, using details)

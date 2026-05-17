@@ -3,6 +3,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { EvidenceGenerator, EvidenceOptions } from '../../src/core/evidence-generator';
 import { ArmageddonReport } from '../../src/temporal/activities';
+import {
+    verifyAttestation,
+    resetAttestationKeyForTesting,
+    type AttestationInput,
+} from '../../src/core/attestation';
 
 // Mock fs module
 vi.mock('node:fs', () => ({
@@ -149,6 +154,17 @@ describe('EvidenceGenerator', () => {
                 expect.any(String)
             );
 
+            // Verify attestation artifacts
+            expect(fs.writeFileSync).toHaveBeenCalledWith(
+                path.join(outputDir, 'attestation.json'),
+                expect.any(String)
+            );
+            expect(fs.writeFileSync).toHaveBeenCalledWith(
+                path.join(outputDir, 'verify.mjs'),
+                expect.stringContaining('ARMAGEDDON ATTESTATION VERIFIER'),
+                expect.objectContaining({ mode: 0o755 })
+            );
+
             // Verify logs writing
             expect(fs.writeFileSync).toHaveBeenCalledWith(
                 path.join(evidenceDir, 'battery-1.log'),
@@ -158,6 +174,108 @@ describe('EvidenceGenerator', () => {
                 path.join(evidenceDir, 'battery-10.log'),
                 expect.stringContaining('BATTERY 10 STARTED')
             );
+        });
+    });
+
+    describe('attestation integration', () => {
+        const STABLE_HEX_SEED = 'a'.repeat(64);
+
+        beforeEach(() => {
+            process.env.ARMAGEDDON_ATTESTATION_SEED = STABLE_HEX_SEED;
+            resetAttestationKeyForTesting();
+        });
+
+        afterEach(() => {
+            delete process.env.ARMAGEDDON_ATTESTATION_SEED;
+            resetAttestationKeyForTesting();
+        });
+
+        it('embeds an attestation block in report.json', () => {
+            const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const parsed = JSON.parse(gen.generateReportJson());
+            expect(parsed.attestation).toBeDefined();
+            expect(parsed.attestation.algorithm).toBe('ed25519');
+            expect(parsed.attestation.spec).toBe('armageddon-attestation/1.0');
+            expect(parsed.attestation.merkleRoot).toMatch(/^[0-9a-f]{64}$/);
+            expect(parsed.attestation.signature.length).toBeGreaterThan(0);
+            expect(parsed.attestation.leaves.length).toBe(1 + mockReport.batteries.length);
+        });
+
+        it('produces a verifiable attestation when re-parsed from JSON', () => {
+            const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const parsed = JSON.parse(gen.generateReportJson());
+
+            // Rebuild the AttestationInput from the public JSON surface
+            // exactly the way the standalone verify.mjs script would.
+            const input: AttestationInput = {
+                runId: parsed.run_id,
+                issuedAt: parsed.attestation.issuedAt,
+                verdict: parsed.verdict,
+                score: parsed.score,
+                grade: parsed.grade,
+                seed: parsed.chaos_seed,
+                mode: parsed.mode,
+                targetUrl: parsed.target_url,
+                batteries: parsed.batteries.map((b: Record<string, unknown>) => ({
+                    batteryId: b.full_id as string,
+                    status: b.status as string,
+                    iterations: b.tests_run as number,
+                    blockedCount: b.blocked as number,
+                    breachCount: b.breaches as number,
+                    driftScore: b.drift_score as number,
+                    duration: b.duration_ms as number,
+                    details: (b.metrics ?? {}) as Record<string, unknown>,
+                })),
+            };
+            const result = verifyAttestation(parsed.attestation, input);
+            expect(result).toEqual({ valid: true });
+        });
+
+        it('renders attestation details into certificate.txt', () => {
+            const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const txt = gen.generateCertificateTxt();
+            expect(txt).toContain('Tamper-Evident Attestation');
+            expect(txt).toContain('armageddon-attestation/1.0');
+            expect(txt).toContain('Merkle Root:');
+            expect(txt).toMatch(/Digest:\s+[0-9a-f]{64}/);
+            expect(txt).toContain('node verify.mjs report.json');
+        });
+
+        it('renders attestation summary into report.md', () => {
+            const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const md = gen.generateReportMd();
+            expect(md).toContain('## Tamper-Evident Attestation');
+            expect(md).toContain('node verify.mjs report.json');
+            expect(md).toContain('armageddon-attestation/1.0');
+        });
+
+        it('includes attestation summary in manifest.json', () => {
+            const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const manifest = JSON.parse(gen.generateManifest('{}', '#'));
+            expect(manifest.attestation).toBeDefined();
+            expect(manifest.attestation.algorithm).toBe('ed25519');
+            expect(manifest.attestation.merkleRoot).toMatch(/^[0-9a-f]{64}$/);
+        });
+
+        it('attestation is stable across multiple invocations (idempotent)', () => {
+            const g1 = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const g2 = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const a1 = JSON.parse(g1.generateReportJson()).attestation;
+            const a2 = JSON.parse(g2.generateReportJson()).attestation;
+            expect(a2).toEqual(a1);
+        });
+
+        it('attestation changes when any verdict-relevant field changes', () => {
+            const baseline = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
+            const bumped = new EvidenceGenerator(
+                { ...mockReport, score: 99 },
+                'test-run-id',
+                mockOptions
+            );
+            const a1 = JSON.parse(baseline.generateReportJson()).attestation;
+            const a2 = JSON.parse(bumped.generateReportJson()).attestation;
+            expect(a2.merkleRoot).not.toBe(a1.merkleRoot);
+            expect(a2.signature).not.toBe(a1.signature);
         });
     });
 });
