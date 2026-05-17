@@ -335,6 +335,75 @@ describe('attestation: createAttestation/verifyAttestation', () => {
     });
 });
 
+/**
+ * Build the same `report.json` shape that EvidenceGenerator emits, so the
+ * verifier exercises the published surface. Accepts an `overrides` map for
+ * negative tests that need to mutate a published field after signing.
+ */
+function buildPublishedReport(
+    input: AttestationInput,
+    attestation: ReturnType<typeof createAttestation>,
+    overrides: Partial<{ score: number }> = {},
+): Record<string, unknown> {
+    return {
+        run_id: input.runId,
+        timestamp: input.issuedAt,
+        chaos_seed: input.seed,
+        mode: input.mode,
+        target_url: input.targetUrl,
+        verdict: input.verdict,
+        score: overrides.score ?? input.score,
+        grade: input.grade,
+        batteries: input.batteries.map(b => ({
+            full_id: b.batteryId,
+            status: b.status,
+            tests_run: b.iterations,
+            blocked: b.blockedCount,
+            breaches: b.breachCount,
+            drift_score: b.driftScore,
+            duration_ms: b.duration,
+            metrics: b.details,
+        })),
+        attestation,
+    };
+}
+
+/**
+ * Stage `report.json` + `verify.mjs` in a temp dir and return both paths.
+ */
+function stageVerifierBundle(
+    tmp: string,
+    publishedReport: Record<string, unknown>,
+): { reportPath: string; verifyPath: string } {
+    const reportPath = join(tmp, 'report.json');
+    const verifyPath = join(tmp, 'verify.mjs');
+    writeFileSync(reportPath, JSON.stringify(publishedReport, null, 2));
+    writeFileSync(verifyPath, renderStandaloneVerifier());
+    return { reportPath, verifyPath };
+}
+
+/**
+ * Run the standalone verifier with optional CLI args. Returns the captured
+ * exit code, stdout, and stderr — never throws.
+ */
+function runVerifier(
+    verifyPath: string,
+    reportPath: string,
+    extraArgs: string[] = [],
+): { exitCode: number; stdout: string; stderr: string } {
+    try {
+        const stdout = execFileSync(
+            process.execPath,
+            [verifyPath, reportPath, ...extraArgs],
+            { encoding: 'utf8' },
+        );
+        return { exitCode: 0, stdout, stderr: '' };
+    } catch (e) {
+        const err = e as { status: number; stderr: string; stdout: string };
+        return { exitCode: err.status, stdout: err.stdout, stderr: err.stderr };
+    }
+}
+
 describe('attestation: standalone verifier script', () => {
     let tmp: string;
 
@@ -359,42 +428,14 @@ describe('attestation: standalone verifier script', () => {
         withSeed(STABLE_HEX_SEED, () => {
             const input = mkInput();
             const attestation = createAttestation(input);
+            const published = buildPublishedReport(input, attestation);
+            const { reportPath, verifyPath } = stageVerifierBundle(tmp, published);
 
-            // Synthesize the same `report.json` shape that EvidenceGenerator
-            // emits, so the verifier exercises the published surface.
-            const publishedReport = {
-                run_id: input.runId,
-                timestamp: input.issuedAt,
-                chaos_seed: input.seed,
-                mode: input.mode,
-                target_url: input.targetUrl,
-                verdict: input.verdict,
-                score: input.score,
-                grade: input.grade,
-                batteries: input.batteries.map(b => ({
-                    full_id: b.batteryId,
-                    status: b.status,
-                    tests_run: b.iterations,
-                    blocked: b.blockedCount,
-                    breaches: b.breachCount,
-                    drift_score: b.driftScore,
-                    duration_ms: b.duration,
-                    metrics: b.details,
-                })),
-                attestation,
-            };
-
-            const reportPath = join(tmp, 'report.json');
-            const verifyPath = join(tmp, 'verify.mjs');
-            writeFileSync(reportPath, JSON.stringify(publishedReport, null, 2));
-            writeFileSync(verifyPath, renderStandaloneVerifier());
-
-            const out = execFileSync(process.execPath, [verifyPath, reportPath], {
-                encoding: 'utf8',
-            });
-            expect(out).toContain('[VALID]');
-            expect(out).toContain(input.runId);
-            expect(out).toContain(attestation.merkleRoot);
+            const { exitCode, stdout } = runVerifier(verifyPath, reportPath);
+            expect(exitCode).toBe(0);
+            expect(stdout).toContain('[VALID]');
+            expect(stdout).toContain(input.runId);
+            expect(stdout).toContain(attestation.merkleRoot);
         });
     });
 
@@ -402,43 +443,10 @@ describe('attestation: standalone verifier script', () => {
         withSeed(STABLE_HEX_SEED, () => {
             const input = mkInput();
             const attestation = createAttestation(input);
+            const published = buildPublishedReport(input, attestation, { score: 100 });
+            const { reportPath, verifyPath } = stageVerifierBundle(tmp, published);
 
-            const publishedReport = {
-                run_id: input.runId,
-                timestamp: input.issuedAt,
-                chaos_seed: input.seed,
-                mode: input.mode,
-                target_url: input.targetUrl,
-                verdict: input.verdict,
-                score: 100, // TAMPERED
-                grade: input.grade,
-                batteries: input.batteries.map(b => ({
-                    full_id: b.batteryId,
-                    status: b.status,
-                    tests_run: b.iterations,
-                    blocked: b.blockedCount,
-                    breaches: b.breachCount,
-                    drift_score: b.driftScore,
-                    duration_ms: b.duration,
-                    metrics: b.details,
-                })),
-                attestation,
-            };
-
-            const reportPath = join(tmp, 'report.json');
-            const verifyPath = join(tmp, 'verify.mjs');
-            writeFileSync(reportPath, JSON.stringify(publishedReport, null, 2));
-            writeFileSync(verifyPath, renderStandaloneVerifier());
-
-            let exitCode = 0;
-            let stderr = '';
-            try {
-                execFileSync(process.execPath, [verifyPath, reportPath], { encoding: 'utf8' });
-            } catch (e) {
-                const err = e as { status: number; stderr: string };
-                exitCode = err.status;
-                stderr = err.stderr;
-            }
+            const { exitCode, stderr } = runVerifier(verifyPath, reportPath);
             expect(exitCode).toBe(1);
             expect(stderr).toContain('[INVALID]');
         });
@@ -448,46 +456,11 @@ describe('attestation: standalone verifier script', () => {
         withSeed(STABLE_HEX_SEED, () => {
             const input = mkInput();
             const attestation = createAttestation(input);
-
-            const publishedReport = {
-                run_id: input.runId,
-                timestamp: input.issuedAt,
-                chaos_seed: input.seed,
-                mode: input.mode,
-                target_url: input.targetUrl,
-                verdict: input.verdict,
-                score: input.score,
-                grade: input.grade,
-                batteries: input.batteries.map(b => ({
-                    full_id: b.batteryId,
-                    status: b.status,
-                    tests_run: b.iterations,
-                    blocked: b.blockedCount,
-                    breaches: b.breachCount,
-                    drift_score: b.driftScore,
-                    duration_ms: b.duration,
-                    metrics: b.details,
-                })),
-                attestation,
-            };
-
-            const reportPath = join(tmp, 'report.json');
-            const verifyPath = join(tmp, 'verify.mjs');
-            writeFileSync(reportPath, JSON.stringify(publishedReport, null, 2));
-            writeFileSync(verifyPath, renderStandaloneVerifier());
-
+            const published = buildPublishedReport(input, attestation);
+            const { reportPath, verifyPath } = stageVerifierBundle(tmp, published);
             const wrongPub = Buffer.alloc(32, 0x42).toString('base64');
-            let exitCode = 0;
-            let stderr = '';
-            try {
-                execFileSync(process.execPath, [verifyPath, reportPath, '--pubkey', wrongPub], {
-                    encoding: 'utf8',
-                });
-            } catch (e) {
-                const err = e as { status: number; stderr: string };
-                exitCode = err.status;
-                stderr = err.stderr;
-            }
+
+            const { exitCode, stderr } = runVerifier(verifyPath, reportPath, ['--pubkey', wrongPub]);
             expect(exitCode).toBe(1);
             expect(stderr).toContain('KEY_MISMATCH');
         });

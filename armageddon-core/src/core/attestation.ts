@@ -19,34 +19,35 @@
 
 import {
     createHash,
-    createPrivateKey,
     createPublicKey,
     sign as cryptoSign,
     verify as cryptoVerify,
     randomBytes,
     KeyObject,
 } from 'node:crypto';
+import {
+    ATTESTATION_ALGORITHM as SHARED_ATTESTATION_ALGORITHM,
+    ATTESTATION_HASH as SHARED_ATTESTATION_HASH,
+    ATTESTATION_SPEC as SHARED_ATTESTATION_SPEC,
+    ATTESTATION_VERSION as SHARED_ATTESTATION_VERSION,
+    AttestationKeyMaterial as SharedAttestationKeyMaterial,
+    decodeSeed,
+    deriveAttestationKeyMaterial,
+} from '@armageddon/shared/attestation-key';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const ATTESTATION_VERSION = '1.0';
-export const ATTESTATION_ALGORITHM = 'ed25519';
-export const ATTESTATION_HASH = 'sha256';
-export const ATTESTATION_SPEC = 'armageddon-attestation/1.0';
+export const ATTESTATION_VERSION = SHARED_ATTESTATION_VERSION;
+export const ATTESTATION_ALGORITHM = SHARED_ATTESTATION_ALGORITHM;
+export const ATTESTATION_HASH = SHARED_ATTESTATION_HASH;
+export const ATTESTATION_SPEC = SHARED_ATTESTATION_SPEC;
 
 // RFC 6962 domain-separation prefixes for Merkle tree leaves and interior nodes.
 // Prevents second-preimage attacks across leaf/node namespaces.
 const LEAF_PREFIX = Buffer.from([0x00]);
 const NODE_PREFIX = Buffer.from([0x01]);
-
-// PKCS#8 DER prefix for raw 32-byte Ed25519 seed. RFC 8410 §7.
-//   SEQUENCE { INTEGER 0, AlgorithmIdentifier { OID 1.3.101.112 }, OCTET STRING wrapper }
-const ED25519_PKCS8_PREFIX = Buffer.from([
-    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
-    0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -116,6 +117,17 @@ export function canonicalJson(value: unknown): string {
     return serializeCanonical(value);
 }
 
+/**
+ * Pure UTF-16 code-unit ordering. Equivalent to the default `Array#sort`
+ * behavior on strings but expressed explicitly so callers (and SonarCloud)
+ * can see we are intentionally NOT using locale-dependent ordering.
+ */
+function codeUnitCompare(a: string, b: string): number {
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+}
+
 function serializeCanonical(value: unknown): string {
     if (value === null) return 'null';
 
@@ -128,10 +140,13 @@ function serializeCanonical(value: unknown): string {
         return value ? 'true' : 'false';
     }
     if (type === 'number') {
-        if (!Number.isFinite(value as number)) {
-            throw new TypeError(`canonicalJson: non-finite number is not representable (${String(value)})`);
+        // Inside this branch `typeof value === 'number'` so the cast is
+        // narrowing, not a type-erasing assertion.
+        const num = value as number;
+        if (!Number.isFinite(num)) {
+            throw new TypeError(`canonicalJson: non-finite number is not representable (${num})`);
         }
-        return JSON.stringify(value);
+        return JSON.stringify(num);
     }
     if (type === 'bigint') {
         // BigInts have no canonical JSON form; reject explicitly.
@@ -143,7 +158,12 @@ function serializeCanonical(value: unknown): string {
     }
     if (type === 'object') {
         const obj = value as Record<string, unknown>;
-        const keys = Object.keys(obj).filter(k => obj[k] !== undefined).sort();
+        // RFC 8785 requires UTF-16 code-unit lexicographic ordering of keys.
+        // We deliberately do NOT use `localeCompare` here: locale-dependent
+        // ordering would make the signature non-portable across runtimes.
+        const keys = Object.keys(obj)
+            .filter(k => obj[k] !== undefined)
+            .sort(codeUnitCompare);
         const parts = keys.map(k => `${JSON.stringify(k)}:${serializeCanonical(obj[k])}`);
         return `{${parts.join(',')}}`;
     }
@@ -205,62 +225,15 @@ export function computeMerkleRoot(leafPayloads: ReadonlyArray<string>): string {
 // KEY MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface AttestationKeyMaterial {
-    privateKey: KeyObject;
-    publicKey: KeyObject;
-    publicKeyRaw: Buffer;
-    publicKeyB64: string;
-    keyId: string;
+interface AttestationKeyMaterial extends SharedAttestationKeyMaterial {
     source: 'env' | 'ephemeral';
 }
 
 let cachedKeyMaterial: AttestationKeyMaterial | null = null;
 
-function decodeSeed(envValue: string): Buffer {
-    const trimmed = envValue.trim();
-
-    // Hex (64 chars)
-    if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
-        return Buffer.from(trimmed, 'hex');
-    }
-
-    // Base64 or base64url; normalize and validate length.
-    const b64 = trimmed.replace(/-/g, '+').replace(/_/g, '/').padEnd(
-        Math.ceil(trimmed.length / 4) * 4,
-        '='
-    );
-    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) {
-        throw new Error('Invalid ARMAGEDDON_ATTESTATION_SEED: expected 32-byte hex or base64');
-    }
-    const decoded = Buffer.from(b64, 'base64');
-    if (decoded.length !== 32) {
-        throw new Error(`Invalid ARMAGEDDON_ATTESTATION_SEED length: expected 32 bytes, got ${decoded.length}`);
-    }
-    return decoded;
-}
-
 function buildKeyMaterial(seed: Buffer, source: 'env' | 'ephemeral'): AttestationKeyMaterial {
-    const der = Buffer.concat([ED25519_PKCS8_PREFIX, seed]);
-    const privateKey = createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
-    const publicKey = createPublicKey(privateKey);
-    const publicKeyRaw = publicKey.export({ format: 'jwk' }) as { x?: string };
-    if (!publicKeyRaw.x) {
-        throw new Error('Failed to derive Ed25519 public key (no JWK x parameter)');
-    }
-    // JWK `x` is base64url-encoded 32-byte raw public key.
-    const rawBytes = Buffer.from(publicKeyRaw.x.replace(/-/g, '+').replace(/_/g, '/').padEnd(
-        Math.ceil(publicKeyRaw.x.length / 4) * 4,
-        '='
-    ), 'base64');
-    const publicKeyB64 = rawBytes.toString('base64');
-    const keyId = createHash('sha256').update(rawBytes).digest('hex').slice(0, 16);
-
     return {
-        privateKey,
-        publicKey,
-        publicKeyRaw: rawBytes,
-        publicKeyB64,
-        keyId,
+        ...deriveAttestationKeyMaterial(seed),
         source,
     };
 }
@@ -342,12 +315,17 @@ export interface AttestationInput {
 /**
  * Project arbitrary details onto a JSON-roundtripped view so the in-memory
  * signer sees exactly the same value shape that the standalone verifier will
- * reconstruct from the published `report.json`. Without this, in-memory
- * `undefined` properties or non-finite numbers would silently diverge after
- * serialization.
+ * reconstruct from the published `report.json`.
+ *
+ * IMPORTANT: This intentionally uses `JSON.parse(JSON.stringify(...))` and
+ * NOT `structuredClone`. The JSON round-trip drops `undefined` properties,
+ * coerces non-finite numbers to `null`, and skips functions/symbols —
+ * exactly matching what the published JSON the verifier will read contains.
+ * `structuredClone` preserves `undefined` and would silently diverge.
  */
 function normalizeDetails(details: Record<string, unknown> | undefined): Record<string, unknown> {
     if (!details) return {};
+    // NOSONAR: JSON round-trip is the required normalization, not deep clone.
     return JSON.parse(JSON.stringify(details)) as Record<string, unknown>;
 }
 
