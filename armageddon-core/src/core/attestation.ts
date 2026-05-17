@@ -335,7 +335,7 @@ function jsonNormalizeValue(value: unknown): unknown {
     const type = typeof value;
     if (type === 'string' || type === 'boolean') return value;
     if (type === 'number') {
-        return Number.isFinite(value as number) ? value : null;
+        return Number.isFinite(value) ? value : null;
     }
     if (type === 'bigint') {
         throw new TypeError('jsonNormalizeValue: bigint values are not representable in JSON');

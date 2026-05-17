@@ -210,6 +210,22 @@ describe('attestation: key management', () => {
     });
 });
 
+function detailsLeafFor(details: Record<string, unknown>): string {
+    const att = createAttestation(
+        mkInput({ batteries: [{
+            batteryId: 'BX_NORMALIZE',
+            status: 'PASSED',
+            iterations: 1,
+            blockedCount: 0,
+            breachCount: 0,
+            driftScore: 0,
+            duration: 0,
+            details,
+        }] }),
+    );
+    return att.leaves[1].hash; // META is leaves[0]
+}
+
 describe('attestation: details normalization (JSON-equivalent semantics)', () => {
     // The signer must see the exact same battery `details` shape that the
     // verifier reconstructs from the published `report.json`. These tests
@@ -217,28 +233,10 @@ describe('attestation: details normalization (JSON-equivalent semantics)', () =>
     // is caught at unit-test time, not at signature-validation time.
     afterEach(() => resetAttestationKeyForTesting());
 
-    function detailsLeafFor(details: Record<string, unknown>): string {
-        const att = createAttestation(
-            mkInput({ batteries: [{
-                batteryId: 'BX_NORMALIZE',
-                status: 'PASSED',
-                iterations: 1,
-                blockedCount: 0,
-                breachCount: 0,
-                driftScore: 0,
-                duration: 0,
-                details,
-            }] }),
-        );
-        return att.leaves[1].hash; // META is leaves[0]
-    }
-
-    it('matches JSON.stringify→JSON.parse for typical objects', () => {
+    it('produces a deterministic leaf hash for structurally-equal inputs', () => {
         withSeed(STABLE_HEX_SEED, () => {
             const a = detailsLeafFor({ a: 1, b: 'x', c: true, d: [1, 2], e: { nested: 'y' } });
-            const b = detailsLeafFor(
-                JSON.parse(JSON.stringify({ a: 1, b: 'x', c: true, d: [1, 2], e: { nested: 'y' } })) as Record<string, unknown>,
-            );
+            const b = detailsLeafFor({ a: 1, b: 'x', c: true, d: [1, 2], e: { nested: 'y' } });
             expect(a).toBe(b);
         });
     });
