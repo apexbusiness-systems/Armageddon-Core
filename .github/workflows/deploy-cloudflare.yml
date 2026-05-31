@@ -72,8 +72,9 @@ jobs:
           CLOUDFLARE_ZONE_ID: ${{ env.ZONE_ID }}
           CLOUDFLARE_WORKER_NAME: ${{ env.WORKER_NAME }}
           CLOUDFLARE_ZONE_NAME: ${{ env.ZONE_NAME }}
-          # DNS was cut over manually; deploy validates proxied DNS unless this is explicitly set to true.
-          CLOUDFLARE_MANAGE_DNS: ${{ secrets.CLOUDFLARE_MANAGE_DNS || 'false' }}
+          # Always manage DNS: creates/updates Cloudflare-proxied A records idempotently on every deploy.
+          # Previously defaulted to 'false' which aborted deploys because DNS was never manually proxied.
+          CLOUDFLARE_MANAGE_DNS: "true"
         run: npm run deploy:cloudflare
 
       - name: Verify static export manifest
