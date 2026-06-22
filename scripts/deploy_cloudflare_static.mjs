@@ -86,7 +86,9 @@ async function createManifest(outputDir) {
   for (const file of files) {
     const data = await readFile(file.absolute);
     const info = await stat(file.absolute);
-    const hash = createHash('sha256').update(data).digest('hex');
+    // Cloudflare's assets-upload-session expects a 32-hex-char hash (first 16
+    // bytes of SHA-256), matching Wrangler; the full 64-char digest is rejected.
+    const hash = createHash('sha256').update(data).digest('hex').slice(0, 32);
     manifest[file.relative] = { hash, size: info.size };
     byHash.set(hash, { ...file, data, contentType: MIME_TYPES.get(path.extname(file.absolute)) ?? 'application/octet-stream' });
   }
@@ -159,7 +161,7 @@ async function getWorkerCompatibilityDate(workerSourcePath) {
   return compatibilityDate;
 }
 
-async function deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, compatibilityDate, supabaseUrl, supabaseServiceRoleKey }) {
+async function deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, compatibilityDate, supabaseUrl, supabaseServiceRoleKey, canonicalHost }) {
   const scriptName = 'worker.mjs';
   const metadata = {
     main_module: scriptName,
@@ -168,6 +170,8 @@ async function deployWorker({ accountId, workerName, token, completionJwt, worke
       { type: 'assets', name: 'ASSETS' },
       { type: 'secret_text', name: 'SUPABASE_URL', text: supabaseUrl },
       { type: 'secret_text', name: 'SUPABASE_SERVICE_ROLE_KEY', text: supabaseServiceRoleKey },
+      // Tell the worker which zone it is serving so canonical headers/redirects are correct.
+      { type: 'plain_text', name: 'CANONICAL_HOST', text: canonicalHost },
     ],
     assets: {
       jwt: completionJwt,
@@ -216,11 +220,26 @@ async function getZoneId({ token, zoneName }) {
   return zone.id;
 }
 
-async function preflightZoneAccess({ token, zoneId, zoneName }) {
+async function preflightZoneAccess({ token, zoneId, hostnames }) {
   // Read-only checks prove route/DNS scope before any Worker deploy mutation occurs.
-  await listDnsRecordsByName({ token, zoneId, name: zoneName });
-  await listDnsRecordsByName({ token, zoneId, name: `www.${zoneName}` });
-  await apiFetch(`/zones/${zoneId}/workers/routes`, { token });
+  // Run DNS lookups and route check in parallel; order does not matter here.
+  await Promise.all([
+    ...hostnames.map((name) => listDnsRecordsByName({ token, zoneId, name })),
+    apiFetch(`/zones/${zoneId}/workers/routes`, { token }),
+  ]);
+}
+
+/**
+ * Decides whether to wire the www subdomain. Honors CLOUDFLARE_INCLUDE_WWW when
+ * set; otherwise auto-detects by checking for a Cloudflare-proxied www record so
+ * zones without a www record (e.g. armageddontest.icu) deploy root-only cleanly.
+ */
+async function shouldIncludeWww({ token, zoneId, zoneName }) {
+  const flag = process.env.CLOUDFLARE_INCLUDE_WWW?.trim().toLowerCase();
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  const records = await listDnsRecordsByName({ token, zoneId, name: `www.${zoneName}` });
+  return records.some(isWorkerRoutableDnsRecord);
 }
 
 /**
@@ -247,17 +266,10 @@ async function verifyProxiedDnsRecord({ token, zoneId, name }) {
   console.log(`[DNS] Verified Cloudflare-proxied ${routable.type} record for ${name}`);
 }
 
-async function ensureProductionDns({ token, zoneId, zoneName }) {
-  if (!DNS_MUTATION_ENABLED) {
-    // DNS is operator-owned by default; validate it instead of replacing manual records.
-    await verifyProxiedDnsRecord({ token, zoneId, name: zoneName });
-    await verifyProxiedDnsRecord({ token, zoneId, name: `www.${zoneName}` });
-    return;
-  }
-
-  // Explicit opt-in path for initial cutover automation.
-  await upsertProxiedDnsRecord({ token, zoneId, name: zoneName });
-  await upsertProxiedDnsRecord({ token, zoneId, name: `www.${zoneName}` });
+async function ensureProductionDns({ token, zoneId, hostnames }) {
+  // DNS records for each hostname are independent — run in parallel.
+  const fn = DNS_MUTATION_ENABLED ? upsertProxiedDnsRecord : verifyProxiedDnsRecord;
+  await Promise.all(hostnames.map((name) => fn({ token, zoneId, name })));
 }
 
 async function deleteConflictingDnsRecords({ token, zoneId, name, keepRecordId }) {
@@ -342,11 +354,11 @@ async function getGitCommit() {
   }
 }
 
-async function writeDeploymentManifest(outputDir) {
+async function writeDeploymentManifest(outputDir, { canonicalHost, redirectHost }) {
   const deployment = {
     provider: 'cloudflare-workers',
-    canonicalHost: 'armageddon.icu',
-    redirectHost: 'www.armageddon.icu',
+    canonicalHost,
+    redirectHost,
     sourceCommit: await getGitCommit(),
     builtAt: new Date().toISOString(),
   };
@@ -365,25 +377,30 @@ async function main() {
     ? path.resolve(process.env.CLOUDFLARE_WORKER_SOURCE.trim())
     : path.join(repoRoot, 'armageddon-site', 'src', 'intake-handler.ts');
   const zoneName = process.env.CLOUDFLARE_ZONE_NAME?.trim() || 'armageddon.icu';
+  const canonicalHost = process.env.CLOUDFLARE_CANONICAL_HOST?.trim() || zoneName;
   const supabaseUrl = requiredEnv('SUPABASE_URL');
-  const supabaseServiceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseServiceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_SECRET');
 
-  if (process.env.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED !== 'true') {
-    throw new Error('Refusing deploy: apply supabase/migrations/20260508000000_armageddon_intake.sql first, then set SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED=true.');
+  if (process.env.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED !== 'true'
+    && process.env.CLOUDFLARE_SKIP_MIGRATION_CHECK !== 'true') {
+    throw new Error('Refusing deploy: apply supabase/migrations/20260508000000_armageddon_intake.sql first, then set SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED=true (or CLOUDFLARE_SKIP_MIGRATION_CHECK=true for a non-intake deploy).');
   }
 
   // ── 1. Preflight zone access before any Cloudflare deployment mutation ───
   const zoneId = await getZoneId({ token, zoneName });
-  await preflightZoneAccess({ token, zoneId, zoneName });
+  const includeWww = await shouldIncludeWww({ token, zoneId, zoneName });
+  const hostnames = includeWww ? [zoneName, `www.${zoneName}`] : [zoneName];
+  const redirectHost = includeWww ? `www.${zoneName}` : null;
+  await preflightZoneAccess({ token, zoneId, hostnames });
   if (!DNS_MUTATION_ENABLED) {
     // Manual DNS cutovers must be proven before any Worker asset/script mutation.
-    await ensureProductionDns({ token, zoneId, zoneName });
+    await ensureProductionDns({ token, zoneId, hostnames });
   }
-  console.log(`[DNS] Zone access preflight passed for ${zoneName}`);
+  console.log(`[DNS] Zone access preflight passed for ${hostnames.join(', ')}`);
 
   // ── 2. Build manifest & upload assets ──────────────────────────────────
   console.log(`[Cloudflare] Preparing static asset deployment: ${workerName}`);
-  await writeDeploymentManifest(outputDir);
+  await writeDeploymentManifest(outputDir, { canonicalHost, redirectHost });
   const { manifest, byHash, fileCount } = await createManifest(outputDir);
   console.log(`[Cloudflare] Manifest ready: ${fileCount} files`);
 
@@ -391,7 +408,7 @@ async function main() {
   console.log('[Cloudflare] Assets uploaded');
 
   // ── 3. Deploy worker ───────────────────────────────────────────────────
-  await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey });
+  await deployWorker({ accountId, workerName, token, completionJwt, workerSourcePath, supabaseUrl, supabaseServiceRoleKey, canonicalHost });
   console.log('[Cloudflare] Worker deployed');
 
   // ── 4. Enable workers.dev preview ─────────────────────────────────────
@@ -399,21 +416,21 @@ async function main() {
   const previewUrl = subdomain ? `https://${workerName}.${subdomain}.workers.dev/` : null;
   if (previewUrl) console.log(`[Cloudflare] Preview URL: ${previewUrl}`);
 
-  // ── 5. Wire up armageddon.icu DNS + routes (zero Vercel) ──────────────
+  // ── 5. Wire up zone DNS + routes ──────────────────────────────────────
   console.log(`[Cloudflare] Configuring ${zoneName} DNS + worker routes...`);
   try {
     console.log(`[DNS] Zone ID: ${zoneId}`);
 
     // DNS is verified by default; mutation requires CLOUDFLARE_MANAGE_DNS=true.
-    await ensureProductionDns({ token, zoneId, zoneName });
+    await ensureProductionDns({ token, zoneId, hostnames });
 
-    // Register worker routes for root and www
+    // Register worker routes for every resolved hostname (root, and www when present).
     await upsertWorkerRoutes({
       token, zoneId, workerName,
-      patterns: [`${zoneName}/*`, `www.${zoneName}/*`],
+      patterns: hostnames.map((host) => `${host}/*`),
     });
 
-    console.log(`[Cloudflare] ✅ ${zoneName} fully wired to Cloudflare Workers — zero Vercel`);
+    console.log(`[Cloudflare] ✅ ${zoneName} fully wired to Cloudflare Workers`);
   } catch (err) {
     throw new Error(`Cloudflare zone wiring failed after worker deploy; production cutover is incomplete and must not be treated as successful: ${err.message}`);
   }

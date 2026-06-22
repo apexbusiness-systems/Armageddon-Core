@@ -2,6 +2,9 @@ type IntakeEnv = {
   ASSETS: { fetch(request: Request): Promise<Response> };
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  // Optional override so one worker codebase can serve multiple zones
+  // (e.g. armageddon.icu and armageddontest.icu). Defaults to armageddon.icu.
+  CANONICAL_HOST?: string;
 };
 
 type IntakePayload = {
@@ -17,8 +20,7 @@ type IntakePayload = {
 type FieldErrors = Partial<Record<keyof IntakePayload, string>>;
 
 const ALLOWED_TIERS = new Set(['Self-Serve', 'Verified', 'Certified', 'Enterprise']);
-const CANONICAL_HOST = 'armageddon.icu';
-const REDIRECT_HOSTS = new Set(['www.armageddon.icu']);
+const DEFAULT_CANONICAL_HOST = 'armageddon.icu';
 const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   system_name: 160,
   contact_name: 160,
@@ -29,10 +31,10 @@ const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   source: 240,
 };
 
-function withProductionHeaders(response: Response): Response {
+function withProductionHeaders(response: Response, canonicalHost: string): Response {
   const headers = new Headers(response.headers);
   headers.set('x-armageddon-edge', 'cloudflare-workers');
-  headers.set('x-armageddon-canonical-host', CANONICAL_HOST);
+  headers.set('x-armageddon-canonical-host', canonicalHost);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -40,29 +42,29 @@ function withProductionHeaders(response: Response): Response {
   });
 }
 
-function canonicalRedirect(url: URL): Response | null {
-  if (!REDIRECT_HOSTS.has(url.hostname)) return null;
+function canonicalRedirect(url: URL, canonicalHost: string): Response | null {
+  if (url.hostname !== `www.${canonicalHost}`) return null;
 
   const canonicalUrl = new URL(url);
-  canonicalUrl.hostname = CANONICAL_HOST;
-  return withProductionHeaders(Response.redirect(canonicalUrl.toString(), 301));
+  canonicalUrl.hostname = canonicalHost;
+  return withProductionHeaders(Response.redirect(canonicalUrl.toString(), 301), canonicalHost);
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, canonicalHost: string, status = 200): Response {
   return withProductionHeaders(new Response(JSON.stringify(body), {
     status,
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
     },
-  }));
+  }), canonicalHost);
 }
 
 function stripHtml(value: unknown, maxLength: number): string {
   if (typeof value !== 'string') return '';
 
   return value
-    .replace(/<[^>]*>/g, '')
+    .replace(/[<>]/g, ' ')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -70,7 +72,11 @@ function stripHtml(value: unknown, maxLength: number): string {
 }
 
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const at = email.indexOf('@');
+  if (at < 1 || at !== email.lastIndexOf('@')) return false;
+  const domain = email.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return dot > 0 && dot < domain.length - 1;
 }
 
 function validatePayload(payload: IntakePayload): { clean: Required<Record<keyof IntakePayload, string>>; fieldErrors: FieldErrors } {
@@ -107,26 +113,27 @@ async function parseJson(request: Request): Promise<IntakePayload | null> {
   }
 }
 
-async function handleIntake(request: Request, env: IntakeEnv): Promise<Response> {
+async function handleIntake(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed.' }, 405);
+    return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
   }
 
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return jsonResponse({ error: 'Intake service is not configured.' }, 500);
+    return jsonResponse({ error: 'Intake service is not configured.' }, canonicalHost, 500);
   }
 
   const payload = await parseJson(request);
   if (!payload) {
-    return jsonResponse({ error: 'Invalid JSON request body.' }, 400);
+    return jsonResponse({ error: 'Invalid JSON request body.' }, canonicalHost, 400);
   }
 
   const { clean, fieldErrors } = validatePayload(payload);
   if (Object.keys(fieldErrors).length > 0) {
-    return jsonResponse({ error: 'Validation failed.', fieldErrors }, 400);
+    return jsonResponse({ error: 'Validation failed.', fieldErrors }, canonicalHost, 400);
   }
 
-  const supabaseUrl = env.SUPABASE_URL.replace(/\/+$/, '');
+  let supabaseUrl = env.SUPABASE_URL;
+  while (supabaseUrl.endsWith('/')) supabaseUrl = supabaseUrl.slice(0, -1);
   const response = await fetch(`${supabaseUrl}/rest/v1/armageddon_intake`, {
     method: 'POST',
     headers: {
@@ -140,10 +147,10 @@ async function handleIntake(request: Request, env: IntakeEnv): Promise<Response>
 
   if (!response.ok) {
     // Avoid returning database details or secrets to the browser.
-    return jsonResponse({ error: 'Unable to save intake request.' }, 500);
+    return jsonResponse({ error: 'Unable to save intake request.' }, canonicalHost, 500);
   }
 
-  return jsonResponse({ success: true });
+  return jsonResponse({ success: true }, canonicalHost);
 }
 
 function intakeAssetRequest(request: Request): Request {
@@ -154,19 +161,21 @@ function intakeAssetRequest(request: Request): Request {
 
 const intakeWorker = {
   async fetch(request: Request, env: IntakeEnv): Promise<Response> {
+    const canonicalHost = env.CANONICAL_HOST?.trim() || DEFAULT_CANONICAL_HOST;
     const url = new URL(request.url);
-    const redirect = canonicalRedirect(url);
+
+    const redirect = canonicalRedirect(url, canonicalHost);
     if (redirect) return redirect;
 
     if (url.pathname === '/api/intake') {
-      return handleIntake(request, env);
+      return handleIntake(request, env, canonicalHost);
     }
 
     if (url.pathname === '/intake') {
-      return withProductionHeaders(await env.ASSETS.fetch(intakeAssetRequest(request)));
+      return withProductionHeaders(await env.ASSETS.fetch(intakeAssetRequest(request)), canonicalHost);
     }
 
-    return withProductionHeaders(await env.ASSETS.fetch(request));
+    return withProductionHeaders(await env.ASSETS.fetch(request), canonicalHost);
   },
 };
 
