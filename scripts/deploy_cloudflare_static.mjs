@@ -222,10 +222,11 @@ async function getZoneId({ token, zoneName }) {
 
 async function preflightZoneAccess({ token, zoneId, hostnames }) {
   // Read-only checks prove route/DNS scope before any Worker deploy mutation occurs.
-  for (const name of hostnames) {
-    await listDnsRecordsByName({ token, zoneId, name });
-  }
-  await apiFetch(`/zones/${zoneId}/workers/routes`, { token });
+  // Run DNS lookups and route check in parallel; order does not matter here.
+  await Promise.all([
+    ...hostnames.map((name) => listDnsRecordsByName({ token, zoneId, name })),
+    apiFetch(`/zones/${zoneId}/workers/routes`, { token }),
+  ]);
 }
 
 /**
@@ -266,15 +267,9 @@ async function verifyProxiedDnsRecord({ token, zoneId, name }) {
 }
 
 async function ensureProductionDns({ token, zoneId, hostnames }) {
-  for (const name of hostnames) {
-    if (!DNS_MUTATION_ENABLED) {
-      // DNS is operator-owned by default; validate it instead of replacing manual records.
-      await verifyProxiedDnsRecord({ token, zoneId, name });
-    } else {
-      // Explicit opt-in path for initial cutover automation.
-      await upsertProxiedDnsRecord({ token, zoneId, name });
-    }
-  }
+  // DNS records for each hostname are independent — run in parallel.
+  const fn = DNS_MUTATION_ENABLED ? upsertProxiedDnsRecord : verifyProxiedDnsRecord;
+  await Promise.all(hostnames.map((name) => fn({ token, zoneId, name })));
 }
 
 async function deleteConflictingDnsRecords({ token, zoneId, name, keepRecordId }) {
