@@ -64,7 +64,7 @@ function stripHtml(value: unknown, maxLength: number): string {
   if (typeof value !== 'string') return '';
 
   return value
-    .replace(/<[^>]*>/g, '')
+    .replace(/[<>]/g, ' ')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -72,7 +72,11 @@ function stripHtml(value: unknown, maxLength: number): string {
 }
 
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const at = email.indexOf('@');
+  if (at < 1 || at !== email.lastIndexOf('@')) return false;
+  const domain = email.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return dot > 0 && dot < domain.length - 1;
 }
 
 function validatePayload(payload: IntakePayload): { clean: Required<Record<keyof IntakePayload, string>>; fieldErrors: FieldErrors } {
@@ -128,7 +132,8 @@ async function handleIntake(request: Request, env: IntakeEnv, canonicalHost: str
     return jsonResponse({ error: 'Validation failed.', fieldErrors }, canonicalHost, 400);
   }
 
-  const supabaseUrl = env.SUPABASE_URL.replace(/\/+$/, '');
+  let supabaseUrl = env.SUPABASE_URL;
+  while (supabaseUrl.endsWith('/')) supabaseUrl = supabaseUrl.slice(0, -1);
   const response = await fetch(`${supabaseUrl}/rest/v1/armageddon_intake`, {
     method: 'POST',
     headers: {
