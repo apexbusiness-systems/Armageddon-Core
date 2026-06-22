@@ -5,18 +5,12 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
-import { guardOmniPort, isOmniPortEnabled, OmniPortExecuteRequestSchema, parseOmniPortBody, persistTelemetryEvent } from '@/lib/omniport';
+import { guardOmniPort, isOmniPortEnabled, OmniPortExecuteRequestSchema, parseOmniPortBody, persistTelemetryEvent, deriveRunSeed } from '@/lib/omniport';
 
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
-
-function deriveRunSeed(runId: string, organizationId: string): number {
-    const digest = createHash('sha256').update(`${organizationId}:${runId}`).digest('hex');
-    return Number.parseInt(digest.slice(0, 8), 16);
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);

@@ -10,7 +10,6 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
@@ -19,6 +18,7 @@ import {
     verifyWaiverToken,
     parseOmniPortBody,
     persistTelemetryEvent,
+    deriveRunSeed,
     OmniPortLiveFireRequestSchema,
 } from '@/lib/omniport';
 
@@ -35,11 +35,6 @@ function enforceSafetyGuardLiveFire(waiverRecordId: string): void {
         throw new Error('LOCKDOWN: waiverRecordId is empty — live-fire authorization denied');
     }
     console.warn('[OmniPort LIVE-FIRE] Authorized run initiated:', waiverRecordId);
-}
-
-function deriveRunSeed(runId: string, organizationId: string): number {
-    const digest = createHash('sha256').update(`${organizationId}:${runId}`).digest('hex');
-    return Number.parseInt(digest.slice(0, 8), 16);
 }
 
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';

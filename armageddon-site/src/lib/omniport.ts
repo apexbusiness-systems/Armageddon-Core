@@ -2,7 +2,7 @@
 // OmniPort server-side auth utilities: token verification, HMAC signing, JWT waiver validation.
 // All comparisons use timing-safe equality. No secrets ever leave this module.
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type SupabaseClient } from '@supabase/supabase-js';
@@ -158,6 +158,13 @@ export function verifyWaiverToken(token: string): WaiverTokenPayload | null {
     } catch {
         return null;
     }
+}
+
+// ─── Run seed derivation ───────────────────────────────────────────────────
+
+export function deriveRunSeed(runId: string, organizationId: string): number {
+    const digest = createHash('sha256').update(`${organizationId}:${runId}`).digest('hex');
+    return Number.parseInt(digest.slice(0, 8), 16);
 }
 
 // ─── Body parsing + Zod validation helper ─────────────────────────────────
