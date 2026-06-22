@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import Image from 'next/image';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { startGithubOAuth } from '@/lib/client-auth-actions';
 import { useAuth } from '@/lib/useAuth';
@@ -116,6 +117,19 @@ export default function Footer() {
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 bg-[var(--safe)] rounded-full animate-pulse" />
                         <span className="mono-small text-signal/30">CLOUDFLARE EDGE READY // LOCAL MOAT BACKED</span>
+                    </div>
+
+                    {/* OmniHub Attribution — visible, not loud */}
+                    <div className="flex items-center gap-2 opacity-40 hover:opacity-70 transition-opacity duration-300">
+                        <span className="mono-small text-signal/40">POWERED BY</span>
+                        <Image
+                            src="/apex-wordmark-logo.png"
+                            alt="APEX-OmniHub"
+                            width={88}
+                            height={18}
+                            className="object-contain"
+                            style={{ filter: 'brightness(0) invert(1)' }}
+                        />
                     </div>
                 </div>
             </div>

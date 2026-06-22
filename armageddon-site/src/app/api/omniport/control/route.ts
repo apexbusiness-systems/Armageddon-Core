@@ -1,0 +1,96 @@
+// armageddon-site/src/app/api/omniport/control/route.ts
+// POST /api/omniport/control — Hot-edit: injects an OmniPort control signal into an active Temporal workflow.
+//
+// UNCERTAIN: [signal-handler] — ArmageddonLevel7Workflow in workflows.ts currently only handles the
+// 'cancel' signal. The 'omniport.control' signal will be sent (Temporal buffers it), but the workflow
+// will not act on it until a setHandler(omniportControlSignal, ...) is added to the workflow code.
+// This file cannot touch workflows.ts per mission constraints. The signal mechanism is wired; the
+// handler side must be added to the workflow to make hot-edit actionable end-to-end.
+
+export const runtime = 'nodejs';
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getTemporalClient } from '@/lib/temporal';
+import { verifyOmniPortToken, isOmniPortEnabled, OmniPortControlCommandSchema } from '@/lib/omniport';
+
+// WorkflowNotFoundError from @temporalio/client — we check by name for forward-compat
+function isWorkflowNotFound(err: unknown): boolean {
+    if (err instanceof Error) {
+        return err.constructor.name === 'WorkflowNotFoundError' ||
+               err.message.includes('workflow not found') ||
+               err.message.includes('Workflow not found');
+    }
+    return false;
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+    if (!isOmniPortEnabled()) {
+        return NextResponse.json(
+            { success: false, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' },
+            { status: 503 }
+        );
+    }
+
+    if (!verifyOmniPortToken(request)) {
+        return NextResponse.json(
+            { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
+            { status: 401 }
+        );
+    }
+
+    let rawBody: unknown;
+    try {
+        rawBody = await request.json();
+    } catch {
+        return NextResponse.json(
+            { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' },
+            { status: 400 }
+        );
+    }
+
+    const parsed = OmniPortControlCommandSchema.safeParse(rawBody);
+    if (!parsed.success) {
+        return NextResponse.json(
+            { success: false, error: parsed.error.issues[0]?.message ?? 'Validation failed', code: 'VALIDATION_ERROR' },
+            { status: 400 }
+        );
+    }
+
+    const command = parsed.data;
+    // Derive workflowId from runId — same convention as /api/run route
+    const workflowId = `armageddon-${command.runId}`;
+
+    let client;
+    try {
+        client = await getTemporalClient();
+    } catch (err) {
+        return NextResponse.json(
+            { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' },
+            { status: 503 }
+        );
+    }
+
+    try {
+        const handle = client.workflow.getHandle(workflowId);
+        await handle.signal('omniport.control', command);
+    } catch (err) {
+        if (isWorkflowNotFound(err)) {
+            return NextResponse.json(
+                { acknowledged: false, error: 'RUN_NOT_FOUND', code: 'RUN_NOT_FOUND' },
+                { status: 404 }
+            );
+        }
+        console.error('[OmniPort] Control signal failed:', (err as Error).message);
+        return NextResponse.json(
+            { success: false, error: 'Failed to signal workflow', code: 'SIGNAL_FAILED' },
+            { status: 500 }
+        );
+    }
+
+    return NextResponse.json({
+        acknowledged: true,
+        runId: command.runId,
+        command: command.command,
+        signalledAt: Date.now(),
+    });
+}
