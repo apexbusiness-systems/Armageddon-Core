@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
 import { verifyOmniPortToken, isOmniPortEnabled } from '@/lib/omniport';
+import packageJson from '../../../../../package.json';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
     if (!isOmniPortEnabled()) {
@@ -46,14 +47,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         supabaseError = (err as Error).message;
     }
 
-    let version = '1.0.0';
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const pkg = require('../../../../../package.json') as { version: string };
-        version = pkg.version;
-    } catch {
-        // version stays as fallback
-    }
+    const version: string = packageJson.version ?? '1.0.0';
 
     return NextResponse.json({
         status: 'operational',
