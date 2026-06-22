@@ -1,5 +1,6 @@
-// armageddon-site/src/app/api/omniport/telemetry/[runId]/route.ts
-// GET /api/omniport/telemetry/[runId] — On-demand pull of cached telemetry events (pull model).
+// armageddon-site/src/app/api/omniport/telemetry/route.ts
+// GET /api/omniport/telemetry?runId=<uuid> — On-demand pull of cached telemetry events (pull model).
+// runId is a query param (not a path segment) so this route is static-export-compatible.
 //
 // DATABASE MIGRATION (run once against Supabase):
 // -- omniport_telemetry_events
@@ -20,17 +21,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase';
 import { guardOmniPort } from '@/lib/omniport';
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: { runId: string } }
-): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);
     if (guard) return guard;
 
-    const { runId } = params;
+    const runId = request.nextUrl.searchParams.get('runId');
     if (!runId) {
         return NextResponse.json(
-            { success: false, error: 'runId is required', code: 'MISSING_RUN_ID' },
+            { success: false, error: 'runId query parameter is required', code: 'MISSING_RUN_ID' },
             { status: 400 }
         );
     }
@@ -46,7 +44,6 @@ export async function GET(
         .limit(50);
 
     if (error) {
-        // Table not initialized or other DB error — return empty with warning
         return NextResponse.json({
             success: true,
             runId,
