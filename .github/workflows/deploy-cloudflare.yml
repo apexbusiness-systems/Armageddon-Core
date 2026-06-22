@@ -21,7 +21,7 @@ env:
   CF_AGENT_TOKEN: ${{ secrets.CLOUDFLARE_AGENT_TOKEN }}
   ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
   WORKER_NAME: armageddon-core
-  ZONE_NAME: armageddon.icu
+  ZONE_NAME: armageddontest.icu
 
 jobs:
   deploy:
@@ -61,6 +61,7 @@ jobs:
           CLOUDFLARE_STATIC_EXPORT: "true"
           NEXT_TELEMETRY_DISABLED: "1"
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED: ${{ secrets.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED }}
@@ -72,8 +73,9 @@ jobs:
           CLOUDFLARE_ZONE_ID: ${{ env.ZONE_ID }}
           CLOUDFLARE_WORKER_NAME: ${{ env.WORKER_NAME }}
           CLOUDFLARE_ZONE_NAME: ${{ env.ZONE_NAME }}
-          # Always manage DNS: creates/updates Cloudflare-proxied A records idempotently on every deploy.
-          # Previously defaulted to 'false' which aborted deploys because DNS was never manually proxied.
+          # armageddontest.icu has no www record; let the script auto-detect and skip it.
+          CLOUDFLARE_INCLUDE_WWW: "false"
+          # Manage DNS idempotently on every deploy (creates/updates proxied A records).
           CLOUDFLARE_MANAGE_DNS: "true"
         run: npm run deploy:cloudflare
 
@@ -87,12 +89,15 @@ jobs:
       - name: Smoke test
         run: |
           sleep 8
-          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://armageddon.icu" || echo "FAIL")
-          echo "armageddon.icu → HTTP $HTTP"
-          WWW=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://www.armageddon.icu" || echo "FAIL")
-          echo "www.armageddon.icu → HTTP $WWW"
-          curl -sSI --max-time 20 "https://armageddon.icu" | grep -i "x-armageddon-edge: cloudflare-workers"
-          curl -sSI --max-time 20 "https://www.armageddon.icu" | grep -i "location: https://armageddon.icu"
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://$ZONE_NAME" || echo "FAIL")
+          echo "$ZONE_NAME → HTTP $HTTP"
+          [ "$HTTP" = "200" ] || { echo "❌ Expected 200, got $HTTP"; exit 1; }
+          curl -sSI --max-time 20 "https://$ZONE_NAME" | grep -i "x-armageddon-edge: cloudflare-workers"
+          curl -sSI --max-time 20 "https://$ZONE_NAME" | grep -i "x-armageddon-canonical-host: $ZONE_NAME"
+          INTAKE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://$ZONE_NAME/intake/")
+          echo "/intake/ → HTTP $INTAKE"
+          [ "$INTAKE" = "200" ] || { echo "❌ Expected 200, got $INTAKE"; exit 1; }
+          echo "✅ Smoke test passed"
 
       - name: ✅ Deployment summary
         if: always()
@@ -101,6 +106,6 @@ jobs:
           echo "  ARMAGEDDON — CLOUDFLARE WORKERS DEPLOY"
           echo "══════════════════════════════════════════════════"
           echo "  Worker : $WORKER_NAME"
-          echo "  Domain : $ZONE_NAME"
+          echo "  Domain : https://$ZONE_NAME"
           echo "  Vercel : ZERO"
           echo "══════════════════════════════════════════════════"
