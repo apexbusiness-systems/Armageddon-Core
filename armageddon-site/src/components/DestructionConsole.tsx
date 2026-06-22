@@ -426,14 +426,14 @@ export default function DestructionConsole({
                     initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    <div className="flex justify-center mb-4 relative z-20">
+                    <div className="flex justify-center mb-4 relative z-[30]">
                         <Image
-                            src="/wordmark.png"
-                            alt="ARMAGEDDON LEVEL 7"
-                            width={464}
-                            height={120}
+                            src="/apex-wordmark-logo.png"
+                            alt="APEX-OmniHub"
+                            width={600}
+                            height={91}
                             priority
-                            className="w-full max-w-[29rem] h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow"
+                            className="w-full max-w-[37.5rem] h-auto object-contain drop-shadow-[0_0_22px_rgba(255,255,255,0.35)] animate-pulse-slow"
                         />
                     </div>
 
