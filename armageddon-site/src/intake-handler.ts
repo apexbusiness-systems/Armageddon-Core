@@ -2,6 +2,9 @@ type IntakeEnv = {
   ASSETS: { fetch(request: Request): Promise<Response> };
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  // Optional override so one worker codebase can serve multiple zones
+  // (e.g. armageddon.icu and armageddontest.icu). Defaults to armageddon.icu.
+  CANONICAL_HOST?: string;
 };
 
 type IntakePayload = {
@@ -17,8 +20,13 @@ type IntakePayload = {
 type FieldErrors = Partial<Record<keyof IntakePayload, string>>;
 
 const ALLOWED_TIERS = new Set(['Self-Serve', 'Verified', 'Certified', 'Enterprise']);
-const CANONICAL_HOST = 'armageddon.icu';
-const REDIRECT_HOSTS = new Set(['www.armageddon.icu']);
+const DEFAULT_CANONICAL_HOST = 'armageddon.icu';
+// Resolved per-request from the CANONICAL_HOST binding (falls back to default).
+let CANONICAL_HOST = DEFAULT_CANONICAL_HOST;
+// The www host always redirects to the bare canonical host.
+function redirectHosts(): Set<string> {
+  return new Set([`www.${CANONICAL_HOST}`]);
+}
 const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   system_name: 160,
   contact_name: 160,
@@ -41,7 +49,7 @@ function withProductionHeaders(response: Response): Response {
 }
 
 function canonicalRedirect(url: URL): Response | null {
-  if (!REDIRECT_HOSTS.has(url.hostname)) return null;
+  if (!redirectHosts().has(url.hostname)) return null;
 
   const canonicalUrl = new URL(url);
   canonicalUrl.hostname = CANONICAL_HOST;
@@ -154,6 +162,7 @@ function intakeAssetRequest(request: Request): Request {
 
 const intakeWorker = {
   async fetch(request: Request, env: IntakeEnv): Promise<Response> {
+    CANONICAL_HOST = env.CANONICAL_HOST?.trim() || DEFAULT_CANONICAL_HOST;
     const url = new URL(request.url);
     const redirect = canonicalRedirect(url);
     if (redirect) return redirect;
