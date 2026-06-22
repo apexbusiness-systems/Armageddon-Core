@@ -22,31 +22,15 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { getSupabaseServiceRole } from '@/lib/supabase';
-import { guardOmniPort, verifyWaiverToken, WaiverRecordRequestSchema } from '@/lib/omniport';
+import { guardOmniPort, verifyWaiverToken, WaiverRecordRequestSchema, parseOmniPortBody } from '@/lib/omniport';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);
     if (guard) return guard;
 
-    let rawBody: unknown;
-    try {
-        rawBody = await request.json();
-    } catch {
-        return NextResponse.json(
-            { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' },
-            { status: 400 }
-        );
-    }
-
-    const parsed = WaiverRecordRequestSchema.safeParse(rawBody);
-    if (!parsed.success) {
-        return NextResponse.json(
-            { success: false, error: parsed.error.issues[0]?.message ?? 'Validation failed', code: 'VALIDATION_ERROR' },
-            { status: 400 }
-        );
-    }
-
-    const { waiverToken, acceptedByUserId, organizationId } = parsed.data;
+    const body = await parseOmniPortBody(request, WaiverRecordRequestSchema);
+    if (body instanceof NextResponse) return body;
+    const { waiverToken, acceptedByUserId, organizationId } = body;
 
     // Validate OmniHub-issued JWT
     const waiverPayload = verifyWaiverToken(waiverToken);

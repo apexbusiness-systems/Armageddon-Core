@@ -5,6 +5,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
+import { type SupabaseClient } from '@supabase/supabase-js';
 
 // ─── WaiverTokenPayload (mirrored from armageddon-core/src/omniport/types.ts) ─
 // armageddon-core is not a workspace dep of armageddon-site; types are defined here locally.
@@ -156,5 +157,64 @@ export function verifyWaiverToken(token: string): WaiverTokenPayload | null {
         return parsed.data;
     } catch {
         return null;
+    }
+}
+
+// ─── Body parsing + Zod validation helper ─────────────────────────────────
+
+/**
+ * Parses the JSON request body and validates it against a Zod schema.
+ * Returns the validated data, or a NextResponse with the appropriate error.
+ */
+export async function parseOmniPortBody<T>(
+    request: NextRequest,
+    schema: z.ZodType<T>
+): Promise<T | NextResponse> {
+    let rawBody: unknown;
+    try {
+        rawBody = await request.json();
+    } catch {
+        return NextResponse.json(
+            { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' },
+            { status: 400 }
+        );
+    }
+    const result = schema.safeParse(rawBody);
+    if (!result.success) {
+        return NextResponse.json(
+            { success: false, error: result.error.issues[0]?.message ?? 'Validation failed', code: 'VALIDATION_ERROR' },
+            { status: 400 }
+        );
+    }
+    return result.data;
+}
+
+// ─── Telemetry persistence helper ─────────────────────────────────────────
+
+/**
+ * Writes a telemetry event to the omniport_telemetry_events Supabase table.
+ * Fail-silent: logs on error but never throws (must not crash a run).
+ */
+export async function persistTelemetryEvent(
+    supabase: SupabaseClient,
+    runId: string,
+    orgId: string,
+    eventType: string,
+    payload: Record<string, unknown>
+): Promise<void> {
+    try {
+        const timestamp = Date.now();
+        const { error } = await supabase.from('omniport_telemetry_events').insert({
+            run_id: runId,
+            org_id: orgId,
+            event_type: eventType,
+            payload,
+            timestamp,
+        });
+        if (error) {
+            console.warn('[OmniPort] Telemetry DB write failed (non-fatal):', error.message);
+        }
+    } catch (err) {
+        console.error('[OmniPort] Telemetry error (non-fatal):', (err as Error).message);
     }
 }

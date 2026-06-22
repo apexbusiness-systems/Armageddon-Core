@@ -17,7 +17,8 @@ import { getSupabaseServiceRole } from '@/lib/supabase';
 import {
     guardOmniPort,
     verifyWaiverToken,
-    signTelemetryPayload,
+    parseOmniPortBody,
+    persistTelemetryEvent,
     OmniPortLiveFireRequestSchema,
 } from '@/lib/omniport';
 
@@ -48,25 +49,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);
     if (guard) return guard;
 
-    let rawBody: unknown;
-    try {
-        rawBody = await request.json();
-    } catch {
-        return NextResponse.json(
-            { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' },
-            { status: 400 }
-        );
-    }
-
-    const parsed = OmniPortLiveFireRequestSchema.safeParse(rawBody);
-    if (!parsed.success) {
-        return NextResponse.json(
-            { success: false, error: parsed.error.issues[0]?.message ?? 'Validation failed', code: 'VALIDATION_ERROR' },
-            { status: 400 }
-        );
-    }
-
-    const { organizationId, waiverToken, level, iterations, batteries } = parsed.data;
+    const body = await parseOmniPortBody(request, OmniPortLiveFireRequestSchema);
+    if (body instanceof NextResponse) return body;
+    const { organizationId, waiverToken, level, iterations, batteries } = body;
 
     // Step 2: Validate OmniHub-issued waiver JWT
     const waiverPayload = verifyWaiverToken(waiverToken);
@@ -185,37 +170,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .eq('id', runId);
 
     // Step 6: Push live_fire.authorized telemetry — GATE G3: event in DB is the proof
-    try {
-        const telemetryPayload = {
-            eventType: 'live_fire.authorized' as const,
-            runId,
-            orgId: organizationId,
-            timestamp: Date.now(),
-            payload: {
-                workflowId,
-                level,
-                iterations,
-                waiverRecordId: waiverRecord.id,
-                liveFire: true,
-            },
-            signature: '',
-        };
-        const body = JSON.stringify(telemetryPayload);
-        telemetryPayload.signature = signTelemetryPayload(body);
-
-        const { error: telError } = await supabase.from('omniport_telemetry_events').insert({
-            run_id: runId,
-            org_id: organizationId,
-            event_type: 'live_fire.authorized',
-            payload: telemetryPayload.payload,
-            timestamp: telemetryPayload.timestamp,
-        });
-        if (telError) {
-            console.warn('[OmniPort] Live-fire telemetry DB write failed (non-fatal):', telError.message);
-        }
-    } catch (err) {
-        console.error('[OmniPort] Live-fire telemetry error (non-fatal):', (err as Error).message);
-    }
+    await persistTelemetryEvent(supabase, runId, organizationId, 'live_fire.authorized', {
+        workflowId, level, iterations, waiverRecordId: waiverRecord.id, liveFire: true,
+    });
 
     return NextResponse.json({
         authorized: true,
