@@ -18,25 +18,14 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase';
-import { verifyOmniPortToken, isOmniPortEnabled } from '@/lib/omniport';
+import { guardOmniPort } from '@/lib/omniport';
 
 export async function GET(
     request: NextRequest,
     { params }: { params: { runId: string } }
 ): Promise<NextResponse> {
-    if (!isOmniPortEnabled()) {
-        return NextResponse.json(
-            { success: false, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' },
-            { status: 503 }
-        );
-    }
-
-    if (!verifyOmniPortToken(request)) {
-        return NextResponse.json(
-            { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
-            { status: 401 }
-        );
-    }
+    const guard = guardOmniPort(request);
+    if (guard) return guard;
 
     const { runId } = params;
     if (!runId) {

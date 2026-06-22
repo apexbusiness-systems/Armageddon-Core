@@ -6,23 +6,12 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
-import { verifyOmniPortToken, isOmniPortEnabled } from '@/lib/omniport';
+import { guardOmniPort } from '@/lib/omniport';
 import packageJson from '../../../../../package.json';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-    if (!isOmniPortEnabled()) {
-        return NextResponse.json(
-            { success: false, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' },
-            { status: 503 }
-        );
-    }
-
-    if (!verifyOmniPortToken(request)) {
-        return NextResponse.json(
-            { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
-            { status: 401 }
-        );
-    }
+    const guard = guardOmniPort(request);
+    if (guard) return guard;
 
     let temporalConnected = false;
     let temporalError: string | undefined;

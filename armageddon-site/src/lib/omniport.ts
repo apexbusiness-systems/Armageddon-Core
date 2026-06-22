@@ -4,7 +4,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import type { NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 // ─── WaiverTokenPayload (mirrored from armageddon-core/src/omniport/types.ts) ─
 // armageddon-core is not a workspace dep of armageddon-site; types are defined here locally.
@@ -57,6 +57,27 @@ export type WaiverRecordRequest = z.infer<typeof WaiverRecordRequestSchema>;
 
 export function isOmniPortEnabled(): boolean {
     return process.env.OMNIPORT_ENABLED === 'true';
+}
+
+/**
+ * Combined auth guard for all OmniPort routes.
+ * Returns a NextResponse (503 or 401) if the request should be rejected,
+ * or null if both checks pass and the route may proceed.
+ */
+export function guardOmniPort(request: NextRequest): NextResponse | null {
+    if (!isOmniPortEnabled()) {
+        return NextResponse.json(
+            { success: false, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' },
+            { status: 503 }
+        );
+    }
+    if (!verifyOmniPortToken(request)) {
+        return NextResponse.json(
+            { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
+            { status: 401 }
+        );
+    }
+    return null;
 }
 
 // ─── Bearer token verification ─────────────────────────────────────────────

@@ -1,18 +1,6 @@
 // armageddon-site/src/app/api/omniport/execute/route.ts
 // POST /api/omniport/execute — OmniHub-triggered remote run. Mirrors /api/run auth path.
-//
-// DATABASE MIGRATION (run once against Supabase):
-// -- omniport_telemetry_events
-// CREATE TABLE IF NOT EXISTS omniport_telemetry_events (
-//   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-//   run_id      TEXT NOT NULL,
-//   org_id      TEXT NOT NULL,
-//   event_type  TEXT NOT NULL,
-//   payload     JSONB NOT NULL,
-//   timestamp   BIGINT NOT NULL,
-//   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-// );
-// CREATE INDEX IF NOT EXISTS idx_omniport_telemetry_run ON omniport_telemetry_events(run_id, timestamp DESC);
+// Database migration: see telemetry/[runId]/route.ts for omniport_telemetry_events schema.
 
 export const runtime = 'nodejs';
 
@@ -21,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
-import { verifyOmniPortToken, isOmniPortEnabled, OmniPortExecuteRequestSchema, signTelemetryPayload } from '@/lib/omniport';
+import { guardOmniPort, isOmniPortEnabled, OmniPortExecuteRequestSchema, signTelemetryPayload } from '@/lib/omniport';
 
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
 
@@ -31,19 +19,8 @@ function deriveRunSeed(runId: string, organizationId: string): number {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-    if (!isOmniPortEnabled()) {
-        return NextResponse.json(
-            { success: false, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' },
-            { status: 503 }
-        );
-    }
-
-    if (!verifyOmniPortToken(request)) {
-        return NextResponse.json(
-            { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
-            { status: 401 }
-        );
-    }
+    const guard = guardOmniPort(request);
+    if (guard) return guard;
 
     // Zod-validate body
     let rawBody: unknown;

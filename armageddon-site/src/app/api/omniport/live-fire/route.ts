@@ -5,20 +5,7 @@
 // INVARIANT: enforceSafetyGuardLiveFire is private to this file.
 // INVARIANT: enforceSafetyGuard() from safety.ts is NEVER called here — it would reject SIM_MODE=false.
 // INVARIANT: No other file in the codebase may call enforceSafetyGuardLiveFire().
-//
-// DATABASE MIGRATION (run once against Supabase):
-// CREATE TABLE IF NOT EXISTS omniport_waiver_records (
-//   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-//   org_id            TEXT NOT NULL,
-//   user_id           TEXT NOT NULL,
-//   waiver_version    TEXT NOT NULL DEFAULT '1.0',
-//   waiver_token_hash TEXT NOT NULL,
-//   run_level         INTEGER NOT NULL,
-//   accepted_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-//   expires_at        TIMESTAMPTZ NOT NULL,
-//   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
-// );
-// CREATE INDEX IF NOT EXISTS idx_omniport_waiver_org ON omniport_waiver_records(org_id, run_level, expires_at);
+// Database migration: see waiver/route.ts for omniport_waiver_records schema.
 
 export const runtime = 'nodejs';
 
@@ -28,8 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
 import {
-    verifyOmniPortToken,
-    isOmniPortEnabled,
+    guardOmniPort,
     verifyWaiverToken,
     signTelemetryPayload,
     OmniPortLiveFireRequestSchema,
@@ -58,20 +44,9 @@ function deriveRunSeed(runId: string, organizationId: string): number {
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-    if (!isOmniPortEnabled()) {
-        return NextResponse.json(
-            { success: false, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' },
-            { status: 503 }
-        );
-    }
-
-    // Step 1: HMAC bearer token auth
-    if (!verifyOmniPortToken(request)) {
-        return NextResponse.json(
-            { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
-            { status: 401 }
-        );
-    }
+    // Step 1: OMNIPORT_ENABLED + HMAC bearer token auth
+    const guard = guardOmniPort(request);
+    if (guard) return guard;
 
     let rawBody: unknown;
     try {

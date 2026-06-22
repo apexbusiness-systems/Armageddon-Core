@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTemporalClient } from '@/lib/temporal';
-import { verifyOmniPortToken, isOmniPortEnabled, OmniPortControlCommandSchema } from '@/lib/omniport';
+import { guardOmniPort, OmniPortControlCommandSchema } from '@/lib/omniport';
 
 // WorkflowNotFoundError from @temporalio/client — we check by name for forward-compat
 function isWorkflowNotFound(err: unknown): boolean {
@@ -24,19 +24,8 @@ function isWorkflowNotFound(err: unknown): boolean {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-    if (!isOmniPortEnabled()) {
-        return NextResponse.json(
-            { success: false, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' },
-            { status: 503 }
-        );
-    }
-
-    if (!verifyOmniPortToken(request)) {
-        return NextResponse.json(
-            { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
-            { status: 401 }
-        );
-    }
+    const guard = guardOmniPort(request);
+    if (guard) return guard;
 
     let rawBody: unknown;
     try {
