@@ -8,8 +8,8 @@
     "not_found_handling": "single-page-application"
   },
   "routes": [
-    { "pattern": "armageddon.icu/*", "zone_name": "armageddon.icu" },
-    { "pattern": "www.armageddon.icu/*", "zone_name": "armageddon.icu" }
+    { "pattern": "armageddontest.icu/*", "zone_name": "armageddontest.icu" },
+    { "pattern": "www.armageddontest.icu/*", "zone_name": "armageddontest.icu" }
   ],
   "observability": {
     "enabled": true

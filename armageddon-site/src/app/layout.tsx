@@ -14,7 +14,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://armageddon.apex.com'),
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://armageddontest.icu'),
     title: 'APEX L7',
     description: 'Sandboxed adversarial certification for AI & software systems. Destruction-grade testing, evidence-based certification. Are you Armageddoned?',
     keywords: ['AI security', 'adversarial testing', 'prompt injection', 'LLM security', 'certification', 'sandbox testing', 'OWASP', 'AI red team'],
@@ -33,11 +33,11 @@ export const metadata: Metadata = {
         title: 'ARMAGEDDON Test Suite Certification',
         description: 'Run the test. See what happens. Sandboxed adversarial certification with receipts.',
         type: 'website',
-        url: 'https://armageddon.apex.com',
+        url: 'https://armageddontest.icu',
         siteName: 'APEX Business Systems',
         images: [
             {
-                url: 'https://armageddon.apex.com/og-image.png',
+                url: 'https://armageddontest.icu/og-image.png',
                 width: 1200,
                 height: 630,
             },
