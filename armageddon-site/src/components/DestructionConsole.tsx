@@ -430,10 +430,10 @@ export default function DestructionConsole({
                         <Image
                             src="/wordmark.png"
                             alt="ARMAGEDDON LEVEL 7"
-                            width={464}
-                            height={120}
+                            width={700}
+                            height={181}
                             priority
-                            className="w-full max-w-[29rem] h-auto object-contain drop-shadow-[0_0_15px_rgba(255,80,0,0.3)] animate-pulse-slow"
+                            className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)] animate-pulse-slow"
                         />
                     </div>
 
