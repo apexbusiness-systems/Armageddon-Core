@@ -8,8 +8,12 @@ export function getAuthOrigin(): string {
     // 1. Determine base url from environment or fallback to canonical.
     let siteUrl = process.env.NEXT_PUBLIC_SITE_URL || CANONICAL_ORIGIN;
 
-    // Normalize trailing slashes
-    siteUrl = siteUrl.replace(/\/+$/, '');
+    // Normalize trailing slashes without regex backtracking on long inputs.
+    let siteUrlEnd = siteUrl.length;
+    while (siteUrlEnd > 0 && siteUrl.charCodeAt(siteUrlEnd - 1) === 47) {
+        siteUrlEnd -= 1;
+    }
+    siteUrl = siteUrl.slice(0, siteUrlEnd);
 
     // 2. Validate URL shape
     let parsedUrl: URL;
@@ -22,8 +26,8 @@ export function getAuthOrigin(): string {
     // 3. Localhost bypass
     if (parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1') {
         // Only allow localhost if the browser's current origin is actually localhost
-        if (typeof window !== 'undefined' &&
-            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        if (globalThis.window !== undefined &&
+            (globalThis.window.location.hostname === 'localhost' || globalThis.window.location.hostname === '127.0.0.1')) {
             return parsedUrl.origin;
         } else {
              // Revert to canonical if env says localhost but browser isn't
