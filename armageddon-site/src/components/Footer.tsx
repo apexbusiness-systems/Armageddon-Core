@@ -102,7 +102,6 @@ export default function Footer() {
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
                     {/* Brand */}
                     <div className="flex items-center gap-4">
-                        <span className="display-medium text-signal text-xl">ARMAGEDDON</span>
                         <span className="mono-small text-signal/30">© 2026 APEX BUSINESS SYSTEMS</span>
                     </div>
 
@@ -120,15 +119,14 @@ export default function Footer() {
                     </div>
 
                     {/* OmniHub Attribution — visible, not loud */}
-                    <div className="flex items-center gap-2 opacity-40 hover:opacity-70 transition-opacity duration-300">
+                    <div className="relative z-10 flex items-center gap-2">
                         <span className="mono-small text-signal/40">POWERED BY</span>
                         <Image
                             src="/apex-wordmark-logo.png"
                             alt="APEX-OmniHub"
-                            width={88}
-                            height={18}
+                            width={220}
+                            height={45}
                             className="object-contain"
-                            style={{ filter: 'brightness(0) invert(1)' }}
                         />
                     </div>
                 </div>

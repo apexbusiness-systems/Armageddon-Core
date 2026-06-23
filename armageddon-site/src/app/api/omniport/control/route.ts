@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTemporalClient } from '@/lib/temporal';
-import { guardOmniPort, OmniPortControlCommandSchema, parseOmniPortBody } from '@/lib/omniport';
+import { guardOmniPort, OmniPortControlCommandSchema, parseOmniPortBody, type OmniPortControlCommand } from '@/lib/omniport';
 
 // WorkflowNotFoundError from @temporalio/client — we check by name for forward-compat
 function isWorkflowNotFound(err: unknown): boolean {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);
     if (guard) return guard;
 
-    const command = await parseOmniPortBody(request, OmniPortControlCommandSchema);
+    const command = await parseOmniPortBody<OmniPortControlCommand>(request, OmniPortControlCommandSchema);
     if (command instanceof NextResponse) return command;
     // Derive workflowId from runId — same convention as /api/run route
     const workflowId = `armageddon-${command.runId}`;

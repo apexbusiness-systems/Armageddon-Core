@@ -22,13 +22,13 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { getSupabaseServiceRole } from '@/lib/supabase';
-import { guardOmniPort, verifyWaiverToken, WaiverRecordRequestSchema, parseOmniPortBody } from '@/lib/omniport';
+import { guardOmniPort, verifyWaiverToken, WaiverRecordRequestSchema, parseOmniPortBody, type WaiverRecordRequest } from '@/lib/omniport';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);
     if (guard) return guard;
 
-    const body = await parseOmniPortBody(request, WaiverRecordRequestSchema);
+    const body = await parseOmniPortBody<WaiverRecordRequest>(request, WaiverRecordRequestSchema);
     if (body instanceof NextResponse) return body;
     const { waiverToken, acceptedByUserId, organizationId } = body;
 

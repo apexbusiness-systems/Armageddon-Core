@@ -4,8 +4,10 @@ import { cp, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { fileURLToPath } from 'node:url';
+
 const execFileAsync = promisify(execFile);
-const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const source = path.join(repoRoot, 'armageddon-site', 'intake');
 const outDir = path.join(repoRoot, 'armageddon-site', 'out');
 const destination = path.join(outDir, 'intake');

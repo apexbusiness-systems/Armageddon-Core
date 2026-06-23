@@ -20,6 +20,7 @@ import {
     persistTelemetryEvent,
     deriveRunSeed,
     OmniPortLiveFireRequestSchema,
+    type OmniPortLiveFireRequest,
 } from '@/lib/omniport';
 
 // ─── Live-fire parallel guard ────────────────────────────────────────────────
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);
     if (guard) return guard;
 
-    const body = await parseOmniPortBody(request, OmniPortLiveFireRequestSchema);
+    const body = await parseOmniPortBody<OmniPortLiveFireRequest>(request, OmniPortLiveFireRequestSchema);
     if (body instanceof NextResponse) return body;
     const { organizationId, waiverToken, level, iterations, batteries } = body;
 
