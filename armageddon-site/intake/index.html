@@ -3,332 +3,797 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Armageddon Resilience Audit Intake</title>
-    <meta
-      name="description"
-      content="Request an Armageddon Resilience Audit for AI agents. Severity-ranked adversarial testing across 14 battery categories with optional certification."
-    />
+    <title>ARMAGEDDON TEST SUITE — CERTIFICATION INTAKE</title>
+    <meta name="description" content="Submit your system for ARMAGEDDON adversarial certification. Evidence-based. Not a promise — a receipt." />
+    <meta name="theme-color" content="#000000" />
+
+    <!-- Exact same Google Fonts as the main site -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <script src="https://cdn.tailwindcss.com/3.4.17" integrity="sha256-F26JRmGqnNyaXLpscgBEy797i9gNHJoUKnwksbbFDRU=" crossorigin="anonymous"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              armageddon: {
-                bg: '#0A0A0A',
-                card: '#111111',
-                gold: '#C9A84C',
-                text: '#F5F5F5',
-                critical: '#FF4444',
-                high: '#FF8C00',
-              },
-            },
-            fontFamily: {
-              sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-            },
-            boxShadow: {
-              gold: '0 0 50px rgba(201, 168, 76, 0.14)',
-            },
-          },
-        },
-      };
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
-      html { scroll-behavior: smooth; }
-      body { background: #0A0A0A; color: #F5F5F5; font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
-      .field-error { color: #FF4444; font-size: 0.875rem; margin-top: 0.375rem; }
+      /* ═══════════════════════════════════════════════════════════════
+         DESIGN TOKENS — Exact match to globals.css
+         ═══════════════════════════════════════════════════════════════ */
+      :root {
+        --void:             #030303;
+        --void-deep:        #000000;
+        --aerospace:        #FF3300;
+        --aerospace-bright: #FF5722;
+        --aerospace-dark:   #CC2200;
+        --aerospace-glow:   rgba(255,51,0,0.6);
+        --tungsten:         #1a1a1a;
+        --tungsten-light:   #2a2a2a;
+        --signal:           #E8E8E8;
+        --signal-dim:       #c8c8c8;
+        --safe:             #00FF88;
+        --warning:          #FFB800;
+        --contained:        #00D4FF;
+        --font-display:     'Bebas Neue', sans-serif;
+        --font-body:        'Syne', sans-serif;
+        --font-mono:        'Space Mono', monospace;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; font-size: 17.12px; }
+
+      body {
+        font-family: var(--font-body);
+        background: var(--void);
+        color: var(--signal);
+        overflow-x: hidden;
+        line-height: 1.5;
+        min-height: 100vh;
+      }
+
+      /* ═══ ATMOSPHERIC OVERLAYS (mirrors layout.tsx) ═══════════════ */
+      .fire-glow {
+        position: fixed; inset: 0; pointer-events: none; z-index: 1;
+        background:
+          radial-gradient(ellipse 180% 70% at 50% 115%, rgba(255,70,0,.55) 0%, rgba(255,40,0,.35) 30%, rgba(255,20,0,.15) 50%, transparent 75%),
+          radial-gradient(ellipse 50% 90% at 8% 85%,   rgba(255,90,0,.45) 0%, rgba(255,60,0,.25) 40%, transparent 70%),
+          radial-gradient(ellipse 50% 90% at 92% 85%,  rgba(255,70,0,.45) 0%, rgba(255,50,0,.25) 40%, transparent 70%),
+          radial-gradient(ellipse 120% 120% at 50% 50%, rgba(255,50,0,.15) 0%, rgba(255,30,0,.08) 40%, transparent 70%),
+          radial-gradient(ellipse 90% 35% at 50% -15%, rgba(255,60,0,.25) 0%, rgba(255,40,0,.12) 50%, transparent 70%),
+          radial-gradient(ellipse 60% 40% at 30% 95%,  rgba(255,100,20,.3) 0%, transparent 60%),
+          radial-gradient(ellipse 60% 40% at 70% 95%,  rgba(255,80,10,.3)  0%, transparent 60%);
+        animation: fireFlicker 3.5s ease-in-out infinite, fireWave 8s ease-in-out infinite alternate;
+      }
+      @keyframes fireFlicker {
+        0%,100%{ opacity:1; filter:blur(0px) brightness(1); }
+        15%    { opacity:.75; filter:blur(2px) brightness(1.1); }
+        30%    { opacity:.95; filter:blur(.5px) brightness(.95); }
+        50%    { opacity:1; filter:blur(0px) brightness(1.05); }
+        65%    { opacity:.8; filter:blur(1.5px) brightness(1.08); }
+        85%    { opacity:.92; filter:blur(.8px) brightness(.98); }
+      }
+      @keyframes fireWave {
+        0%   { transform:scale(1) translateY(0); }
+        50%  { transform:scale(1.02) translateY(-2px); }
+        100% { transform:scale(.98) translateY(1px); }
+      }
+
+      .vignette-overlay {
+        position:fixed; inset:0; pointer-events:none; z-index:9998;
+        background:radial-gradient(ellipse 80% 60% at center, transparent 30%, rgba(0,0,0,.3) 60%, rgba(0,0,0,.7) 90%, rgba(0,0,0,.95) 100%);
+      }
+      .noise-overlay {
+        position:fixed; inset:0; pointer-events:none; z-index:9999; opacity:.035; mix-blend-mode:overlay;
+        background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .chromatic-edge {
+        position:fixed; inset:0; pointer-events:none; z-index:9997;
+        box-shadow:
+          inset 6px 0 40px -15px rgba(255,0,50,.12),
+          inset -6px 0 40px -15px rgba(0,200,255,.12),
+          inset 0 6px 40px -15px rgba(255,0,255,.08),
+          inset 0 -6px 40px -15px rgba(0,255,100,.08),
+          inset 0 0 200px rgba(0,0,0,.3);
+      }
+      .scanline {
+        position:fixed; top:0; left:0; right:0; height:3px;
+        background:linear-gradient(to bottom,transparent,rgba(255,51,0,.15),rgba(255,51,0,.3),rgba(255,51,0,.15),transparent);
+        pointer-events:none; z-index:9996;
+        animation:scanlineMove 6s linear infinite; filter:blur(1px);
+      }
+      @keyframes scanlineMove { 0%{ transform:translateY(-100%); } 100%{ transform:translateY(100vh); } }
+
+      /* ═══ TOPBAR ════════════════════════════════════════════════ */
+      #topbar {
+        position:fixed; top:0; left:0; right:0; height:48px;
+        display:flex; align-items:center; justify-content:space-between; padding:0 20px;
+        background:rgba(3,3,3,.95); border-bottom:1px solid var(--tungsten-light);
+        z-index:10000; backdrop-filter:blur(8px);
+      }
+      #status-badge {
+        display:flex; align-items:center; gap:10px;
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.18em; color:var(--safe);
+        text-transform:uppercase;
+      }
+      #status-dot {
+        width:8px; height:8px; border-radius:50%;
+        background:var(--safe); box-shadow:0 0 8px var(--safe);
+        animation:safePulse 2s ease-in-out infinite;
+      }
+      @keyframes safePulse { 0%,100%{opacity:1;box-shadow:0 0 8px var(--safe);} 50%{opacity:.5;box-shadow:0 0 2px var(--safe);} }
+
+      #login-btn {
+        display:flex; align-items:center; gap:8px; padding:6px 18px;
+        border:1px solid var(--safe); background:transparent;
+        color:var(--safe); font-family:var(--font-mono); font-size:11px; letter-spacing:.18em;
+        cursor:pointer; text-decoration:none; text-transform:uppercase;
+        transition:background .2s, box-shadow .2s;
+      }
+      #login-btn:hover { background:rgba(0,255,136,.1); box-shadow:0 0 14px rgba(0,255,136,.2); }
+      #login-dot { width:6px; height:6px; border-radius:50%; background:var(--aerospace); }
+
+      /* ═══ MAIN ══════════════════════════════════════════════════ */
+      main {
+        position:relative; z-index:2;
+        padding-top:48px;
+        display:flex; flex-direction:column; align-items:center;
+      }
+
+      /* ═══ HERO ══════════════════════════════════════════════════ */
+      #hero {
+        width:100%; max-width:900px; padding:80px 24px 52px;
+        text-align:center;
+      }
+      #hero-eyebrow {
+        font-family:var(--font-mono); font-size:12px; letter-spacing:.22em;
+        color:var(--aerospace); text-transform:uppercase; margin-bottom:20px;
+      }
+      #hero h1 {
+        font-family:var(--font-display);
+        font-size:clamp(3.21rem, 8.56vw, 7.49rem);
+        line-height:.95; letter-spacing:.04em; text-transform:uppercase;
+        color:var(--signal);
+        animation:titleFlicker 9s infinite;
+      }
+      #hero h1 .red { color:var(--aerospace); display:block; }
+      @keyframes titleFlicker {
+        0%,100%{opacity:1;} 91%{opacity:1;} 92%{opacity:.3;} 93%{opacity:1;} 96%{opacity:.6;} 97%{opacity:1;}
+      }
+      #hero-sub {
+        font-family:var(--font-mono); font-size:12px; letter-spacing:.2em;
+        color:var(--signal-dim); text-transform:uppercase; margin-top:24px;
+      }
+      #hero-sub em { font-style:normal; color:#9a9090; }
+
+      /* ═══ STATS STRIP ══════════════════════════════════════════ */
+      #stats {
+        width:100%; max-width:820px; margin:0 24px 48px;
+        display:grid; grid-template-columns:repeat(4,1fr);
+        border:1px solid var(--tungsten-light); background:var(--tungsten);
+      }
+      @media(max-width:640px){ #stats{ grid-template-columns:repeat(2,1fr); } }
+      .stat {
+        padding:22px 16px; text-align:center;
+        border-right:1px solid rgba(255,255,255,.06);
+      }
+      .stat:last-child{ border-right:none; }
+      .stat-val {
+        font-family:var(--font-display); font-size:clamp(26px,4.28vw,39px);
+        color:var(--aerospace); letter-spacing:.04em; line-height:1;
+        border-bottom:2px solid var(--aerospace); padding-bottom:8px; margin-bottom:6px;
+      }
+      .stat-label {
+        font-family:var(--font-mono); font-size:10px; letter-spacing:.2em;
+        color:var(--signal-dim); text-transform:uppercase;
+      }
+
+      /* ═══ PANEL ════════════════════════════════════════════════ */
+      .panel {
+        width:100%; max-width:820px; margin:0 24px 24px;
+        border:1px solid var(--tungsten-light);
+        background:linear-gradient(180deg, var(--tungsten-light) 0%, var(--tungsten) 100%);
+        position:relative; overflow:hidden;
+      }
+      .panel::before {
+        content:''; position:absolute; top:0; left:0; right:0; height:1px;
+        background:linear-gradient(90deg, transparent, var(--aerospace), transparent); opacity:.6;
+      }
+      .panel-header {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:0 16px; height:36px; border-bottom:1px solid rgba(255,255,255,.06);
+        background:rgba(255,51,0,.04);
+      }
+      .panel-label {
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.18em;
+        color:var(--signal-dim); text-transform:uppercase;
+        display:flex; align-items:center; gap:8px;
+      }
+      .panel-label::before { content:'▐▐'; color:var(--aerospace); letter-spacing:2px; font-size:10px; }
+      .panel-status {
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.14em;
+        color:var(--safe); display:flex; align-items:center; gap:6px;
+        text-transform:uppercase;
+      }
+      .panel-status::before {
+        content:''; width:6px; height:6px; border-radius:50%; background:var(--safe);
+        box-shadow:0 0 6px var(--safe);
+      }
+
+      /* ═══ TIER SECTION ═════════════════════════════════════════ */
+      #tiers-section { padding:28px 28px 0; }
+      .tiers-header {
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.22em;
+        color:var(--aerospace); text-transform:uppercase; margin-bottom:16px;
+      }
+      .tier-grid {
+        display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;
+      }
+      @media(max-width:600px){ .tier-grid{ grid-template-columns:1fr; } }
+
+      .tier-card {
+        position:relative; border:1px solid var(--tungsten-light);
+        background:rgba(0,0,0,.4); padding:16px; cursor:pointer;
+        transition:border-color .2s, background .2s; display:flex; flex-direction:column; gap:6px;
+      }
+      .tier-card input[type="radio"]{ position:absolute; opacity:0; width:0; height:0; }
+      .tier-card:hover{ border-color:rgba(255,51,0,.4); background:rgba(255,51,0,.04); }
+      .tier-card.is-selected{
+        border-color:var(--aerospace);
+        background:rgba(255,51,0,.08);
+        box-shadow:0 0 0 1px var(--aerospace-dark), inset 0 0 24px rgba(255,51,0,.05);
+      }
+      .tier-card.is-selected .tier-name{ color:var(--aerospace); }
+
+      .tier-badge {
+        display:inline-block; font-family:var(--font-mono); font-size:10px; letter-spacing:.16em;
+        padding:2px 7px; border:1px solid; text-transform:uppercase; width:fit-content;
+      }
+      .badge-free     { border-color:var(--signal-dim); color:var(--signal-dim); }
+      .badge-verified { border-color:var(--safe); color:var(--safe); }
+      .badge-certified{
+        border-color:var(--warning); color:var(--warning);
+        background:rgba(255,184,0,.08);
+      }
+      .tier-name {
+        font-family:var(--font-display); font-size:21px; letter-spacing:.06em;
+        text-transform:uppercase; color:var(--signal);
+      }
+      .tier-price {
+        font-family:var(--font-mono); font-size:13px; color:var(--signal-dim);
+        letter-spacing:.06em;
+      }
+      .tier-desc {
+        font-family:var(--font-mono); font-size:11px; color:var(--signal-dim);
+        letter-spacing:.04em; line-height:1.6; margin-top:4px;
+      }
+      /* GOD MODE ribbon */
+      .god-ribbon {
+        position:absolute; top:0; right:0;
+        background:var(--warning); color:#000;
+        font-family:var(--font-mono); font-size:9px; letter-spacing:.14em;
+        padding:3px 10px; text-transform:uppercase; font-weight:700;
+      }
+
+      /* ═══ FORM ══════════════════════════════════════════════════ */
+      form { padding:28px; display:flex; flex-direction:column; gap:20px; }
+
+      .divider {
+        display:flex; align-items:center; gap:12px;
+        color:var(--signal-dim); font-family:var(--font-mono);
+        font-size:10px; letter-spacing:.22em; text-transform:uppercase;
+      }
+      .divider::before, .divider::after {
+        content:''; flex:1; height:1px; background:var(--tungsten-light);
+      }
+
+      .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+      @media(max-width:620px){ .form-row{ grid-template-columns:1fr; } }
+
+      .field { display:flex; flex-direction:column; gap:6px; }
+      .field.full { grid-column:1/-1; }
+
+      label.field-label {
+        font-family:var(--font-mono); font-size:10px; letter-spacing:.22em;
+        color:var(--signal-dim); text-transform:uppercase;
+      }
+      label.field-label .req { color:var(--aerospace); margin-left:3px; }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="url"],
+      select,
+      textarea {
+        background:rgba(0,0,0,.6); border:1px solid var(--tungsten-light);
+        color:var(--signal); font-family:var(--font-mono); font-size:13px;
+        letter-spacing:.05em; padding:11px 14px; outline:none; width:100%;
+        transition:border-color .2s, box-shadow .2s;
+        -webkit-appearance:none; border-radius:0;
+      }
+      input::placeholder, textarea::placeholder { color:var(--signal-dim); opacity:.35; }
+      input:focus, select:focus, textarea:focus {
+        border-color:var(--aerospace);
+        box-shadow:0 0 0 1px var(--aerospace-dark), inset 0 0 20px rgba(255,51,0,.04);
+      }
+      select {
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23FF3300'/%3E%3C/svg%3E");
+        background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; cursor:pointer;
+      }
+      select option { background:#1a1a1a; color:var(--signal); }
+      textarea { resize:vertical; min-height:90px; }
+
+      /* Battery checkboxes */
+      .check-grid {
+        display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+      }
+      @media(max-width:600px){ .check-grid{ grid-template-columns:1fr 1fr; } }
+      .check-item {
+        display:flex; align-items:center; gap:10px; cursor:pointer;
+        padding:8px 12px; border:1px solid var(--tungsten-light);
+        background:rgba(0,0,0,.4); transition:border-color .2s; user-select:none;
+      }
+      .check-item:hover{ border-color:rgba(255,51,0,.35); }
+      .check-item input[type="checkbox"]{ width:13px; height:13px; accent-color:var(--aerospace); cursor:pointer; flex-shrink:0; }
+      .check-item span{
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
+        color:var(--signal-dim); text-transform:uppercase;
+      }
+      .check-item:has(input:checked){ border-color:var(--aerospace-dark); }
+      .check-item:has(input:checked) span{ color:var(--signal); }
+      .god-tag { color:var(--warning); font-size:10px; margin-left:4px; }
+
+      /* ═══ SUBMIT BUTTON (btn-primary style from site) ══════════ */
+      #submit-btn {
+        position:relative; width:100%; padding:20px 48px;
+        font-family:var(--font-display); font-size:clamp(21px,3.21vw,30px);
+        letter-spacing:.15em; color:var(--signal); text-transform:uppercase;
+        background:linear-gradient(135deg, var(--tungsten-light) 0%, var(--tungsten) 100%);
+        border:2px solid var(--aerospace); cursor:pointer; overflow:hidden;
+        transition:all .3s cubic-bezier(.25,.8,.25,1);
+        box-shadow:0 0 0 1px rgba(255,51,0,.3), 0 4px 20px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);
+      }
+      #submit-btn::before {
+        content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+        background:linear-gradient(90deg, transparent, var(--aerospace), transparent);
+        transition:left .5s ease;
+      }
+      #submit-btn::after {
+        content:''; position:absolute; inset:-2px;
+        background:linear-gradient(45deg, var(--aerospace), transparent, var(--aerospace));
+        z-index:-1; opacity:0; transition:opacity .3s ease; filter:blur(10px);
+      }
+      #submit-btn:hover{
+        background:var(--aerospace); color:#fff; transform:translateY(-2px);
+        box-shadow:0 0 0 1px var(--aerospace), 0 8px 40px rgba(255,51,0,.4), 0 0 80px rgba(255,51,0,.2);
+      }
+      #submit-btn:hover::after{ opacity:1; }
+      #submit-btn:active{ transform:translateY(0); }
+      #submit-btn[disabled]{ opacity:.5; cursor:not-allowed; transform:none; }
+      #submit-btn span{ position:relative; z-index:1; }
+
+      .form-note {
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.1em;
+        color:var(--signal-dim); text-align:center; line-height:1.9; text-transform:uppercase;
+      }
+      .form-note a{ color:var(--aerospace); text-decoration:none; }
+      .form-note a:hover{ text-decoration:underline; }
+
+      /* ═══ ALERT BOX ════════════════════════════════════════════ */
+      #formAlert {
+        display:none; padding:12px 16px; margin:0 28px;
+        border:1px solid; font-family:var(--font-mono); font-size:12px; letter-spacing:.1em;
+        text-transform:uppercase; line-height:1.6;
+      }
+      #formAlert.error   { border-color:rgba(255,51,0,.4); background:rgba(255,51,0,.08); color:var(--aerospace); }
+      #formAlert.success { border-color:rgba(0,255,136,.4); background:rgba(0,255,136,.08); color:var(--safe); }
+
+      /* ═══ SUCCESS STATE ════════════════════════════════════════ */
+      #successCard {
+        display:none; width:100%; max-width:820px; margin:0 24px 60px;
+        border:1px solid var(--aerospace); background:rgba(255,51,0,.06);
+        padding:48px; text-align:center;
+      }
+      #successCard::before {
+        content:''; display:block; width:100%; height:2px; margin-bottom:32px;
+        background:linear-gradient(90deg, transparent, var(--aerospace), transparent);
+      }
+      #successCard .sc-eyebrow {
+        font-family:var(--font-mono); font-size:12px; letter-spacing:.22em;
+        color:var(--aerospace); text-transform:uppercase; margin-bottom:16px;
+      }
+      #successCard h2 {
+        font-family:var(--font-display); font-size:clamp(2.14rem,5.35vw,3.75rem);
+        text-transform:uppercase; letter-spacing:.06em; color:var(--signal);
+        margin-bottom:16px;
+      }
+      #successCard p {
+        font-family:var(--font-mono); font-size:13px; letter-spacing:.06em;
+        color:var(--signal-dim); max-width:520px; margin:0 auto; line-height:1.8;
+      }
+
+      /* ═══ PROGRESS BAR ════════════════════════════════════════ */
+      #form-progress { height:2px; background:var(--tungsten-light); width:100%; }
+      #form-progress-bar {
+        height:100%; background:linear-gradient(90deg, var(--aerospace-dark), var(--aerospace));
+        width:0%; transition:width .4s ease; box-shadow:0 0 8px var(--aerospace);
+      }
+
+      /* ═══ FOOTER ══════════════════════════════════════════════ */
+      footer {
+        width:100%; border-top:1px solid var(--tungsten-light); padding:16px 24px;
+        display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+        background:rgba(3,3,3,.8); position:relative; z-index:2;
+      }
+      .footer-copy {
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.1em;
+        color:var(--signal-dim); text-transform:uppercase;
+      }
+      .footer-indicators {
+        display:flex; align-items:center; gap:20px;
+        font-family:var(--font-mono); font-size:11px; letter-spacing:.1em;
+        color:var(--signal-dim); text-transform:uppercase;
+      }
+      .fi { display:flex; align-items:center; gap:7px; }
+      .fi-dot { width:7px; height:7px; border-radius:50%; }
+      .fi-dot.green { background:var(--safe); box-shadow:0 0 6px var(--safe); }
+      .fi-dot.gray  { background:#3a3a3a; border:1px solid #555; }
+      .footer-brand {
+        font-family:var(--font-display); font-size:20px; letter-spacing:.04em; color:var(--signal);
+        position:relative; z-index:10001;
+      }
+      .footer-brand span{ color:var(--aerospace); }
+
+      /* ═══ FIELD HINT ══════════════════════════════════════════ */
+      .field-hint {
+        font-family:var(--font-mono); font-size:10px; letter-spacing:.1em;
+        color:var(--signal-dim); opacity:.92; margin-top:2px; text-transform:uppercase;
+      }
     </style>
   </head>
-  <body class="min-h-screen bg-armageddon-bg text-armageddon-text antialiased">
-    <main class="mx-auto flex w-full max-w-7xl flex-col gap-14 px-5 py-8 sm:px-8 lg:px-10 lg:py-14">
-      <section class="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(201,168,76,0.18),transparent_36%),linear-gradient(135deg,#111111,#0A0A0A)] px-6 py-14 shadow-gold sm:px-10 lg:px-14 lg:py-20">
-        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-armageddon-gold to-transparent"></div>
-        <div class="max-w-4xl">
-          <span class="inline-flex rounded-full border border-armageddon-gold/70 bg-armageddon-gold/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.24em] text-armageddon-gold">
-            Armageddon · Level 8 Certified
-          </span>
-          <h1 class="mt-8 max-w-3xl text-5xl font-bold tracking-[-0.05em] text-white sm:text-6xl lg:text-7xl">
-            How Resilient Is Your AI Agent?
-          </h1>
-          <p class="mt-6 max-w-3xl text-lg leading-8 text-white/76 sm:text-xl">
-            Request an Armageddon Resilience Audit. We test your agent against 14 adversarial battery categories — prompt injection, goal hijacking, indirect injection, authority spoofing, data exfiltration, and more. You get a severity-ranked report and optional certification.
-          </p>
-          <div class="mt-9 flex flex-col gap-3 sm:flex-row">
-            <a href="#intake-form" class="inline-flex items-center justify-center rounded-full bg-armageddon-gold px-6 py-3 text-base font-bold text-black transition hover:bg-[#dabb65] focus:outline-none focus:ring-4 focus:ring-armageddon-gold/30">
-              Request Audit
-            </a>
-            <a href="#tiers" class="inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-base font-bold text-white transition hover:border-armageddon-gold/70 hover:text-armageddon-gold focus:outline-none focus:ring-4 focus:ring-white/10">
-              Compare tiers
-            </a>
-          </div>
+  <body>
+
+    <!-- ATMOSPHERIC OVERLAYS (mirror layout.tsx) -->
+    <div class="fire-glow"       aria-hidden="true"></div>
+    <div class="vignette-overlay" aria-hidden="true"></div>
+    <div class="noise-overlay"   aria-hidden="true"></div>
+    <div class="chromatic-edge"  aria-hidden="true"></div>
+    <div class="scanline"        aria-hidden="true"></div>
+
+    <!-- TOPBAR -->
+    <nav id="topbar" role="navigation" aria-label="Site navigation">
+      <div id="status-badge" aria-label="Edge status: online">
+        <span id="status-dot" aria-hidden="true"></span>
+        CLOUDFLARE_EDGE_READY
+      </div>
+      <a href="/" id="login-btn" aria-label="Login to your account">
+        <span id="login-dot" aria-hidden="true"></span>
+        LOGIN
+      </a>
+    </nav>
+
+    <main>
+
+      <!-- HERO -->
+      <section id="hero" aria-labelledby="hero-heading">
+        <p id="hero-eyebrow">// CERTIFICATION INTAKE — SEQUENCE INITIATION</p>
+        <h1 id="hero-heading">
+          COMPLIANCE IS A CHECKLIST.
+          <span class="red">ARMAGEDDON IS A GUARANTEE.</span>
+        </h1>
+        <p id="hero-sub">
+          SELF-SERVE (FREE) <em> → </em>
+          VERIFIED (EVIDENCE REVIEW) <em> → </em>
+          CERTIFIED (SIGNED CERTIFICATE)
+        </p>
+      </section>
+
+      <!-- STATS -->
+      <section id="stats" aria-label="Platform statistics">
+        <div class="stat">
+          <div class="stat-val">13</div>
+          <div class="stat-label">Total Batteries</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">10K+</div>
+          <div class="stat-label">GOD MODE Iterations</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">&lt;0.01%</div>
+          <div class="stat-label">Escape Threshold</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">FULL</div>
+          <div class="stat-label">Concurrency</div>
         </div>
       </section>
 
-      <section id="tiers" aria-labelledby="tiers-heading" class="space-y-6">
-        <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-[0.22em] text-armageddon-gold">Audit scope</p>
-            <h2 id="tiers-heading" class="mt-2 text-3xl font-bold tracking-[-0.03em] sm:text-4xl">Choose your intake tier</h2>
-          </div>
-          <p class="max-w-2xl text-sm leading-6 text-white/60">Pricing is shown clearly for intake qualification only. No payment is collected on this page; approved audits are invoiced separately.</p>
+      <!-- INTAKE PANEL -->
+      <section class="panel" aria-labelledby="intake-heading">
+        <div class="panel-header">
+          <span class="panel-label" id="intake-heading">INTAKE_CONSOLE</span>
+          <span class="panel-status">ACCEPTING_SUBMISSIONS</span>
+        </div>
+        <div id="form-progress" aria-hidden="true">
+          <div id="form-progress-bar"></div>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-3">
-          <article class="rounded-3xl border border-white/10 bg-armageddon-card p-6 shadow-2xl shadow-black/30">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <h3 class="text-2xl font-bold">Self-Serve</h3>
-                <p class="mt-1 text-3xl font-bold text-armageddon-gold">CAD $500</p>
-              </div>
-              <span class="rounded-full border border-armageddon-gold/30 px-3 py-1 text-xs font-semibold text-armageddon-gold">JSON</span>
-            </div>
-            <p class="mt-5 text-white/72">Run our battery against your system using our test harness. Machine-readable JSON report. No reviewer.</p>
-            <div class="mt-6 space-y-4 text-sm">
-              <div>
-                <p class="font-semibold text-white">Includes</p>
-                <ul class="mt-2 space-y-2 text-white/68">
-                  <li>✓ 14-category battery</li>
-                  <li>✓ Automated severity ranking</li>
-                  <li>✓ JSON output</li>
-                </ul>
-              </div>
-              <div>
-                <p class="font-semibold text-white">Not included</p>
-                <ul class="mt-2 space-y-2 text-white/52">
-                  <li>— Human review</li>
-                  <li>— Certificate</li>
-                  <li>— Remediation plan</li>
-                </ul>
-              </div>
-            </div>
-          </article>
-
-          <article class="rounded-3xl border border-white/10 bg-armageddon-card p-6 shadow-2xl shadow-black/30">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <h3 class="text-2xl font-bold">Verified</h3>
-                <p class="mt-1 text-3xl font-bold text-armageddon-gold">CAD $2,500</p>
-              </div>
-              <span class="rounded-full border border-armageddon-high/40 px-3 py-1 text-xs font-semibold text-armageddon-high">Reviewed</span>
-            </div>
-            <p class="mt-5 text-white/72">APEX reviews your evidence and produces a signed finding summary.</p>
-            <div class="mt-6 space-y-4 text-sm">
-              <div>
-                <p class="font-semibold text-white">Includes</p>
-                <ul class="mt-2 space-y-2 text-white/68">
-                  <li>✓ Everything in Self-Serve</li>
-                  <li>✓ Human review</li>
-                  <li>✓ Finding summary PDF</li>
-                </ul>
-              </div>
-              <div>
-                <p class="font-semibold text-white">Not included</p>
-                <ul class="mt-2 space-y-2 text-white/52">
-                  <li>— Signed certificate</li>
-                </ul>
-              </div>
-            </div>
-          </article>
-
-          <article class="relative rounded-3xl border border-armageddon-gold/70 bg-[linear-gradient(180deg,rgba(201,168,76,0.12),#111111_28%)] p-6 shadow-gold">
-            <span class="absolute right-5 top-5 rounded-full bg-armageddon-gold px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-black">Most popular</span>
-            <div class="pr-24">
-              <h3 class="text-2xl font-bold">Certified</h3>
-              <p class="mt-1 text-3xl font-bold text-armageddon-gold">CAD $7,500</p>
-            </div>
-            <p class="mt-5 text-white/72">Full audit + signed APEX Armageddon certificate.</p>
-            <div class="mt-6 space-y-4 text-sm">
-              <div>
-                <p class="font-semibold text-white">Includes</p>
-                <ul class="mt-2 space-y-2 text-white/68">
-                  <li>✓ Everything in Verified</li>
-                  <li>✓ Signed certificate</li>
-                  <li>✓ Remediation plan</li>
-                  <li>✓ 30-day re-test window</li>
-                </ul>
-              </div>
-            </div>
-          </article>
-        </div>
-
-        <div class="flex flex-col gap-4 rounded-3xl border border-white/10 bg-armageddon-card p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 class="text-xl font-bold">Enterprise</h3>
-            <p class="mt-1 text-white/68">Custom scope, expanded battery, team systems.</p>
-          </div>
-          <a href="mailto:apex@armageddon.icu?subject=Enterprise%20Armageddon%20Resilience%20Audit" class="inline-flex items-center justify-center rounded-full border border-armageddon-gold px-5 py-3 font-bold text-armageddon-gold transition hover:bg-armageddon-gold hover:text-black">
-            Contact us
-          </a>
-        </div>
-      </section>
-
-      <section id="intake-form" aria-labelledby="form-heading" class="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
-        <div class="rounded-3xl border border-white/10 bg-armageddon-card p-6 lg:sticky lg:top-6">
-          <p class="text-sm font-semibold uppercase tracking-[0.22em] text-armageddon-gold">Intake</p>
-          <h2 id="form-heading" class="mt-2 text-3xl font-bold tracking-[-0.03em]">Request an Armageddon Resilience Audit</h2>
-          <p class="mt-4 text-white/68">Submit the system details APEX needs to qualify scope, risk profile, and recommended audit tier.</p>
-          <div class="mt-6 grid gap-3 text-sm">
-            <div class="rounded-2xl border border-armageddon-critical/25 bg-armageddon-critical/10 p-4"><strong class="text-armageddon-critical">Critical:</strong> jailbreak, exfiltration, unsafe tool execution.</div>
-            <div class="rounded-2xl border border-armageddon-high/25 bg-armageddon-high/10 p-4"><strong class="text-armageddon-high">High:</strong> goal hijacking, authority spoofing, unsafe delegation.</div>
-            <div class="rounded-2xl border border-armageddon-gold/25 bg-armageddon-gold/10 p-4"><strong class="text-armageddon-gold">Medium:</strong> partial policy bypass or constrained leakage.</div>
-          </div>
-        </div>
-
-        <form id="auditForm" class="rounded-3xl border border-white/10 bg-armageddon-card p-6 shadow-2xl shadow-black/30 sm:p-8" novalidate>
-          <div id="formAlert" class="mb-6 hidden rounded-2xl border px-4 py-3 text-sm" role="alert" aria-live="polite"></div>
-          <div class="grid gap-5 sm:grid-cols-2">
-            <label class="block sm:col-span-2">
-              <span class="text-sm font-semibold text-white">System Name <span class="text-armageddon-critical">*</span></span>
-              <input name="system_name" required maxlength="160" placeholder="What is the name of your AI system?" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
-              <span data-error-for="system_name" class="field-error"></span>
+        <!-- TIER SELECTION (above form for layout parity with site) -->
+        <div id="tiers-section">
+          <p class="tiers-header">// 01 — SELECT CERTIFICATION TIER</p>
+          <div class="tier-grid" role="radiogroup" aria-label="Certification tier">
+            <label class="tier-card is-selected" id="tier-card-selfserve">
+              <input type="radio" name="tier" value="Self-Serve" checked id="tier-selfserve" />
+              <span class="tier-badge badge-free">FREE</span>
+              <span class="tier-name">Self-Serve</span>
+              <span class="tier-price">CAD $500</span>
+              <span class="tier-desc">Run ARMAGEDDON locally. Machine-readable JSON report. Community badge on pass.</span>
             </label>
-
-            <label class="block">
-              <span class="text-sm font-semibold text-white">Contact Name <span class="text-armageddon-critical">*</span></span>
-              <input name="contact_name" required maxlength="160" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
-              <span data-error-for="contact_name" class="field-error"></span>
+            <label class="tier-card" id="tier-card-verified">
+              <input type="radio" name="tier" value="Verified" id="tier-verified" />
+              <span class="tier-badge badge-verified">VERIFIED</span>
+              <span class="tier-name">Verified</span>
+              <span class="tier-price">CAD $2,500</span>
+              <span class="tier-desc">APEX reviews evidence. Signed finding summary PDF issued.</span>
             </label>
-
-            <label class="block">
-              <span class="text-sm font-semibold text-white">Email <span class="text-armageddon-critical">*</span></span>
-              <input name="email" type="email" required maxlength="254" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
-              <span data-error-for="email" class="field-error"></span>
-            </label>
-
-            <label class="block sm:col-span-2">
-              <span class="text-sm font-semibold text-white">Company</span>
-              <input name="company" maxlength="180" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
-              <span data-error-for="company" class="field-error"></span>
+            <label class="tier-card" id="tier-card-certified">
+              <input type="radio" name="tier" value="Certified" id="tier-certified" />
+              <span class="god-ribbon">GOD MODE</span>
+              <span class="tier-badge badge-certified">CERTIFIED</span>
+              <span class="tier-name">Certified</span>
+              <span class="tier-price">CAD $7,500</span>
+              <span class="tier-desc">Full adversarial battery. Signed certificate + leaderboard entry + 30-day re-test.</span>
             </label>
           </div>
 
-          <fieldset class="mt-6">
-            <legend class="text-sm font-semibold text-white">Tier Selection <span class="text-armageddon-critical">*</span></legend>
-            <div class="mt-3 grid gap-3 sm:grid-cols-2">
-              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
-                <input type="radio" name="tier" value="Self-Serve" checked class="mt-1 accent-armageddon-gold" />
-                <span><span class="block font-bold">Self-Serve</span><span class="text-sm text-white/55">CAD $500</span></span>
-              </label>
-              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
-                <input type="radio" name="tier" value="Verified" class="mt-1 accent-armageddon-gold" />
-                <span><span class="block font-bold">Verified</span><span class="text-sm text-white/55">CAD $2,500</span></span>
-              </label>
-              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
-                <input type="radio" name="tier" value="Certified" class="mt-1 accent-armageddon-gold" />
-                <span><span class="block font-bold">Certified</span><span class="text-sm text-white/55">CAD $7,500</span></span>
-              </label>
-              <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 transition has-[:checked]:border-armageddon-gold has-[:checked]:bg-armageddon-gold/10">
-                <input type="radio" name="tier" value="Enterprise" class="mt-1 accent-armageddon-gold" />
-                <span><span class="block font-bold">Enterprise</span><span class="text-sm text-white/55">Custom invoice</span></span>
-              </label>
+          <!-- Enterprise row -->
+          <div class="tier-card" style="margin-bottom:20px; flex-direction:row; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div>
+              <span class="tier-name" style="font-size:17px;">Enterprise</span>
+              <p class="tier-desc" style="margin-top:2px;">Custom scope, expanded battery, team systems. Contact us for pricing.</p>
             </div>
-            <span data-error-for="tier" class="field-error"></span>
-          </fieldset>
+            <a href="mailto:apex@armageddon.icu?subject=Enterprise%20Armageddon%20Audit"
+               style="font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;color:var(--aerospace);border:1px solid var(--aerospace);padding:8px 18px;text-decoration:none;text-transform:uppercase;white-space:nowrap;transition:background .2s;"
+               onmouseover="this.style.background='rgba(255,51,0,.12)'" onmouseout="this.style.background='transparent'">
+              CONTACT US
+            </a>
+          </div>
+        </div>
 
-          <label class="mt-6 block">
-            <span class="text-sm font-semibold text-white">System Description <span class="text-armageddon-critical">*</span></span>
-            <textarea name="description" required maxlength="4000" rows="6" placeholder="Briefly describe your agent and what it can do (tools, APIs, autonomy level)" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10"></textarea>
-            <span data-error-for="description" class="field-error"></span>
-          </label>
+        <!-- ALERT -->
+        <div id="formAlert" role="alert" aria-live="polite"></div>
 
-          <label class="mt-6 block">
-            <span class="text-sm font-semibold text-white">How did you find us?</span>
-            <input name="source" maxlength="240" class="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-armageddon-gold focus:ring-4 focus:ring-armageddon-gold/10" />
-            <span data-error-for="source" class="field-error"></span>
-          </label>
+        <!-- FORM -->
+        <form id="auditForm" novalidate aria-label="Certification intake form">
 
-          <button id="submitButton" type="submit" class="mt-7 flex w-full items-center justify-center rounded-2xl bg-armageddon-gold px-5 py-4 text-base font-bold text-black transition hover:bg-[#dabb65] focus:outline-none focus:ring-4 focus:ring-armageddon-gold/30 disabled:cursor-not-allowed disabled:opacity-60">
-            Request Audit
+          <div class="divider">02 — OPERATOR IDENTIFICATION</div>
+
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label" for="system_name">System Name <span class="req">*</span></label>
+              <input type="text" id="system_name" name="system_name" required maxlength="160"
+                     placeholder="YOUR AI SYSTEM NAME" autocomplete="off" aria-required="true" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="contact_name">Contact Name <span class="req">*</span></label>
+              <input type="text" id="contact_name" name="contact_name" required maxlength="160"
+                     placeholder="OPERATOR_HANDLE" autocomplete="name" aria-required="true" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label" for="email">Contact Email <span class="req">*</span></label>
+              <input type="email" id="email" name="email" required maxlength="254"
+                     placeholder="ops@yourdomain.com" autocomplete="email" aria-required="true" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="company">Organization</label>
+              <input type="text" id="company" name="company" maxlength="180"
+                     placeholder="APEX BUSINESS SYSTEMS" autocomplete="organization" />
+            </div>
+          </div>
+
+          <div class="divider">03 — SYSTEM PROFILE</div>
+
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label" for="stack-sel">Primary Stack</label>
+              <select id="stack-sel" name="stack">
+                <option value="" disabled selected>SELECT_STACK</option>
+                <option>Next.js + TypeScript</option>
+                <option>React + Vite</option>
+                <option>Python + FastAPI</option>
+                <option>Node.js + Express</option>
+                <option>Go</option>
+                <option>Rust</option>
+                <option>C# / .NET</option>
+                <option>Java + Spring</option>
+                <option>Solidity / Smart Contract</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="env-sel">Target Environment</label>
+              <select id="env-sel" name="environment">
+                <option value="" disabled selected>SELECT_ENV</option>
+                <option>Staging</option>
+                <option>Production</option>
+                <option>Local Sandbox</option>
+                <option>CI/CD Pipeline</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="divider">04 — REQUESTED BATTERIES</div>
+
+          <div class="check-grid">
+            <label class="check-item"><input type="checkbox" name="batteries" value="unit_module" /><span>01 · Unit / Module</span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="unsafe_gate" /><span>06 · Unsafe Gate</span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="playwright_e2e" /><span>07 · Playwright E2E</span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="asset_smoke" /><span>08 · Asset Smoke</span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="integration" /><span>09 · Integration</span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="goal_hijack" /><span>10 · Goal Hijack <span class="god-tag">GOD</span></span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="tool_misuse" /><span>11 · Tool Misuse</span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="memory_poison" /><span>12 · Memory Poison</span></label>
+            <label class="check-item"><input type="checkbox" name="batteries" value="supply_chain" /><span>13 · Supply Chain <span class="god-tag">GOD</span></span></label>
+          </div>
+
+          <div class="divider">05 — MISSION BRIEF</div>
+
+          <div class="field full">
+            <label class="field-label" for="description">System Description <span class="req">*</span></label>
+            <textarea id="description" name="description" required maxlength="4000" rows="6"
+              placeholder="// DESCRIBE YOUR AGENT — TOOLS, APIs, AUTONOMY LEVEL, KNOWN FAILURE MODES, PAST INCIDENTS, THREAT VECTORS TO PRIORITIZE..."></textarea>
+            <p class="field-hint">// Evidence of past incidents accelerates triage. Redact secrets.</p>
+          </div>
+
+          <div class="field full">
+            <label class="field-label" for="source">How Did You Find Us?</label>
+            <input type="text" id="source" name="source" maxlength="240"
+                   placeholder="REFERRAL / CONFERENCE / SEARCH / OTHER" />
+          </div>
+
+          <button type="submit" id="submit-btn" aria-label="Initiate certification sequence">
+            <span id="btn-label">INITIATE SEQUENCE</span>
           </button>
-          <p class="mt-4 text-center text-xs text-white/45">No payment is collected here. Audit fees are invoiced separately after scope confirmation.</p>
-        </form>
 
-        <section id="successCard" class="hidden rounded-3xl border border-armageddon-gold/50 bg-armageddon-card p-8 shadow-gold" aria-live="polite">
-          <p class="text-sm font-semibold uppercase tracking-[0.22em] text-armageddon-gold">Submitted</p>
-          <h2 class="mt-3 text-3xl font-bold">Request received. We'll respond within 24 hours.</h2>
-          <p class="mt-4 text-white/68">APEX will review your intake, confirm scope, and follow up with next steps. Your form data has been preserved locally in this browser session for reference.</p>
-        </section>
+          <p class="form-note">
+            No payment collected here. Audit fees invoiced after scope confirmation.<br />
+            <a href="/acceptable-use">ACCEPTABLE USE POLICY</a>
+            &nbsp;·&nbsp;
+            <a href="/privacy">PRIVACY POLICY</a>
+          </p>
+
+        </form>
       </section>
+
+      <!-- SUCCESS -->
+      <section id="successCard" aria-live="polite">
+        <p class="sc-eyebrow">// SEQUENCE QUEUED</p>
+        <h2>Request Received.</h2>
+        <p>APEX will review your intake, confirm scope, and follow up within 24 hours. Your data has been preserved in this session for reference.</p>
+      </section>
+
     </main>
 
+    <!-- FOOTER -->
+    <footer role="contentinfo">
+      <div class="footer-copy">
+        © 2026 APEX BUSINESS SYSTEMS<br />
+        <span style="opacity:.5;font-size:10px;">ARMAGEDDON TEST SUITE. CONTROLLED SANDBOX TESTING ONLY.</span>
+      </div>
+      <div class="footer-indicators">
+        <span>EDGE BY</span>
+        <div class="fi"><div class="fi-dot gray"></div>CLOUDFLARE / LOCAL MOAT</div>
+        <div class="fi"><div class="fi-dot green"></div>CLOUDFLARE EDGE READY</div>
+        <span>POWERED BY</span>
+      </div>
+      <div class="footer-brand">APEX<span>Omni</span>Hub</div>
+    </footer>
+
     <script>
-      const form = document.getElementById('auditForm');
-      const successCard = document.getElementById('successCard');
-      const submitButton = document.getElementById('submitButton');
-      const alertBox = document.getElementById('formAlert');
-
-      const setAlert = (message, type = 'error') => {
-        alertBox.textContent = message;
-        alertBox.classList.remove('hidden', 'border-armageddon-critical/40', 'bg-armageddon-critical/10', 'text-armageddon-critical', 'border-armageddon-gold/40', 'bg-armageddon-gold/10', 'text-armageddon-gold');
-        if (type === 'success') {
-          alertBox.classList.add('border-armageddon-gold/40', 'bg-armageddon-gold/10', 'text-armageddon-gold');
-        } else {
-          alertBox.classList.add('border-armageddon-critical/40', 'bg-armageddon-critical/10', 'text-armageddon-critical');
-        }
-      };
-
-      const clearErrors = () => {
-        document.querySelectorAll('[data-error-for]').forEach((node) => { node.textContent = ''; });
-        alertBox.classList.add('hidden');
-        alertBox.textContent = '';
-      };
-
-      const setFieldErrors = (errors) => {
-        Object.entries(errors || {}).forEach(([field, message]) => {
-          const target = document.querySelector(`[data-error-for="${field}"]`);
-          if (target) target.textContent = Array.isArray(message) ? message.join(', ') : message;
+      /* ── Tier card selection ────────────────────────────────── */
+      document.querySelectorAll('.tier-card input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('is-selected'));
+          if (radio.checked) radio.closest('.tier-card').classList.add('is-selected');
         });
-      };
+      });
 
-      const getPayload = () => {
-        const data = new FormData(form);
-        return {
-          system_name: String(data.get('system_name') || ''),
-          contact_name: String(data.get('contact_name') || ''),
-          email: String(data.get('email') || ''),
-          company: String(data.get('company') || ''),
-          tier: String(data.get('tier') || ''),
-          description: String(data.get('description') || ''),
-          source: String(data.get('source') || ''),
+      /* ── Progress bar ───────────────────────────────────────── */
+      const REQUIRED = ['system_name','contact_name','email','description'];
+      const bar = document.getElementById('form-progress-bar');
+      function updateProgress() {
+        const filled = REQUIRED.filter(id => {
+          const el = document.getElementById(id);
+          return el && el.value.trim() !== '';
+        }).length;
+        bar.style.width = Math.round((filled / REQUIRED.length) * 100) + '%';
+      }
+      document.querySelectorAll('input,select,textarea').forEach(el => {
+        el.addEventListener('input', updateProgress);
+        el.addEventListener('change', updateProgress);
+      });
+
+      /* ── Alert helper ───────────────────────────────────────── */
+      const alertBox = document.getElementById('formAlert');
+      function showAlert(msg, type='error') {
+        alertBox.textContent = msg;
+        alertBox.className = type;
+        alertBox.style.display = 'block';
+      }
+      function clearAlert() { alertBox.style.display = 'none'; alertBox.textContent = ''; }
+
+      /* ── Form submit ────────────────────────────────────────── */
+      const form       = document.getElementById('auditForm');
+      const successCard= document.getElementById('successCard');
+      const submitBtn  = document.getElementById('submit-btn');
+      const btnLabel   = document.getElementById('btn-label');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearAlert();
+
+        // Client-side required check
+        const missing = REQUIRED.filter(id => !document.getElementById(id)?.value.trim());
+        if (missing.length) {
+          missing.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.style.borderColor = 'var(--aerospace)'; el.focus(); }
+          });
+          showAlert('// MISSING REQUIRED FIELDS — CHECK HIGHLIGHTED INPUTS');
+          return;
+        }
+        REQUIRED.forEach(id => { const el = document.getElementById(id); if(el) el.style.borderColor = ''; });
+
+        submitBtn.disabled = true;
+        btnLabel.textContent = 'SUBMITTING...';
+
+        const fd = new FormData(form);
+        const payload = {
+          system_name:  fd.get('system_name')  || '',
+          contact_name: fd.get('contact_name') || '',
+          email:        fd.get('email')         || '',
+          company:      fd.get('company')       || '',
+          tier:         fd.get('tier')          || '',
+          description:  fd.get('description')   || '',
+          source:       fd.get('source')        || '',
         };
-      };
 
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        clearErrors();
-        submitButton.disabled = true;
-        submitButton.textContent = 'Submitting…';
-
-        const payload = getPayload();
+        // Persist draft in session
         sessionStorage.setItem('armageddon_intake_draft', JSON.stringify(payload));
 
         try {
-          const response = await fetch('/api/intake', {
+          const res    = await fetch('/api/intake', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(payload),
           });
-          const result = await response.json().catch(() => ({}));
+          const result = await res.json().catch(() => ({}));
 
-          if (!response.ok || !result.success) {
-            setFieldErrors(result.fieldErrors || {});
-            setAlert(result.error || 'Unable to submit your request. Please correct the highlighted fields and try again.');
+          if (!res.ok || !result.success) {
+            // Field-level errors from server
+            if (result.fieldErrors) {
+              Object.entries(result.fieldErrors).forEach(([field, msg]) => {
+                const el = document.getElementById(field);
+                if (el) el.style.borderColor = 'var(--aerospace)';
+              });
+            }
+            showAlert(result.error || '// SUBMISSION FAILED — CORRECT HIGHLIGHTED FIELDS AND RETRY');
             return;
           }
 
+          // Success
           form.classList.add('hidden');
-          successCard.classList.remove('hidden');
+          form.style.display = 'none';
+          successCard.style.display = 'block';
+          bar.style.width = '100%';
+          bar.style.background = 'var(--safe)';
+          bar.style.boxShadow  = '0 0 8px var(--safe)';
           successCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (error) {
-          const detail = error instanceof Error ? error.message : String(error);
-          console.error('Armageddon intake submission failed:', detail);
-          setAlert('Network error. Your data is still in the form — please try again in a moment.');
+
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          console.error('[ARMAGEDDON INTAKE] submit failed:', detail);
+          showAlert('// NETWORK ERROR — DATA PRESERVED IN FORM. RETRY IN A MOMENT.');
         } finally {
-          submitButton.disabled = false;
-          submitButton.textContent = 'Request Audit';
+          submitBtn.disabled = false;
+          btnLabel.textContent = 'INITIATE SEQUENCE';
         }
       });
     </script>
