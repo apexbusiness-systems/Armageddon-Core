@@ -49,6 +49,12 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
+      - name: Validate Production Environment
+        working-directory: armageddon-site
+        env:
+          NEXT_PUBLIC_SITE_URL: https://armageddontest.icu
+        run: npm run validate:production-env
+
       - name: Verify shared lib build
         run: |
           ls packages/shared/dist/
@@ -59,6 +65,7 @@ jobs:
         working-directory: armageddon-site
         env:
           CLOUDFLARE_STATIC_EXPORT: "true"
+          NEXT_PUBLIC_SITE_URL: https://armageddontest.icu
           NEXT_TELEMETRY_DISABLED: "1"
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

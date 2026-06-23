@@ -10,6 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "build:cloudflare": "CLOUDFLARE_STATIC_EXPORT=true next build && node ../scripts/copy_intake_static.mjs",
+    "validate:production-env": "node ../scripts/validate-armageddon-production-env.mjs",
     "deploy:cloudflare": "npm run build:cloudflare && node ../scripts/deploy_cloudflare_static.mjs"
   },
   "dependencies": {

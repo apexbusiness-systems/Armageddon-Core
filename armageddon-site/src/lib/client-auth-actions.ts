@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getAuthOrigin } from './auth-origin';
 
 const AUTH_PROVIDER = 'github' as const;
 
@@ -7,8 +8,8 @@ export async function startGithubOAuth(sb: SupabaseClient, logPrefix: string): P
         const { error } = await sb.auth.signInWithOAuth({
             provider: AUTH_PROVIDER,
             options: {
-                // Runtime origin keeps preview, local, and production callbacks aligned.
-                redirectTo: `${globalThis.location.origin}/`,
+                // Uses canonical runtime origin
+                redirectTo: `${getAuthOrigin()}/`,
             },
         });
 
