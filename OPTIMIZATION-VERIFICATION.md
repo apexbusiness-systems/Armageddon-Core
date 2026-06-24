@@ -6,7 +6,7 @@
 
 
 ## Current State
-✅ Code in `armageddon-core/src/temporal/activities.ts` uses `reporter.pushEvents()` with batched insertion, ensuring optimal performance.
+✅ Code in `packages/core/src/temporal/activities.ts` uses `reporter.pushEvents()` with batched insertion, ensuring optimal performance.
 
 ## Benchmark Results
 Benchmark run using `vitest bench` with 100 events and 1ms simulated latency:

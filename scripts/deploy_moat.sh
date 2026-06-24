@@ -6,7 +6,7 @@
 set -euo pipefail
 
 COMPOSE_FILE="docker-compose.moat.yml"
-DOCKERFILE="armageddon-core/Dockerfile"
+DOCKERFILE="packages/core/Dockerfile"
 IMAGE_NAME="armageddon-worker"
 WORKER_CONTAINER="armageddon-worker-moat"
 HEALTH_TIMEOUT=120  # seconds to wait for worker healthcheck

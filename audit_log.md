@@ -11,7 +11,7 @@ to EU AI Act Article 12 (Aug 2026), CAP-SRP v1.0, and RFC 6962.
 
 ### Scope
 
-- New module `armageddon-core/src/core/attestation.ts`:
+- New module `packages/core/src/core/attestation.ts`:
   - Ed25519 signing via Node built-in `node:crypto` (zero new dependencies).
   - RFC 6962-style SHA-256 Merkle tree with `0x00`/`0x01` domain separation.
   - RFC 8785-style canonical JSON serialization (deterministic key order,
@@ -110,7 +110,7 @@ summary.
 - **[2026-01-25]**: Audit initialized. Files created.
 - **[2026-01-25]**: Implemented `SeedableRNG` (Mulberry32) for deterministic simulations.
 - **[2026-01-25]**: Refactored `activities.ts` to use `SeedableRNG` seeded by `runId`.
-- **[2026-01-25]**: Implemented real unit tests in `armageddon-core/tests/` for core logic. All tests PASSED.
+- **[2026-01-25]**: Implemented real unit tests in `packages/core/tests/` for core logic. All tests PASSED.
 - **[2026-01-25]**: Upgraded Battery 5 to execute `npm test` via child process, bridging simulation and reality.
 - **[2026-01-25]**: **Security Hardening**:
   - Replaced regex parsing of test output with `npm run test -- --reporter=json` to prevent ReDoS (SonarCloud S5852).
@@ -156,8 +156,8 @@ Complete rewrite of `src/temporal/activities.ts` per APEX-DEV v1.0, APEX-POWER v
 
 ### Files Modified
 
-- `armageddon-core/src/core/utils.ts` — Added `SeedableRNG`, `hashString`
-- `armageddon-core/src/temporal/activities.ts` — Full PLATINUM rewrite (480+ lines)
+- `packages/core/src/core/utils.ts` — Added `SeedableRNG`, `hashString`
+- `packages/core/src/temporal/activities.ts` — Full PLATINUM rewrite (480+ lines)
 
 ---
 

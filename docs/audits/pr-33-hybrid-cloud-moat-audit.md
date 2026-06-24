@@ -17,7 +17,7 @@ The repository contains some moat-related baseline assets (`docker-compose.moat.
 **Claim:** dual support for mTLS certificates and API key authentication for Temporal Cloud.
 
 **Observed:**
-- `armageddon-core/src/worker.ts` uses `NativeConnection.connect({ address })` with no TLS/mTLS/API key options.
+- `packages/core/src/worker.ts` uses `NativeConnection.connect({ address })` with no TLS/mTLS/API key options.
 - No references to `TEMPORAL_API_KEY`, `tls`, cert paths, or Temporal Cloud endpoint logic.
 - `armageddon-site/src/app/api/run/route.ts` starts workflows via an app-level client helper and does not include hybrid auth logic.
 

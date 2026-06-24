@@ -19,20 +19,20 @@ rm -f update_route.js
 rm -f update_temporal_activities.js
 rm -f update_workflows*.js
 
-# Fix 'import SupabaseReporter' unused in armageddon-core/tests/core/reporter.test.ts
-sed -i '/import { SupabaseReporter } from/d' armageddon-core/tests/core/reporter.test.ts
+# Fix 'import SupabaseReporter' unused in packages/core/tests/core/reporter.test.ts
+sed -i '/import { SupabaseReporter } from/d' packages/core/tests/core/reporter.test.ts
 
 # Fix duplicate '@armageddon/shared' imports in armageddon-site/src/app/api/run/route.ts
 sed -i '15d' armageddon-site/src/app/api/run/route.ts
 
-# Fix replaceAll vs replace in armageddon-core/src/core/engine/activities.ts
-sed -i 's/\.replace(\/e\/g, /\.replaceAll(/g' armageddon-core/src/core/engine/activities.ts
-sed -i 's/\.replace(\/a\/g, /\.replaceAll(/g' armageddon-core/src/core/engine/activities.ts
-sed -i "s/(s: string) => s.replaceAll('3').replaceAll('@')/(s: string) => s.replaceAll('e', '3').replaceAll('a', '@')/" armageddon-core/src/core/engine/activities.ts
+# Fix replaceAll vs replace in packages/core/src/core/engine/activities.ts
+sed -i 's/\.replace(\/e\/g, /\.replaceAll(/g' packages/core/src/core/engine/activities.ts
+sed -i 's/\.replace(\/a\/g, /\.replaceAll(/g' packages/core/src/core/engine/activities.ts
+sed -i "s/(s: string) => s.replaceAll('3').replaceAll('@')/(s: string) => s.replaceAll('e', '3').replaceAll('a', '@')/" packages/core/src/core/engine/activities.ts
 
-# Fix parseInt in armageddon-core/src/core/engine/activities.ts
-sed -i 's/parseInt(/Number.parseInt(/g' armageddon-core/src/core/engine/activities.ts
+# Fix parseInt in packages/core/src/core/engine/activities.ts
+sed -i 's/parseInt(/Number.parseInt(/g' packages/core/src/core/engine/activities.ts
 
-# Fix `/[^0-9]/g` to `/\D/g` in armageddon-core/src/core/engine/activities.ts
-sed -i 's/\[\^0-9\]/\\D/g' armageddon-core/src/core/engine/activities.ts
+# Fix `/[^0-9]/g` to `/\D/g` in packages/core/src/core/engine/activities.ts
+sed -i 's/\[\^0-9\]/\\D/g' packages/core/src/core/engine/activities.ts
 

@@ -18,8 +18,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync, statSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { EvidenceGenerator } from '../armageddon-core/src/core/evidence-generator';
-import type { ArmageddonReport } from '../armageddon-core/src/temporal/activities';
+import { EvidenceGenerator } from '../packages/core/src/core/evidence-generator';
+import type { ArmageddonReport } from '../packages/core/src/temporal/activities';
 
 const SEED_HEX = 'c0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ff';
 process.env.ARMAGEDDON_ATTESTATION_SEED = SEED_HEX;

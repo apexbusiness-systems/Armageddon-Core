@@ -29,7 +29,7 @@ npm run build
 For duplication/Sonar remediation work, also run:
 
 ```bash
-npx --yes jscpd --min-lines 5 --min-tokens 50 --reporters console --mode strict armageddon-core/src armageddon-site/src
+npx --yes jscpd --min-lines 5 --min-tokens 50 --reporters console --mode strict packages/core/src armageddon-site/src
 ```
 
 ## Gate Lock Procedure

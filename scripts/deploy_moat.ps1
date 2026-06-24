@@ -26,7 +26,7 @@ Write-Status "🏷️  Target Version: $version"
 
 # 3. BUILD (Kinetic Engine)
 Write-Status "🏗️  Building Kinetic Moat..."
-docker build -t armageddon-worker:$version -f armageddon-core/Dockerfile .
+docker build -t armageddon-worker:$version -f packages/core/Dockerfile .
 if ($LASTEXITCODE -ne 0) { throw "Build Failed" }
 
 # Tag as latest for convenience

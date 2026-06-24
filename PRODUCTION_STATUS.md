@@ -15,7 +15,7 @@ This status file reports what can be proven from the repository checkout. Public
 | --- | --- | --- |
 | Root workspace gates | Defined | `package.json` exposes `lint`, `typecheck`, `test`, `build`, and `docs:check`. |
 | Shared package | Defined | `packages/shared/package.json` exposes `build`, `typecheck`, and `lint`. |
-| Temporal worker/core | Defined | `armageddon-core/package.json` exposes `worker`, `build`, `typecheck`, `lint`, and non-e2e `test`. |
+| Temporal worker/core | Defined | `packages/core/package.json` exposes `worker`, `build`, `typecheck`, `lint`, and non-e2e `test`. |
 | Next.js site | Defined | `armageddon-site/package.json` exposes `dev`, `build`, `start`, `test`, `lint`, `typecheck`, `build:cloudflare`, and `deploy:cloudflare`. |
 | Local Moat orchestration | Defined | `docker-compose.moat.yml` and `scripts/deploy_moat.*` remain the local execution path. |
 | Static Cloudflare edge | Defined | `armageddon-site/wrangler.jsonc`, `scripts/deploy_cloudflare_static.mjs`, and `docs/CLOUDFLARE_DEPLOYMENT.md` define static asset deployment. |

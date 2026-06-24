@@ -49,7 +49,7 @@
 
 ### 3. **Backend Worker (Temporal.io)** — ✅ MOSTLY COMPLETE
 
-- **Location**: `armageddon-core/src/temporal/`
+- **Location**: `packages/core/src/temporal/`
 - **Batteries Implemented**: 13/13
   - ✅ **B1**: Chaos Stress (REAL — uses stress test engine)
   - 🟡 **B2**: Chaos Engine (STUBBED)
@@ -74,7 +74,7 @@
 
 ### 4. **Core Infrastructure** — ✅ COMPLETE
 
-- ✅ Safety guard system (`armageddon-core/src/core/safety.ts`)
+- ✅ Safety guard system (`packages/core/src/core/safety.ts`)
 - ✅ Supabase event reporter
 - ✅ Adversarial engine (PAIR attack algorithm)
 - ✅ Stress test engine (Artillery/native)

@@ -2,7 +2,7 @@
 set -e
 
 echo "=== TypeScript type-check ==="
-npx tsc --noEmit -p armageddon-core/tsconfig.json
+npx tsc --noEmit -p packages/core/tsconfig.json
 
 echo "=== Lint (workspace) ==="
 if npm run lint -w armageddon-core --if-present 2>/dev/null; then
@@ -14,9 +14,9 @@ fi
 echo "=== Unit tests ==="
 npm run test -w armageddon-core
 
-mkdir -p armageddon-core/coverage
-if [[ ! -f armageddon-core/coverage/lcov.info ]]; then
-  echo "TN:" > armageddon-core/coverage/lcov.info
+mkdir -p packages/core/coverage
+if [[ ! -f packages/core/coverage/lcov.info ]]; then
+  echo "TN:" > packages/core/coverage/lcov.info
 fi
 
 if compgen -G "armageddon-site/jest.config.*" > /dev/null; then

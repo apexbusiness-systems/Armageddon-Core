@@ -4,7 +4,7 @@
 **Audit date**: 2026-05-15<br>
 **Last reviewed**: 2026-05-15<br>
 **Scope**: Tracked Markdown, text, HTML, README, runbook, status, audit, and map-style documents outside `node_modules/`, `.git/`, and generated dependency trees.<br>
-**Evidence baseline**: root `package.json`, workspace `package.json` files, `.github/workflows/`, Docker Compose files, `armageddon-core/src/`, `armageddon-site/src/`, `packages/shared/src/`, and `scripts/`.
+**Evidence baseline**: root `package.json`, workspace `package.json` files, `.github/workflows/`, Docker Compose files, `packages/core/src/`, `armageddon-site/src/`, `packages/shared/src/`, and `scripts/`.
 
 ## Executive findings
 
@@ -12,7 +12,7 @@
 2. The current repository has three npm workspaces: `armageddon-core`, `armageddon-site`, and `packages/*`.
 3. The active deploy surfaces are local Docker Moat (`docker-compose.moat.yml`, `scripts/deploy_moat.*`, `scripts/kill_moat.*`) and static Cloudflare export/deploy (`armageddon-site/wrangler.jsonc`, `docs/CLOUDFLARE_DEPLOYMENT.md`, `scripts/deploy_cloudflare_static.mjs`).
 4. Render blueprint files were confirmed as obsolete because the repository records a Moat/Cloudflare deployment posture and no root script or workflow consumes `render.yaml`; `render.yaml` and the duplicate `renderyaml` file were removed in this cleanup.
-5. Generated or agent-run artifacts were confirmed irrelevant to source-of-truth documentation and removed: `ARMAGEDDON TEST SUITE - Results.txt`, `armageddon-core/test-output.txt`, `armageddon-core/test-output-utf8.txt`, `plan_step_complete.txt`, and stale push logs.
+5. Generated or agent-run artifacts were confirmed irrelevant to source-of-truth documentation and removed: `ARMAGEDDON TEST SUITE - Results.txt`, `packages/core/test-output.txt`, `packages/core/test-output-utf8.txt`, `plan_step_complete.txt`, and stale push logs.
 6. `PRODUCTION_STATUS.md` previously described live runtime health that cannot be proven from this checkout alone. It now reports repository-verified release posture and marks external runtime state as requiring fresh operator evidence.
 7. Historical audit and launch records remain preserved when they contain dated evidence. They must not be used as current status without a newer verification run.
 
@@ -20,7 +20,7 @@
 
 | Path | Current role | Verification source |
 | --- | --- | --- |
-| `armageddon-core/` | Temporal worker, adversarial engine, provider adapters, Python bridge integration | `armageddon-core/package.json`, `armageddon-core/src/`, `armageddon-core/Dockerfile` |
+| `packages/core/` | Temporal worker, adversarial engine, provider adapters, Python bridge integration | `packages/core/package.json`, `packages/core/src/`, `packages/core/Dockerfile` |
 | `armageddon-site/` | Next.js 14 site/control plane, API routes, static Cloudflare export target | `armageddon-site/package.json`, `armageddon-site/src/`, `armageddon-site/wrangler.jsonc` |
 | `packages/shared/` | Shared TypeScript types, battery metadata, gate/tier constants | `packages/shared/package.json`, `packages/shared/src/` |
 | `scripts/` | Docs drift, route integrity, Cloudflare deploy, Moat deploy/kill/verify automation | `scripts/*.mjs`, `scripts/*.sh`, `scripts/*.ps1`, `scripts/*.ts` |
@@ -53,8 +53,8 @@
 
 | Document | Status after audit | Evidence / action |
 | --- | --- | --- |
-| `armageddon-core/README.md` | Supporting engine README | Benchmark command matches `armageddon-core/package.json`. |
-| `armageddon-core/docs/performance-optimizations.md` | Supporting historical optimization note | Retained with core-specific context. |
+| `packages/core/README.md` | Supporting engine README | Benchmark command matches `packages/core/package.json`. |
+| `packages/core/docs/performance-optimizations.md` | Supporting historical optimization note | Retained with core-specific context. |
 | `docs/ADR-001-parallel-execution.md` | Supporting ADR | Retained as architecture context. |
 | `docs/GITHUB_OAUTH_SETUP.md` | Supporting setup runbook | Refreshed metadata and command style. |
 | `docs/WORKFLOW_GUIDE.md` | Supporting workflow reference | Retained; update when Temporal workflow payloads change. |
@@ -100,7 +100,7 @@
 | `universal-debug-skill.md` | Supporting debug skill reference | Retained as generic troubleshooting reference. |
 | `web-art-generator.md` | Supporting creative tooling reference | Retained as generic creative reference. |
 | `webapp-testing.md` | Supporting testing methodology | Retained as generic browser-testing reference. |
-| `armageddon-core/requirements.txt` | Dependency manifest, not prose documentation | Retained because `armageddon-core/Dockerfile` installs it. |
+| `packages/core/requirements.txt` | Dependency manifest, not prose documentation | Retained because `packages/core/Dockerfile` installs it. |
 | `armageddon-site/intake/index.html` | Static intake page artifact | Retained because it is copied/deployed by site scripts. |
 
 ## Deleted as stale or irrelevant
@@ -108,8 +108,8 @@
 | Removed file | Evidence-based reason | Replacement/source of truth |
 | --- | --- | --- |
 | `ARMAGEDDON TEST SUITE - Results.txt` | Dated 2026-01-17 generated result snapshot with obsolete `v1.0` status and undefined script references. | Current evidence must come from fresh `npm run test` output. |
-| `armageddon-core/test-output.txt` | Generated test output, not source documentation. | Fresh `npm --prefix armageddon-core run test` output. |
-| `armageddon-core/test-output-utf8.txt` | Duplicate generated test output, not source documentation. | Fresh `npm --prefix armageddon-core run test` output. |
+| `packages/core/test-output.txt` | Generated test output, not source documentation. | Fresh `npm --prefix armageddon-core run test` output. |
+| `packages/core/test-output-utf8.txt` | Duplicate generated test output, not source documentation. | Fresh `npm --prefix armageddon-core run test` output. |
 | `plan_step_complete.txt` | Agent-run artifact, not product or operational documentation. | Git history and PR body. |
 | `render.yaml` | Deprecated Render blueprint; no root script/workflow consumes it and current deployment docs point to Moat/Cloudflare. | `docker-compose.moat.yml`, `docs/CLOUDFLARE_DEPLOYMENT.md`. |
 | `renderyaml` | Extensionless duplicate of the deprecated Render blueprint. | None. |
@@ -121,8 +121,8 @@
 | --- | --- | --- |
 | UI/shared battery grid | Thirteen display batteries (`01` through `13`) are exported for presentation. | `packages/shared/src/batteries.ts` |
 | Certification default battery subset | `DEFAULT_BATTERIES` is `B10` through `B14`. | `packages/shared/src/gate.ts` |
-| Temporal workflow dispatch | `ArmageddonLevel7Workflow` accepts requested batteries and defaults to `B10` through `B14`. | `armageddon-core/src/temporal/workflows.ts` |
-| Battery implementation boundary | Temporal activities expose B1-B14 handlers, including `B14_INDIRECT_INJECTION`. | `armageddon-core/src/temporal/activities.ts` |
+| Temporal workflow dispatch | `ArmageddonLevel7Workflow` accepts requested batteries and defaults to `B10` through `B14`. | `packages/core/src/temporal/workflows.ts` |
+| Battery implementation boundary | Temporal activities expose B1-B14 handlers, including `B14_INDIRECT_INJECTION`. | `packages/core/src/temporal/activities.ts` |
 
 ## Required checks for this documentation cleanup
 

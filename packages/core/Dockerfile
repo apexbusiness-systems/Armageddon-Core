@@ -23,7 +23,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 WORKDIR /app
 
 # Install Python dependencies first (for layer caching)
-COPY armageddon-core/requirements.txt ./
+COPY packages/core/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy workspace package (@armageddon/shared) required by armageddon-core
@@ -32,20 +32,20 @@ COPY packages/shared ./packages/shared
 # Install Node.js dependencies
 # Copy root package files for workspace resolution
 COPY package.json package-lock.json ./
-COPY armageddon-core/package*.json ./armageddon-core/
+COPY packages/core/package*.json ./packages/core/
 RUN npm ci --install-links
 
 # Copy TypeScript config and source
-COPY armageddon-core/tsconfig.json ./armageddon-core/
-COPY armageddon-core/src ./armageddon-core/src
+COPY packages/core/tsconfig.json ./packages/core/
+COPY packages/core/src ./packages/core/src
 
 # Build shared package first, then armageddon-core; fail fast if either workspace cannot compile.
 RUN npm run build -w @armageddon/shared
-RUN npm run build -w armageddon-core && ls -la armageddon-core/dist
+RUN npm run build -w armageddon-core && ls -la packages/core/dist
 RUN npm prune --omit=dev --workspaces --include-workspace-root
 
 # Flatten dist to /app/dist for CMD
-RUN cp -r armageddon-core/dist ./dist
+RUN cp -r packages/core/dist ./dist
 
 # Copy Python scripts for kinetic execution
 # Scripts are at repository root, so we copy from ./scripts

@@ -1,5 +1,5 @@
 
-import { createPythonExecutor } from '../armageddon-core/src/infrastructure/python/python-bridge.js';
+import { createPythonExecutor } from '../packages/core/src/infrastructure/python/python-bridge.js';
 import * as path from 'path';
 
 async function main() {
