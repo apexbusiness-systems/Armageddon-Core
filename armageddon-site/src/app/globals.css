@@ -419,6 +419,55 @@ body {
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   PRICING CARDS — contrast panel + flame hover
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes pricing-flame {
+  0%, 100% { opacity: 0.82; transform: scaleX(1)    scaleY(1);    }
+  30%       { opacity: 1;    transform: scaleX(1.04) scaleY(1.05); }
+  65%       { opacity: 0.88; transform: scaleX(0.97) scaleY(1.02); }
+}
+
+.pricing-card {
+  position: relative;
+  background: linear-gradient(160deg, rgba(26, 26, 26, 0.93) 0%, rgba(14, 14, 14, 0.97) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease, transform 0.25s ease;
+}
+
+.pricing-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  background:
+    radial-gradient(ellipse 90% 42% at 50% 102%, rgba(255, 87, 34, 0.6) 0%, rgba(255, 51, 0, 0.32) 38%, transparent 64%),
+    radial-gradient(ellipse 48% 22% at 22% 102%, rgba(255, 183, 0, 0.28) 0%, transparent 52%),
+    radial-gradient(ellipse 48% 22% at 78% 102%, rgba(255, 183, 0, 0.28) 0%, transparent 52%);
+}
+
+.pricing-card:hover::before,
+.pricing-card:focus-within::before {
+  opacity: 1;
+  animation: pricing-flame 2.2s ease-in-out infinite;
+}
+
+.pricing-card:hover,
+.pricing-card:focus-within {
+  box-shadow:
+    0 0 0 1px rgba(255, 51, 0, 0.45),
+    0 8px 40px rgba(255, 51, 0, 0.18),
+    0 0 80px rgba(255, 51, 0, 0.07),
+    inset 0 -1px 0 rgba(255, 51, 0, 0.35);
+  transform: translateY(-3px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    BUTTONS — Industrial Physical Controls
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -481,6 +530,44 @@ body {
 
 .btn-primary:active {
   transform: translateY(0);
+}
+
+/* Secondary variant — same physical footprint as btn-primary, ghost/outline treatment */
+.btn-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 60px;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  color: var(--signal-dim);
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.btn-secondary:hover {
+  color: var(--signal);
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+}
+
+/* Pricing card CTA override — reduce text so long labels never inflate button height */
+.pricing-card .btn-primary,
+.pricing-card .btn-secondary {
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  padding-left: 14px;
+  padding-right: 14px;
 }
 
 /* CTA Mega Button */
