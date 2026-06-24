@@ -4,12 +4,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
-import { endSupabaseSession, startGithubOAuth } from '@/lib/client-auth-actions';
+import { endSupabaseSession } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import LockdownModal from './paywall/LockdownModal';
-import AuthControl from './AuthControl';
+import AuthHeader from './AuthHeader';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 
@@ -413,11 +413,6 @@ export default function DestructionConsole({
 
     }, [isRunning, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion]);
 
-    const handleLogin = async () => {
-        const sb = getRequiredSupabase('Supabase not initialized - check environment variables');
-        if (sb) await startGithubOAuth(sb, 'Login');
-    };
-
     const handleLogout = async () => {
         const sb = getRequiredSupabase('Supabase not initialized');
         if (sb) await endSupabaseSession(sb);
@@ -483,7 +478,7 @@ export default function DestructionConsole({
 
     return (
         <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
-            {standalone && <AuthControl user={user} onLogin={handleLogin} onLogout={handleLogout} />}
+            {standalone && <AuthHeader user={user} onLogout={handleLogout} />}
 
             <AnimatePresence>
                 {flashActive && (

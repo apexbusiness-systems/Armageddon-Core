@@ -31,20 +31,42 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const API_BASE = process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
 const STAGING_EMAIL = process.env.STAGING_EMAIL;
 const STAGING_PASSWORD = process.env.STAGING_PASSWORD;
-const RUN_TIMEOUT_MS = parseInt(process.env.RUN_TIMEOUT_MS ?? '120000', 10); // 2 min default
+const RUN_TIMEOUT_MS = Number.parseInt(process.env.RUN_TIMEOUT_MS ?? '120000', 10); // 2 min default
 const POLL_INTERVAL_MS = 3000;
+const MAX_LOG_LEN = 500;
+const CTRL_MAX = 0x1f;
+const DEL = 0x7f;
 
 let passed = 0;
 let failed = 0;
 
+/**
+ * Neutralize log forging (CWE-117): every value logged below may originate from an
+ * external system (Supabase errors, API response bodies, DB rows). Replace control
+ * characters — including the CR/LF that enable log injection — and cap the length.
+ */
+function clean(value) {
+    let out = '';
+    for (const ch of String(value).slice(0, MAX_LOG_LEN)) {
+        const code = ch.codePointAt(0);
+        out += code <= CTRL_MAX || code === DEL ? ' ' : ch;
+    }
+    return out;
+}
+
 function ok(label) {
-    console.log(`  ✅ ${label}`);
+    console.log(`  ✅ ${clean(label)}`);
     passed++;
 }
 
 function fail(label, detail = '') {
-    console.error(`  ❌ ${label}${detail ? ': ' + detail : ''}`);
+    const suffix = detail ? `: ${clean(detail)}` : '';
+    console.error(`  ❌ ${clean(label)}${suffix}`);
     failed++;
+}
+
+function warn(label) {
+    console.warn(`  ⚠️  ${clean(label)}`);
 }
 
 function section(title) {
@@ -52,7 +74,7 @@ function section(title) {
 }
 
 async function sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // ── Step 0: Env Preflight ─────────────────────────────────────────────────────
@@ -61,7 +83,12 @@ section('Step 0: Env Preflight');
 const required = { SUPABASE_URL, SUPABASE_ANON_KEY, API_BASE, STAGING_EMAIL, STAGING_PASSWORD };
 let envOk = true;
 for (const [k, v] of Object.entries(required)) {
-    if (!v) { fail(`${k} is missing`); envOk = false; } else { ok(`${k} is set`); }
+    if (v) {
+        ok(`${k} is set`);
+    } else {
+        fail(`${k} is missing`);
+        envOk = false;
+    }
 }
 
 if (!envOk) {
@@ -122,16 +149,16 @@ let organizationId = null;
 
 try {
     const res = await fetch(`${API_BASE}/api/me/organizations`, { headers: authHeaders });
-    if (!res.ok) {
-        fail(`/api/me/organizations returned HTTP ${res.status}`);
-    } else {
+    if (res.ok) {
         const data = await res.json();
         organizationId = data?.active?.organization_id;
-        if (!organizationId) {
-            fail('No active.organization_id in response', JSON.stringify(data));
-        } else {
+        if (organizationId) {
             ok(`organization_id = ${organizationId}`);
+        } else {
+            fail('No active.organization_id in response', JSON.stringify(data));
         }
+    } else {
+        fail(`/api/me/organizations returned HTTP ${res.status}`);
     }
 } catch (err) {
     fail('/api/me/organizations fetch error', err.message);
@@ -153,7 +180,7 @@ try {
     if (status === 'operational') {
         ok(`Health: operational (Temporal=${temporalConnected}, Supabase=${supabaseConnected})`);
     } else if (status === 'degraded') {
-        console.warn(`  ⚠️  Health: degraded (Temporal=${temporalConnected}, Supabase=${supabaseConnected})`);
+        warn(`Health: degraded (Temporal=${temporalConnected}, Supabase=${supabaseConnected})`);
     } else {
         fail(`Health: ${status} — both dependencies are unreachable`);
     }
@@ -173,15 +200,15 @@ try {
         body: JSON.stringify({ organizationId, level: 1, batteries: ['B10'] }),
     });
     const data = await res.json();
-    if (!res.ok) {
-        fail(`/api/run returned HTTP ${res.status}`, data?.error ?? JSON.stringify(data));
-    } else {
+    if (res.ok) {
         runId = data?.runId;
-        if (!runId) {
-            fail('Response missing runId', JSON.stringify(data));
-        } else {
+        if (runId) {
             ok(`run created: runId=${runId}`);
+        } else {
+            fail('Response missing runId', JSON.stringify(data));
         }
+    } else {
+        fail(`/api/run returned HTTP ${res.status}`, data?.error ?? JSON.stringify(data));
     }
 } catch (err) {
     fail('/api/run fetch error', err.message);
@@ -212,7 +239,7 @@ while (Date.now() < deadline) {
         break;
     }
 
-    process.stdout.write(`\r  ⏳ status=${row.status}                    `);
+    process.stdout.write(`\r  ⏳ status=${clean(row.status)}                    `);
 
     if (TERMINAL.has(row.status)) {
         finalStatus = row.status;
@@ -225,16 +252,16 @@ while (Date.now() < deadline) {
 
 process.stdout.write('\n');
 
-if (!finalStatus) {
-    fail(`Run did not reach terminal status within ${RUN_TIMEOUT_MS / 1000}s`);
-} else if (finalStatus === 'cancelled') {
-    fail(`Run was cancelled — expected passed or failed`);
-} else {
+if (finalStatus === 'passed' || finalStatus === 'failed') {
     ok(`Run reached terminal status: ${finalStatus}`);
     if (finalRun?.completed_at) ok(`completed_at is set: ${finalRun.completed_at}`);
     else fail('completed_at is null on terminal run');
     if (typeof finalRun?.escape_rate === 'number') ok(`escape_rate = ${finalRun.escape_rate}`);
     else fail('escape_rate is null on terminal run');
+} else if (finalStatus === 'cancelled') {
+    fail('Run was cancelled — expected passed or failed');
+} else {
+    fail(`Run did not reach terminal status within ${RUN_TIMEOUT_MS / 1000}s`);
 }
 
 // ── Step 6: Reporter Events Persisted ────────────────────────────────────────
@@ -248,16 +275,16 @@ const { data: events, error: eventsError } = await sb
 
 if (eventsError) {
     fail('armageddon_events query error', eventsError.message);
-} else if (!events || events.length === 0) {
-    fail('No events persisted for run — reporter.pushEvent() may not be firing');
-} else {
+} else if (events && events.length > 0) {
     ok(`${events.length} event(s) found with correct snake_case columns`);
-    const first = events[0];
+    const [first] = events;
     const requiredCols = ['run_id', 'event_type', 'severity', 'created_at'];
     for (const col of requiredCols) {
         if (first[col] !== undefined && first[col] !== null) ok(`events.${col} present`);
         else fail(`events.${col} is null/missing`);
     }
+} else {
+    fail('No events persisted for run — reporter.pushEvent() may not be firing');
 }
 
 // ── Result ────────────────────────────────────────────────────────────────────
@@ -267,6 +294,5 @@ console.log(`  Passed: ${passed}   Failed: ${failed}`);
 if (failed > 0) {
     console.error('\n❌ STAGING E2E CERTIFICATION FAILED — resolve all failures before promoting to production.');
     process.exit(1);
-} else {
-    console.log('\n✅ STAGING E2E CERTIFICATION PASSED — production path verified end-to-end.');
 }
+console.log('\n✅ STAGING E2E CERTIFICATION PASSED — production path verified end-to-end.');
