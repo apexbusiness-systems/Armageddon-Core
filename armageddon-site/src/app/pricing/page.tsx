@@ -35,7 +35,7 @@ export default function PricingPage() {
                         return (
                             <div
                                 key={plan.id}
-                                className={`flex flex-col border ${borderClass} bg-black/40 rounded-sm p-6`}
+                                className={`pricing-card flex flex-col border ${borderClass} rounded-sm p-6`}
                             >
                                 <div className="mb-4">
                                     <h2 className="mono-data text-signal tracking-wider text-lg">{plan.name}</h2>
@@ -63,14 +63,14 @@ export default function PricingPage() {
                                         href={target.href}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="btn-primary w-full text-center min-h-[3.5rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                                     >
                                         {plan.ctaLabel}
                                     </a>
                                 ) : (
                                     <Link
                                         href={target.href}
-                                        className="btn-primary w-full text-center min-h-[3.5rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                                     >
                                         {plan.ctaLabel}
                                     </Link>
