@@ -1,3 +1,8 @@
 {
-  "allowlist": []
+  "allowlist": [
+    {
+      "route": "/intake",
+      "reason": "Served by the Cloudflare static-intake deployment (copy_intake_static.mjs), not an app-router page in this repo."
+    }
+  ]
 }
