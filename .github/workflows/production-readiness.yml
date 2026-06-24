@@ -32,9 +32,9 @@ jobs:
 
       - name: Ensure core coverage file exists
         run: |
-          mkdir -p armageddon-core/coverage
-          if [ ! -f armageddon-core/coverage/lcov.info ]; then
-            echo "TN:" > armageddon-core/coverage/lcov.info
+          mkdir -p packages/core/coverage
+          if [ ! -f packages/core/coverage/lcov.info ]; then
+            echo "TN:" > packages/core/coverage/lcov.info
           fi
 
       - name: Ensure site coverage file exists
@@ -49,7 +49,7 @@ jobs:
         with:
           name: coverage-reports
           path: |
-            armageddon-core/coverage/lcov.info
+            packages/core/coverage/lcov.info
             armageddon-site/coverage/lcov.info
 
       - name: Generate npm SBOM
@@ -72,5 +72,5 @@ jobs:
       - name: OmniHub Atomic Flip - Battery 10 "The Mind-Killer" Circuit Breaker Loop
         run: |
           echo "Starting continuous execution loop for Battery 10 (The Mind-Killer)"
-          npx tsx armageddon-core/src/sim/circuit-breaker.ts &
+          npx tsx packages/core/src/sim/circuit-breaker.ts &
           sleep 5 # Allow simulation to run

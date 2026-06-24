@@ -7,7 +7,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: armageddon-core/Dockerfile
+      dockerfile: packages/core/Dockerfile
     image: armageddon-worker:${MOAT_VERSION:-latest}
     container_name: armageddon-worker-moat
     depends_on:

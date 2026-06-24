@@ -6,7 +6,7 @@
 
 
 ## Overview
-This report documents the verification of the batch insert optimization in `armageddon-core/src/temporal/activities.ts`. The original code used a sequential N+1 loop to push events to Supabase, which was highly inefficient due to network round-trips. The optimized version uses `SupabaseReporter.pushEvents` to batch inserts.
+This report documents the verification of the batch insert optimization in `packages/core/src/temporal/activities.ts`. The original code used a sequential N+1 loop to push events to Supabase, which was highly inefficient due to network round-trips. The optimized version uses `SupabaseReporter.pushEvents` to batch inserts.
 
 ## Methodology
 - **Baseline (Optimized):** The existing code using `pushEvents` was benchmarked using `vitest bench` with a mocked Supabase client introducing a realistic 50ms latency per call.

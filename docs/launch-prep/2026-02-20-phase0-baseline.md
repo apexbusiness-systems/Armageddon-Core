@@ -6,7 +6,7 @@ Date: 2026-02-20
 - Commit at capture: `2a7eb7c`
 - Environment assumptions:
   - VERIFIED: local Git workspace available
-  - VERIFIED: Node workspaces are present (`package.json`, `armageddon-core/package.json`, `armageddon-site/package.json`)
+  - VERIFIED: Node workspaces are present (`package.json`, `packages/core/package.json`, `armageddon-site/package.json`)
   - UNVERIFIED: remote PR metadata and CI logs (no Git remotes configured)
 
 ## B. PLAN (PHASES + CHECKPOINTS)
@@ -47,14 +47,14 @@ Date: 2026-02-20
   - `find . -maxdepth 3 -type f -path './.github/workflows/*' -o -name 'Dockerfile' -o -name 'docker-compose*.yml' -o -name 'render.yaml'`
 - Key output (trimmed):
   - Major directories: `armageddon-core`, `armageddon-site`, `packages/shared`, `docs`, `scripts`, `supabase`, `.github/workflows`
-  - CI/deploy assets: `ci.yml`, `production-readiness.yml`, `sonarcloud.yml`, `secret-scanning.yml`, `docker-compose.yml`, `docker-compose.moat.yml`, `armageddon-core/Dockerfile`, `render.yaml`
+  - CI/deploy assets: `ci.yml`, `production-readiness.yml`, `sonarcloud.yml`, `secret-scanning.yml`, `docker-compose.yml`, `docker-compose.moat.yml`, `packages/core/Dockerfile`, `render.yaml`
 - Files inspected/changed: none
 
 4) Core documentation/manifests review
 - Command(s):
   - `sed -n '1,240p' README.md`
   - `cat package.json`
-  - `cat armageddon-core/package.json`
+  - `cat packages/core/package.json`
   - `cat armageddon-site/package.json`
   - `sed -n '1,260p' .github/workflows/ci.yml`
   - `sed -n '1,260p' .github/workflows/production-readiness.yml`

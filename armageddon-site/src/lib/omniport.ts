@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type SupabaseClient } from '@supabase/supabase-js';
 
-// ─── WaiverTokenPayload (mirrored from armageddon-core/src/omniport/types.ts) ─
+// ─── WaiverTokenPayload (mirrored from packages/core/src/omniport/types.ts) ─
 // armageddon-core is not a workspace dep of armageddon-site; types are defined here locally.
 
 export const WaiverTokenPayloadSchema = z.object({

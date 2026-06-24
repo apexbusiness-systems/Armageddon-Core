@@ -3,7 +3,7 @@
 **Docs version**: 2026.05.15<br>
 **Last reviewed**: 2026-05-15<br>
 **Primary package manager**: npm<br>
-**Verified against**: root `package.json`, `armageddon-core/package.json`, `armageddon-site/package.json`
+**Verified against**: root `package.json`, `packages/core/package.json`, `armageddon-site/package.json`
 
 Use this guide for local development and first-run validation. Run commands from the repository root unless a step explicitly changes directories.
 

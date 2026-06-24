@@ -78,7 +78,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: armageddon-core/Dockerfile
+      dockerfile: packages/core/Dockerfile
     container_name: armageddon-worker
     depends_on:
       temporal:

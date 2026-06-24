@@ -177,7 +177,7 @@ $keyFiles = @(
     "armageddon-site\src\components\paywall\LockdownModal.tsx",
     "armageddon-site\src\components\DestructionConsole.tsx",
     "armageddon-site\src\components\BatteryGrid.tsx",
-    "armageddon-core\src\temporal\activities.ts",
+    "packages\core\src\temporal\activities.ts",
     ".github\workflows\ci.yml",
     "scripts\trigger_armageddon.ps1"
 )

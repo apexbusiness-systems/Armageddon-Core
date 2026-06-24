@@ -56,9 +56,9 @@ jobs:
         if: steps.sonar_preflight.outputs.can_scan == 'true'
         run: |
           npm run test -w armageddon-core
-          mkdir -p armageddon-core/coverage armageddon-site/coverage
-          if [[ ! -f armageddon-core/coverage/lcov.info ]]; then
-            echo "TN:" > armageddon-core/coverage/lcov.info
+          mkdir -p packages/core/coverage armageddon-site/coverage
+          if [[ ! -f packages/core/coverage/lcov.info ]]; then
+            echo "TN:" > packages/core/coverage/lcov.info
           fi
           if [[ ! -f armageddon-site/coverage/lcov.info ]]; then
             echo "TN:" > armageddon-site/coverage/lcov.info

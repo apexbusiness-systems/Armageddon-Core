@@ -89,7 +89,7 @@ In case of containment breach:
 ```
 /
 ├── armageddon-site/      # [UI] Next.js Dashboard
-├── armageddon-core/      # [ENGINE] Temporal Worker & Kinetic Python
+├── packages/core/      # [ENGINE] Temporal Worker & Kinetic Python
 ├── scripts/              # [OPS] Moat Automation Checks
 │   ├── deploy_moat.ps1   # Deployment Automator
 │   ├── kill_moat.ps1     # Emergency Suppression

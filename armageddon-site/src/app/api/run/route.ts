@@ -61,7 +61,7 @@ function deriveRunSeed(runId: string, organizationId: string): number {
 }
 
 // ELIGIBILITY CHECK
-// Using centralized checkRunEligibility from armageddon-core/src/core/monetization/gate.ts
+// Using centralized checkRunEligibility from packages/core/src/core/monetization/gate.ts
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST HANDLER

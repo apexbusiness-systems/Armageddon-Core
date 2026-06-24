@@ -18,7 +18,7 @@ The primary production-like path is the localized Docker Moat stack:
 
 Moat services currently include:
 
-- `armageddon-worker-moat` — worker built from `armageddon-core/Dockerfile`.
+- `armageddon-worker-moat` — worker built from `packages/core/Dockerfile`.
 - `armageddon-postgres-moat` — local Postgres persistence.
 - `armageddon-temporal-moat` — local Temporal server.
 - `armageddon-temporal-ui-moat` — local Temporal UI bound to `127.0.0.1:8080`.

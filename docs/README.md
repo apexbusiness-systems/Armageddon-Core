@@ -47,7 +47,7 @@ npm run build:cloudflare -w armageddon-site
 
 | Path | Role | Notes |
 | --- | --- | --- |
-| `armageddon-core/` | Temporal worker and adversarial engine | TypeScript source, provider adapters, simulation, Python bridge integration, tests. |
+| `packages/core/` | Temporal worker and adversarial engine | TypeScript source, provider adapters, simulation, Python bridge integration, tests. |
 | `armageddon-site/` | Next.js public/control-plane UI | App routes, components, API routes, static Cloudflare export config. |
 | `packages/shared/` | Shared constants/types | Built by root `postinstall`; exports battery display metadata and gate defaults. |
 | `scripts/` | Operational automation | Audit, route integrity, Cloudflare deploy, Moat deploy/kill/verify scripts. |
