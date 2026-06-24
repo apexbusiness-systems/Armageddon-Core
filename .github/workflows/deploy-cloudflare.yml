@@ -2,7 +2,7 @@ name: Deploy → Cloudflare Workers
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ARMAGEDDON-CORE — Cloudflare Workers Deployment
-# Serves armageddon.icu directly from Cloudflare — zero Vercel
+# Serves armageddontest.icu exclusively from Cloudflare Workers
 # ═══════════════════════════════════════════════════════════════════════════
 
 on:
@@ -114,5 +114,5 @@ jobs:
           echo "══════════════════════════════════════════════════"
           echo "  Worker : $WORKER_NAME"
           echo "  Domain : https://$ZONE_NAME"
-          echo "  Vercel : ZERO"
+          echo "  Edge   : Cloudflare Workers (exclusive)"
           echo "══════════════════════════════════════════════════"

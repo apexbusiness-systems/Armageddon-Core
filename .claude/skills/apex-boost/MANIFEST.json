@@ -1,0 +1,75 @@
+{
+  "name": "apex-boost",
+  "version": "1.0.0",
+  "description": "Omnipotent AI performance amplifier. 20x speed · quality · efficiency · reasoning. Token-ruthless. Research-grounded.",
+  "author": "APEX Business Systems Ltd.",
+  "license": "Proprietary",
+  "copyright": "Copyright © 2026 APEX Business Systems Ltd. Edmonton, Alberta, Canada",
+  "archetype": "orchestrator",
+  "platform": "claude",
+  "edition": "claude-native",
+  "installation_path": "/mnt/skills/user/apex-boost/",
+  "dag": {
+    "node_type": "meta_amplifier",
+    "accepts": {
+      "mime_types": ["text/plain", "application/json", "text/markdown"],
+      "event_types": ["task.start", "session.init", "performance.degrade", "token.waste", "drift.detected"]
+    },
+    "emits": {
+      "on_success": ["boost.active", "output.amplified", "tokens.compressed"],
+      "on_failure": ["boost.failed", "fallback.direct"],
+      "on_partial": ["boost.partial", "tier.downgrade"]
+    },
+    "idempotent": true,
+    "silent_activation": true,
+    "timeout_seconds": 30,
+    "retry_policy": {
+      "max_attempts": 1,
+      "backoff": "none"
+    }
+  },
+  "dependencies": {
+    "skills": [],
+    "tools": ["bash_tool", "create_file", "str_replace", "view"],
+    "packages": []
+  },
+  "compatibility": {
+    "claude": {
+      "min_version": "3.5",
+      "optimal_models": ["claude-sonnet-4-6", "claude-opus-4-6"],
+      "tools_required": [],
+      "extended_thinking": "supported"
+    }
+  },
+  "research_basis": {
+    "cot": "Wei et al. 2022, Google Brain — NeurIPS 2022",
+    "tot": "Yao et al. 2023, Princeton + Google DeepMind",
+    "self_consistency": "Wang et al. 2022, Google Brain",
+    "react": "Yao et al. 2022, Princeton + Google",
+    "spr": "Shapiro/LAION 2023",
+    "llmlingua": "Jiang et al. 2023, Microsoft Research",
+    "skeleton_of_thought": "Ning et al. 2023, Tsinghua + MSRA",
+    "constitutional_ai": "Bai et al. 2022, Anthropic",
+    "self_refine": "Madaan et al. 2023",
+    "antigravity_routing": "Gemini 1.5 MoE — Google DeepMind 2024",
+    "alphacode2": "DeepMind 2023"
+  },
+  "quality_metrics": {
+    "rubric_threshold": 99,
+    "zero_drift_required": true,
+    "first_pass_target": 0.98,
+    "token_compression_target": 0.35
+  },
+  "features": {
+    "intelligence_amplification_stack": true,
+    "antigravity_routing": true,
+    "token_compression_engine": true,
+    "skeleton_of_thought_planning": true,
+    "constitutional_verify_gate": true,
+    "anti_drift_shield": true,
+    "cross_skill_amplification": true,
+    "silent_activation": true
+  },
+  "created": "2026-05-26T00:00:00-06:00",
+  "forged_by": "apex-skill-forge v4.0 + apex-power-20x v2.0"
+}
