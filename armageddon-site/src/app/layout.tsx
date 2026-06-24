@@ -1,5 +1,7 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import StickyArmageddonPlayer from '@/components/StickyArmageddonPlayer';
+import PwaInstallDock from '@/components/PwaInstallDock';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // METADATA
@@ -21,8 +23,13 @@ export const metadata: Metadata = {
     authors: [{ name: 'APEX Business Systems Ltd.' }],
     manifest: '/manifest.webmanifest', // PWA Manifest Link
     icons: {
-        icon: '/icon.png',
-        apple: '/icon.png',
+        icon: [
+            { url: '/favicon.ico', sizes: 'any' },
+            { url: '/icon.png', type: 'image/png', sizes: '512x512' },
+        ],
+        apple: [
+            { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+        ],
     },
     appleWebApp: {
         capable: true,
@@ -85,6 +92,9 @@ export default function RootLayout({
                         </div>
                     </div>
                 </div>
+
+                <PwaInstallDock />
+                <StickyArmageddonPlayer />
 
             </body>
         </html>

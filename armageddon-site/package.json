@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "build:cloudflare": "CLOUDFLARE_STATIC_EXPORT=true next build && node ../scripts/copy_intake_static.mjs",
     "validate:production-env": "node ../scripts/validate-armageddon-production-env.mjs",
-    "deploy:cloudflare": "npm run build:cloudflare && node ../scripts/deploy_cloudflare_static.mjs"
+    "deploy:cloudflare": "npm run build:cloudflare && node ../scripts/deploy_cloudflare_static.mjs",
+    "assets:icons": "node scripts/generate-app-icons.mjs",
+    "assets:icons:check": "node scripts/check-app-icons.mjs"
   },
   "dependencies": {
     "@armageddon/shared": "*",
@@ -41,7 +43,9 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
     "jsdom": "^28.0.0",
+    "png-to-ico": "3.0.1",
     "postcss": "^8.4.32",
+    "sharp": "0.35.2",
     "tailwindcss": "^3.4.0",
     "vitest": "^4.1.0"
   }
