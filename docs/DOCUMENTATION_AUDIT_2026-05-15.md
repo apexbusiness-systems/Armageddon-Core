@@ -136,3 +136,15 @@ npm run build
 ```
 
 The duplication/Sonar `jscpd` command is not required for this documentation cleanup because no runtime duplication remediation was performed.
+
+## Addendum — 2026-06-24
+
+The 2026-05-15 findings above are preserved as the historical baseline. This
+addendum records documents and guardrails added after that audit; it does not
+rewrite prior entries.
+
+| Document / guardrail | Status | Maintenance rule |
+| --- | --- | --- |
+| `docs/CANONICAL_UI_CONTRACT.md` | Canonical | Freezes the public header/footer/pricing state. Update alongside the matching assertion when an invariant intentionally changes. |
+| `armageddon-site/tests/unit/canonical-ui-freeze.test.ts` | Enforcement (CI) | Regression guardrail for the contract; runs via `npm run test -w armageddon-site`. Never delete an assertion to make CI pass. |
+| `.github/CODEOWNERS` | Review gate | Requires `@apexbusiness-systems` review on the canonical surfaces and the guardrails. Binding once `main` branch protection requires Code Owner review. |
