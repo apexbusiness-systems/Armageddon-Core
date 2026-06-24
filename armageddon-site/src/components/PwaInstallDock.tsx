@@ -11,7 +11,44 @@ interface BeforeInstallPromptEvent extends Event {
 type DockState = 'ready' | 'installed' | 'ios-help' | 'unsupported';
 
 function detectIos(): boolean {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in globalThis);
+}
+
+function getButtonLabel(state: DockState): string {
+    if (state === 'ready') return 'INSTALL ATS';
+    if (state === 'installed') return 'INSTALLED';
+    if (state === 'ios-help') return 'ADD TO HOME';
+    return 'PWA READY';
+}
+
+function getButtonAriaLabel(state: DockState): string {
+    if (state === 'ready') return 'Install Armageddon Test Suite as app';
+    if (state === 'installed') return 'App is installed';
+    if (state === 'ios-help') return 'Add to Home Screen via Share menu';
+    return 'Install via browser menu';
+}
+
+function getButtonClassName(state: DockState): string {
+    const base = 'w-full text-[9px] uppercase tracking-widest py-1.5 border transition-colors duration-150';
+    if (state === 'installed') {
+        return `${base} border-[var(--safe)]/40 text-[var(--safe)]/80 cursor-default`;
+    }
+    if (state === 'ready') {
+        return `${base} border-[var(--aerospace)]/60 text-[var(--aerospace)] hover:bg-[var(--aerospace)]/10 cursor-pointer`;
+    }
+    return `${base} border-[var(--tungsten-light)] text-[var(--signal-dim)] cursor-default`;
+}
+
+async function resolveInitialDockState(
+    setDockState: (s: DockState) => void,
+): Promise<void> {
+    if (globalThis.matchMedia('(display-mode: standalone)').matches) {
+        setDockState('installed');
+        return;
+    }
+    if (detectIos()) {
+        setDockState('ios-help');
+    }
 }
 
 export default function PwaInstallDock() {
@@ -19,16 +56,7 @@ export default function PwaInstallDock() {
     const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
 
     useEffect(() => {
-        // Async IIFE to satisfy react-hooks/set-state-in-effect (setState inside callback)
-        void (async () => {
-            if (window.matchMedia('(display-mode: standalone)').matches) {
-                setDockState('installed');
-                return;
-            }
-            if (detectIos()) {
-                setDockState('ios-help');
-            }
-        })();
+        void resolveInitialDockState(setDockState);
 
         const handler = (e: Event) => {
             e.preventDefault();
@@ -36,11 +64,11 @@ export default function PwaInstallDock() {
             setDockState('ready');
         };
 
-        window.addEventListener('beforeinstallprompt', handler);
-        window.addEventListener('appinstalled', () => setDockState('installed'));
+        globalThis.addEventListener('beforeinstallprompt', handler);
+        globalThis.addEventListener('appinstalled', () => setDockState('installed'));
 
         return () => {
-            window.removeEventListener('beforeinstallprompt', handler);
+            globalThis.removeEventListener('beforeinstallprompt', handler);
         };
     }, []);
 
@@ -54,20 +82,10 @@ export default function PwaInstallDock() {
         setPromptEvent(null);
     }
 
-    const buttonLabel =
-        dockState === 'ready'
-            ? 'INSTALL ATS'
-            : dockState === 'installed'
-              ? 'INSTALLED'
-              : dockState === 'ios-help'
-                ? 'ADD TO HOME'
-                : 'PWA READY';
-
     const isActionable = dockState === 'ready';
 
     return (
-        <div
-            role="region"
+        <section
             aria-label="PWA Install"
             className={[
                 'fixed bottom-4 left-4 z-[20000]',
@@ -98,27 +116,11 @@ export default function PwaInstallDock() {
                     type="button"
                     onClick={isActionable ? handleInstall : undefined}
                     disabled={!isActionable}
-                    aria-label={
-                        dockState === 'ready'
-                            ? 'Install Armageddon Test Suite as app'
-                            : dockState === 'installed'
-                              ? 'App is installed'
-                              : dockState === 'ios-help'
-                                ? 'Add to Home Screen via Share menu'
-                                : 'Install via browser menu'
-                    }
+                    aria-label={getButtonAriaLabel(dockState)}
                     aria-pressed={dockState === 'installed' ? true : undefined}
-                    className={[
-                        'w-full text-[9px] uppercase tracking-widest py-1.5',
-                        'border transition-colors duration-150',
-                        dockState === 'installed'
-                            ? 'border-[var(--safe)]/40 text-[var(--safe)]/80 cursor-default'
-                            : dockState === 'ready'
-                              ? 'border-[var(--aerospace)]/60 text-[var(--aerospace)] hover:bg-[var(--aerospace)]/10 cursor-pointer'
-                              : 'border-[var(--tungsten-light)] text-[var(--signal-dim)] cursor-default',
-                    ].join(' ')}
+                    className={getButtonClassName(dockState)}
                 >
-                    {buttonLabel}
+                    {getButtonLabel(dockState)}
                 </button>
 
                 {/* Contextual helper text */}
@@ -133,6 +135,6 @@ export default function PwaInstallDock() {
                     </p>
                 )}
             </div>
-        </div>
+        </section>
     );
 }
