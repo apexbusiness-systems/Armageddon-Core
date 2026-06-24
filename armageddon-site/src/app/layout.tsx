@@ -68,6 +68,9 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className="bg-[var(--void)] text-[var(--signal)] antialiased">
+                {/* Preload the LCP hero wordmark — AVIF covers ~93% of browsers; the
+                    rest fall back through the <picture> element in DestructionConsole. */}
+                <link rel="preload" as="image" href="/wordmark.avif" type="image/avif" fetchPriority="high" />
                 {/* CONTAINMENT VIEWPORT */}
                 <div className="relative min-h-screen">
                     {/* Main Content */}

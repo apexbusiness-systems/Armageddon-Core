@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import Image from 'next/image';
 import { getSupabase } from '@/lib/supabase';
 import { endSupabaseSession, startGithubOAuth } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
@@ -427,14 +426,25 @@ export default function DestructionConsole({
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-4 relative z-20">
-                        <Image
-                            src="/wordmark.png"
-                            alt="ARMAGEDDON LEVEL 7"
-                            width={700}
-                            height={181}
-                            priority
-                            className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)] animate-pulse-slow"
-                        />
+                        {/*
+                          * LCP hero. Served as a multi-format <picture> (AVIF→WebP→PNG)
+                          * because the Cloudflare static export uses images.unoptimized,
+                          * so next/image cannot transcode. AVIF is ~33KB vs the 276KB PNG.
+                          * Intrinsic 824x315 dimensions reserve the box to avoid CLS.
+                          */}
+                        <picture>
+                            <source srcSet="/wordmark.avif" type="image/avif" />
+                            <source srcSet="/wordmark.webp" type="image/webp" />
+                            <img
+                                src="/wordmark.png"
+                                alt="ARMAGEDDON LEVEL 7"
+                                width={824}
+                                height={315}
+                                fetchPriority="high"
+                                decoding="async"
+                                className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)] animate-pulse-slow"
+                            />
+                        </picture>
                     </div>
 
                     <div className="mt-[calc(2rem+2cm)] mb-6 relative">
