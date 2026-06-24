@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/lib/useAuth';
+import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 
 // Extend Window to acknowledge the OmniHub deep-link flag
 declare global {
@@ -121,12 +122,20 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
 
     const handleAccept = async () => {
         if (!scrolledToBottom || !user || !waiverToken) return;
+
+        // Honest degradation: live-fire authorization requires the backend.
+        if (!isApiConfigured()) {
+            setStatus('error');
+            setErrorMsg('Live-fire backend not connected on this deployment.');
+            return;
+        }
+
         setStatus('submitting');
         setErrorMsg('');
 
         try {
             // Step 1: Record waiver acceptance
-            const waiverRes = await fetch('/api/omniport/waiver', {
+            const waiverRes = await apiFetch('/api/omniport/waiver', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -145,7 +154,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
             }
 
             // Step 2: Authorize live-fire run
-            const liveFireRes = await fetch('/api/omniport/live-fire', {
+            const liveFireRes = await apiFetch('/api/omniport/live-fire', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

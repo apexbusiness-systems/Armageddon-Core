@@ -1,12 +1,14 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 interface LockdownModalProps {
     onClose: () => void;
 }
 
 export default function LockdownModal({ onClose }: { readonly onClose: () => void }) {
+    const router = useRouter();
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop with reduced opacity to show logs behind */}
@@ -95,11 +97,11 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
                                 repeat: Infinity
                             }
                         }}
-                        onClick={() => window.open('https://stripe.com', '_blank')}
+                        onClick={() => router.push('/pricing')}
                     >
                         <span className="relative z-10 flex items-center justify-center gap-3">
                             <span>RESTORE UPLINK</span>
-                            <span className="mono-small opacity-70">($4,999/mo)</span>
+                            <span className="mono-small opacity-70">VIEW PRICING</span>
                         </span>
                         {/* Glitch overlay on hover */}
                         <div className="absolute inset-0 bg-[var(--aerospace)] opacity-0 group-hover:opacity-10 transition-opacity" />
