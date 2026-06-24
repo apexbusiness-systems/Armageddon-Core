@@ -1,15 +1,30 @@
 import { readFileSync, existsSync } from 'node:fs';
 
-const contentPath = 'armageddon-site/src/content/site.ts';
+// Route-integrity gate: every internal href in the site content manifest must
+// resolve to a real route file. A gate that silently passes when it has nothing
+// to check is a false-green — so a missing manifest is a HARD FAILURE, not a skip.
+const candidateManifests = [
+  'armageddon-site/src/content/site.ts',
+  'armageddon-site/src/content/site.tsx',
+  'armageddon-site/src/content/nav.ts',
+  'armageddon-site/src/config/site.ts',
+];
 const allowlistPath = 'scripts/route-allowlist.json';
 
-if (!existsSync(contentPath)) {
-  console.log(`[ROUTE-INTEGRITY] FILE_MISSING: ${contentPath} (no content manifest in this repo)`);
-  process.exit(0);
+const contentPath = candidateManifests.find((p) => existsSync(p));
+
+if (!contentPath) {
+  console.error('[ROUTE-INTEGRITY] FAIL: no content manifest found. Checked:');
+  for (const p of candidateManifests) console.error(`  - ${p}`);
+  console.error('A route-integrity gate with no manifest checks nothing and must not report green.');
+  console.error('Fix: restore the manifest, add its path to candidateManifests, or replace this gate with real route scanning.');
+  process.exit(1);
 }
 
 const ts = readFileSync(contentPath, 'utf8');
-const allowlist = JSON.parse(readFileSync(allowlistPath, 'utf8')).allowlist ?? [];
+const allowlist = existsSync(allowlistPath)
+  ? JSON.parse(readFileSync(allowlistPath, 'utf8')).allowlist ?? []
+  : [];
 const map = new Map(allowlist.map((entry) => [entry.route, entry.reason]));
 
 const hrefRegex = /href\s*:\s*["'`]([^"'`]+)["'`]/g;
@@ -45,3 +60,5 @@ while ((match = hrefRegex.exec(ts)) !== null) {
 if (failed) {
   process.exit(1);
 }
+
+console.log(`[ROUTE-INTEGRITY] OK — manifest ${contentPath} validated.`);

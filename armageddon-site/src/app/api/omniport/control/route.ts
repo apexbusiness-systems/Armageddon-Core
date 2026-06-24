@@ -42,9 +42,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     }
 
+    // Only 'cancel' has a workflow handler (cancelSignal). All other commands are
+    // delivered to the buffered 'omniport.control' signal but the workflow does not
+    // act on them yet — we report that truthfully via `actionable` instead of
+    // claiming a no-op succeeded.
+    const isCancel = command.command === 'cancel';
+
     try {
         const handle = client.workflow.getHandle(workflowId);
-        await handle.signal('omniport.control', command);
+        if (isCancel) {
+            await handle.signal('cancel');
+        } else {
+            await handle.signal('omniport.control', command);
+        }
     } catch (err) {
         if (isWorkflowNotFound(err)) {
             return NextResponse.json(
@@ -59,10 +69,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     }
 
+    if (isCancel) {
+        return NextResponse.json({
+            acknowledged: true,
+            actionable: true,
+            runId: command.runId,
+            command: command.command,
+            signalledAt: Date.now(),
+        });
+    }
+
     return NextResponse.json({
         acknowledged: true,
+        actionable: false,
         runId: command.runId,
         command: command.command,
+        note: `'${command.command}' signal delivered but the workflow handler is not yet implemented`,
         signalledAt: Date.now(),
-    });
+    }, { status: 202 });
 }

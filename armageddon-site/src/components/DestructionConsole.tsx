@@ -74,21 +74,28 @@ interface DestructionConsoleProps {
     status?: Status;
 }
 
-interface RunResults {
-    passed: number;
-    escapeRate: number;
+// Mirrors the lowercase run_status enum persisted in armageddon_runs.
+type RunStatus = 'pending' | 'running' | 'passed' | 'failed' | 'cancelled';
+
+const TERMINAL_STATUSES = ['passed', 'failed', 'cancelled'] as const;
+function isTerminalStatus(s: string): s is 'passed' | 'failed' | 'cancelled' {
+    return (TERMINAL_STATUSES as readonly string[]).includes(s);
 }
 
 interface ArmageddonEvent {
     event_type: string;
     battery_id?: string;
     message?: string;
-    // Add other fields as necessary
 }
 
+// Real snake_case columns from armageddon_runs — there is no `results` column.
 interface ArmageddonRun {
-    status: 'COMPLETED' | 'FAILED' | 'RUNNING';
-    results: RunResults;
+    status: RunStatus;
+    escape_rate?: number;
+    batteries_executed?: string[];
+    batteries_passed?: string[];
+    batteries_failed?: string[];
+    completed_at?: string;
 }
 
 interface RunResponse {
@@ -110,16 +117,46 @@ interface GatekeeperResponse {
 // HELPER FUNCTIONS (Extracted to reduce Component Complexity)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function startWorkflowApi(orgId: string, level: number, batteries: string[]) {
+async function startWorkflowApi(orgId: string, level: number, batteries: string[], accessToken: string) {
     // Routed to the configured external backend; callers must gate on
     // isApiConfigured() first so this never hits a non-existent static route.
+    // /api/run requires the Supabase access token (membership is verified server-side).
     const res = await apiFetch(API.RUN, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ organizationId: orgId, level, batteries }),
     });
     const data = (await res.json()) as RunResponse;
     return { ok: res.ok, status: res.status, data };
+}
+
+type OrgResolution =
+    | { ok: true; organizationId: string; accessToken: string }
+    | { ok: false; reason: 'unauthenticated' | 'no-org' | 'org-error' };
+
+// Resolve the authenticated user's real organization. Never falls back to a
+// demo or user id — those are not valid organizationId values for a real run.
+async function resolveActiveOrg(): Promise<OrgResolution> {
+    const sb = getSupabase();
+    const session = (await sb?.auth.getSession())?.data.session;
+    if (!session?.access_token) {
+        return { ok: false, reason: 'unauthenticated' };
+    }
+    const res = await apiFetch('/api/me/organizations', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) {
+        return { ok: false, reason: res.status === 404 ? 'no-org' : 'org-error' };
+    }
+    const data = (await res.json()) as { active?: { organization_id?: string } };
+    const organizationId = data.active?.organization_id;
+    if (!organizationId) {
+        return { ok: false, reason: 'no-org' };
+    }
+    return { ok: true, organizationId, accessToken: session.access_token };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -140,6 +177,8 @@ export default function DestructionConsole({
     );
     const [currentBattery, setCurrentBattery] = useState<number>(0);
     const [runId, setRunId] = useState<string | null>(null);
+    const [organizationId, setOrganizationId] = useState<string | null>(null);
+    const [terminalStatus, setTerminalStatus] = useState<RunStatus | null>(null);
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const user = useAuth();
@@ -221,15 +260,21 @@ export default function DestructionConsole({
         }, 1200);
     }, [addLine, onStatusChange]);
 
-    const handleRunCompletion = useCallback((status: string, results: RunResults) => {
+    const handleRunCompletion = useCallback((run: ArmageddonRun) => {
         addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
-        if (status === 'COMPLETED') {
-            const passed = results?.passed || 13;
-            const escapeRate = results?.escapeRate || 0;
-            addLine(LABELS.SYS, `${passed}/13 BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, MSG_TYPE.SUCCESS);
+        setTerminalStatus(run.status);
+        if (run.status === 'passed') {
+            const executed = run.batteries_executed?.length ?? 0;
+            const passed = run.batteries_passed?.length ?? executed;
+            const denom = executed || passed || selectedBatteries.length;
+            const escapeRate = run.escape_rate ?? 0;
+            addLine(LABELS.SYS, `${passed}/${denom} BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, MSG_TYPE.SUCCESS);
             addLine(LABELS.SYS, 'VERDICT: EVIDENCE GENERATED — SUBMIT FOR REVIEW', MSG_TYPE.SUCCESS);
             onStatusChange?.('certified');
             setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
+        } else if (run.status === 'cancelled') {
+            addLine(LABELS.SYS, 'VERDICT: RUN CANCELLED — NO CERTIFICATION ISSUED', MSG_TYPE.WARNING);
+            onStatusChange?.('idle');
         } else {
             addLine(LABELS.SYS, 'VERDICT: BREACH EVIDENCE RECORDED — REVIEW REQUIRED', MSG_TYPE.ERROR);
             onStatusChange?.('rejected');
@@ -237,7 +282,7 @@ export default function DestructionConsole({
         addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
         setIsRunning(false);
         setIsComplete(true);
-    }, [addLine, onStatusChange]);
+    }, [addLine, onStatusChange, selectedBatteries]);
 
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
@@ -266,11 +311,25 @@ export default function DestructionConsole({
         addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 7 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
         addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);
 
-        const orgId = user?.id || 'demo-org-id';
+        // Resolve a real session + organization. Never fall back to a demo or user id.
+        const org = await resolveActiveOrg();
+        if (!org.ok) {
+            const messages: Record<typeof org.reason, string> = {
+                'unauthenticated': 'Sign in to start a certification run.',
+                'no-org': 'Your account has no organization membership. Visit /pricing or contact your admin.',
+                'org-error': 'Could not resolve your organization. Please retry.',
+            };
+            addLine(LABELS.SYS, messages[org.reason], MSG_TYPE.WARNING);
+            setIsRunning(false);
+            onStatusChange?.('idle');
+            return;
+        }
+        const orgId = org.organizationId;
+        setOrganizationId(orgId);
         let runId: string;
 
         try {
-            const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries);
+            const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries, org.accessToken);
 
             if (!ok || !data.runId) {
                 if (status === 403) {
@@ -337,14 +396,14 @@ export default function DestructionConsole({
                 { event: EVENTS.UPDATE, schema: TABLE.SCHEMA, table: TABLE.RUNS, filter: `id=eq.${runId}` },
                 (payload: { new: ArmageddonRun }) => {
                     const run = payload.new;
-                    if (run.status === 'COMPLETED' || run.status === 'FAILED') {
+                    if (isTerminalStatus(run.status)) {
                         supabase.removeChannel(eventsChannel);
                         supabase.removeChannel(runsChannel);
 
                         // Remove from refs too
                         subscriptionRefs.current = subscriptionRefs.current.filter(c => c !== eventsChannel && c !== runsChannel);
 
-                        handleRunCompletion(run.status, run.results);
+                        handleRunCompletion(run);
                     }
                 }
             );
@@ -352,7 +411,7 @@ export default function DestructionConsole({
         runsChannel.subscribe();
         subscriptionRefs.current.push(runsChannel);
 
-    }, [isRunning, addLine, onStatusChange, selectedBatteries, user, handleTrapTrigger, handleRunCompletion]);
+    }, [isRunning, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion]);
 
     const handleLogin = async () => {
         const sb = getRequiredSupabase('Supabase not initialized - check environment variables');
@@ -377,11 +436,24 @@ export default function DestructionConsole({
     };
 
     const handleExportJson = () => {
+        // Block export without a durable organization id — never emit a demo/placeholder org.
+        if (!organizationId || organizationId === 'demo-org-id' || organizationId === 'demo-org') {
+            addLine(LABELS.SYS, 'EXPORT BLOCKED: no durable organization id for this run.', MSG_TYPE.ERROR);
+            return;
+        }
+
+        const isTerminal = terminalStatus !== null && isTerminalStatus(terminalStatus);
+        const warnings: string[] = [];
+        if (!isTerminal) warnings.push('Run is not terminal — exported evidence is incomplete and non-certifiable.');
+        if (!runId) warnings.push('No durable run id — evidence cannot be verified.');
+
         const evidence = {
-            orgId: localStorage.getItem('userOrgId') || user?.id || 'demo-org',
+            organizationId,
+            terminalStatus: terminalStatus ?? null,
+            certifiable: isTerminal && terminalStatus === 'passed',
             complianceMode: localStorage.getItem('complianceMode') || 'STRICT',
             timestamp: new Date().toISOString(),
-            runId: runId || 'unknown',
+            runId: runId ?? null,
             attestation: attestationPubKey
                 ? {
                       spec: attestationPubKey.spec,
@@ -391,6 +463,7 @@ export default function DestructionConsole({
                       note: 'Fetch the canonical certificate (report.json) from the run pipeline; verify with `node verify.mjs report.json --pubkey <publicKey>`.',
                   }
                 : { note: 'Attestation key not configured on this instance.' },
+            warnings,
             logs: terminalLines
         };
         const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });

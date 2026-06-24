@@ -36,6 +36,52 @@ export interface RunProgress {
     updatedAt: string;
 }
 
+// armageddon_events.severity is the event_severity enum: info | warning | critical | blocked.
+type EventSeverity = 'info' | 'warning' | 'critical' | 'blocked';
+
+const SEVERITY_MAP: Record<EventType, EventSeverity> = {
+    RUN_STARTED: 'info',
+    BATTERY_STARTED: 'info',
+    BATTERY_COMPLETED: 'info',
+    ATTACK_BLOCKED: 'blocked',
+    BREACH: 'critical',
+    DRIFT_DETECTED: 'warning',
+    ITERATION_CHECKPOINT: 'info',
+    RUN_COMPLETED: 'info',
+    RUN_FAILED: 'critical',
+    LOCKDOWN: 'critical',
+};
+
+// armageddon_events.message is NOT NULL. Derive a safe, non-secret summary —
+// never serialize raw payloads or secrets into the message column.
+function deriveMessage(eventType: EventType, payload?: Record<string, unknown>): string {
+    const base = eventType.toLowerCase().replace(/_/g, ' ');
+    const detail = payload?.batteryId ?? payload?.reason ?? payload?.status ?? payload?.runId;
+    return detail ? `${base}: ${String(detail).slice(0, 120)}` : base;
+}
+
+// armageddon_events row, snake_case, schema-aligned. iteration is NOT NULL → default 0.
+function buildEventRow(
+    runId: string,
+    batteryId: string,
+    eventType: EventType,
+    payload: Record<string, unknown> | undefined,
+    createdAt: string
+) {
+    const iterationRaw = payload?.iteration;
+    const iteration = typeof iterationRaw === 'number' && Number.isFinite(iterationRaw) ? iterationRaw : 0;
+    return {
+        run_id: runId,
+        battery_id: batteryId,
+        iteration,
+        severity: SEVERITY_MAP[eventType] ?? 'info',
+        event_type: eventType,
+        message: deriveMessage(eventType, payload),
+        payload: payload ?? {},
+        created_at: createdAt,
+    };
+}
+
 /**
  * SupabaseReporter - Pushes real-time events to Supabase for frontend consumption.
  */
@@ -65,27 +111,20 @@ export class SupabaseReporter {
         eventType: EventType,
         payload?: Record<string, unknown>
     ): Promise<void> {
-        const event: ArmageddonEvent = {
-            runId: this.runId,
-            batteryId,
-            eventType,
-            payload,
-            timestamp: new Date().toISOString(),
-        };
+        const row = buildEventRow(this.runId, batteryId, eventType, payload, new Date().toISOString());
 
         const [dbResult] = await Promise.all([
-            this.client.from('armageddon_events').insert(event),
+            this.client.from('armageddon_events').insert(row),
             this.channel.send({
                 type: 'broadcast',
                 event: 'armageddon_event',
-                payload: event,
+                payload: row,
             })
         ]);
 
-        const error = dbResult.error;
-
-        if (error) {
-            console.error('[Reporter] Failed to push event:', error);
+        // Persistence is proof-critical: surface insert failures instead of swallowing them.
+        if (dbResult.error) {
+            throw new Error(`[Reporter] Failed to push event ${eventType}: ${dbResult.error.message}`);
         }
     }
 
@@ -101,13 +140,8 @@ export class SupabaseReporter {
     ): Promise<void> {
         if (events.length === 0) return;
 
-        const rows: ArmageddonEvent[] = events.map(e => ({
-            runId: this.runId,
-            batteryId: e.batteryId,
-            eventType: e.eventType,
-            payload: e.payload,
-            timestamp: new Date().toISOString(),
-        }));
+        const createdAt = new Date().toISOString();
+        const rows = events.map(e => buildEventRow(this.runId, e.batteryId, e.eventType, e.payload, createdAt));
 
         const [dbResult] = await Promise.all([
             this.client.from('armageddon_events').insert(rows),
@@ -118,10 +152,9 @@ export class SupabaseReporter {
             })
         ]);
 
-        const error = dbResult.error;
-
-        if (error) {
-            console.error(`[Reporter] Failed to push ${events.length} events:`, error);
+        // Persistence is proof-critical: surface batch insert failures.
+        if (dbResult.error) {
+            throw new Error(`[Reporter] Failed to push ${events.length} events: ${dbResult.error.message}`);
         }
     }
 
@@ -129,41 +162,47 @@ export class SupabaseReporter {
      * Upsert progress to armageddon_runs table (every N iterations).
      */
     async upsertProgress(progress: Omit<RunProgress, 'runId' | 'updatedAt'>): Promise<void> {
-        const row: RunProgress = {
-            ...progress,
-            runId: this.runId,
-            updatedAt: new Date().toISOString(),
-        };
+        // Progress (not terminal proof) → update real snake_case columns on the run row
+        // keyed by id. Non-fatal: log on error, never corrupt the run record.
+        const escapeRate = progress.totalIterations > 0
+            ? progress.breachCount / progress.totalIterations
+            : 0;
 
         const { error } = await this.client
             .from('armageddon_runs')
-            .upsert(row, { onConflict: 'runId,batteryId' });
+            .update({
+                total_iterations: progress.totalIterations,
+                breaches: progress.breachCount,
+                escape_rate: escapeRate,
+            })
+            .eq('id', this.runId);
 
         if (error) {
-            console.error('[Reporter] Failed to upsert progress:', error);
+            console.error('[Reporter] Failed to upsert progress:', error.message);
         }
     }
 
     /**
-     * Mark run as completed with final stats.
+     * Mark run as completed with final stats. Status is mapped to the lowercase
+     * run_status enum at this write boundary. Throws on failure (proof-critical).
      */
     async finalizeRun(
         status: 'COMPLETED' | 'FAILED',
         summary: Record<string, unknown>
     ): Promise<void> {
-        await this.pushEvent('ORCHESTRATOR', status === 'COMPLETED' ? 'RUN_COMPLETED' : 'RUN_FAILED', summary);
+        const terminalStatus = status === 'COMPLETED' ? 'passed' : 'failed';
+        await this.pushEvent('SYSTEM', status === 'COMPLETED' ? 'RUN_COMPLETED' : 'RUN_FAILED', summary);
 
         const { error } = await this.client
             .from('armageddon_runs')
             .update({
-                status,
-                completedAt: new Date().toISOString(),
-                summary,
+                status: terminalStatus,
+                completed_at: new Date().toISOString(),
             })
-            .eq('runId', this.runId);
+            .eq('id', this.runId);
 
         if (error) {
-            console.error('[Reporter] Failed to finalize run:', error);
+            throw new Error(`[Reporter] Failed to finalize run: ${error.message}`);
         }
     }
 }

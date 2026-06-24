@@ -876,28 +876,53 @@ export interface ArmageddonReport {
 
 export interface FinalizeRunInput {
     runId: string;
-    status: 'COMPLETED' | 'FAILED';
-    summary: {
-        grade?: string;
-        score?: number;
-        batteries?: number;
-        duration?: number;
-        error?: string;
-    };
+    // Lowercase run_status enum value — mapped by the caller at the workflow boundary.
+    status: 'passed' | 'failed' | 'cancelled';
+    startedAt: number; // epoch milliseconds (WorkflowState.startTime)
+    report: ArmageddonReport;
 }
 
+/**
+ * Persist the terminal run state to armageddon_runs. This is the DURABLE PROOF of
+ * the run outcome and the trigger the frontend awaits. If the write fails we throw,
+ * so the workflow never reports success without durable evidence in the database.
+ */
 export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void> {
     safetyGuard.enforce('FinalizeRun');
-    const reporter = createReporter(input.runId);
-    
-    await reporter.pushEvent('SYSTEM', 'RUN_COMPLETED', {
-        status: input.status,
-        summary: input.summary
-    });
-    
-    // In a real implementation, this might update a database record's final status
-    // For now, the event log is the source of truth.
-    console.log(`[Run ${input.runId}] Finalized: ${input.status}`, input.summary);
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+        throw new Error('[FinalizeRun] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
+    }
+    const client = createClient(supabaseUrl, supabaseKey);
+
+    const batteries = input.report.batteries ?? [];
+    const totalIterations = batteries.reduce((sum, b) => sum + (b.iterations || 0), 0);
+    const breaches = batteries.reduce((sum, b) => sum + (b.breachCount || 0), 0);
+    const batteriesExecuted = batteries.map(b => b.batteryId);
+    const batteriesPassed = batteries.filter(b => b.status === 'PASSED').map(b => b.batteryId);
+    const batteriesFailed = batteries.filter(b => b.status !== 'PASSED').map(b => b.batteryId);
+    const escapeRate = totalIterations > 0 ? breaches / totalIterations : 0;
+
+    const { error } = await client
+        .from('armageddon_runs')
+        .update({
+            status: input.status, // already lowercase run_status enum
+            completed_at: new Date().toISOString(),
+            duration_ms: Math.max(0, Date.now() - input.startedAt),
+            total_iterations: totalIterations,
+            breaches,
+            batteries_executed: batteriesExecuted,
+            batteries_passed: batteriesPassed,
+            batteries_failed: batteriesFailed,
+            escape_rate: escapeRate,
+        })
+        .eq('id', input.runId);
+
+    if (error) {
+        throw new Error(`[FinalizeRun] Failed to persist terminal status for ${input.runId}: ${error.message}`);
+    }
 }
 
 export async function runBattery2_ChaosEngine(config: BatteryConfig): Promise<BatteryResult> {
@@ -1137,4 +1162,5 @@ export const activities = {
     runBattery13_SupplyChain,
     runBattery14_IndirectInjection,
     generateReport,
+    finalizeRunActivity,
 };

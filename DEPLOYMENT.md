@@ -2,7 +2,34 @@
 
 > **CLASSIFICATION**: PROPRIETARY / INTERNAL
 > **VERSION**: 2.0.2 (Moat Edition docs refresh)
-> **LAST REVIEWED**: 2026-05-15
+> **LAST REVIEWED**: 2026-06-24
+
+---
+
+## 🌐 DEPLOYMENT ARCHITECTURE (Static Intake vs Dynamic Console)
+
+`armageddontest.icu` is built as a **Cloudflare static export** (`next.config.mjs` sets
+`output: 'export'` when `CLOUDFLARE_STATIC_EXPORT=true`, via `npm run build:cloudflare`).
+
+A static export **cannot serve dynamic Next.js App Router API routes**. The following are
+**NOT** available on the static deployment and return nothing there:
+
+- `/api/run`
+- `/api/gatekeeper`
+- `/api/attestation/pubkey`
+- `/api/me/organizations`
+- `/api/omniport/*` (health, control, execute, live-fire, waiver, telemetry)
+
+Only the Worker-backed `/api/intake` exists on the static edge.
+
+The full console (live-fire runs, org resolution, OmniPort) requires a **separate dynamic
+runtime** (Node.js / Workers) whose origin is provided to the browser at build time via
+`NEXT_PUBLIC_ARMAGEDDON_API_BASE`. The frontend gates every backed action on
+`isApiConfigured()` and routes calls through `apiFetch()` to that base — when the base is
+unset, the console **degrades honestly** and never fabricates a run, verdict, or certificate.
+
+> The console UI must not be treated as functional on the static deployment unless
+> `NEXT_PUBLIC_ARMAGEDDON_API_BASE` points at a dynamic runtime that serves the routes above.
 
 ---
 

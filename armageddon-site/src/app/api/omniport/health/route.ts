@@ -38,8 +38,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const version: string = packageJson.version ?? '1.0.0';
 
+    // Honest status: only 'operational' when BOTH dependencies are reachable.
+    const healthy = temporalConnected && supabaseConnected;
+    const degraded = temporalConnected !== supabaseConnected; // exactly one is down
+    const status = healthy ? 'operational' : degraded ? 'degraded' : 'unavailable';
+    const httpStatus = healthy ? 200 : degraded ? 207 : 503;
+
     return NextResponse.json({
-        status: 'operational',
+        status,
         version,
         simMode: process.env.SIM_MODE === 'true',
         temporalConnected,
@@ -48,5 +54,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ...(supabaseError ? { supabaseError } : {}),
         omniPortEnabled: true,
         timestamp: Date.now(),
-    });
+    }, { status: httpStatus });
 }

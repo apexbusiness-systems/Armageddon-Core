@@ -52,10 +52,19 @@ const {
     runBattery12_MemoryPoison,
     runBattery13_SupplyChain,
     runBattery14_IndirectInjection,
-    generateReport
+    generateReport,
+    finalizeRunActivity
 } = proxyActivities<typeof activities>({
     startToCloseTimeout: TIMEOUTS.START_TO_CLOSE,
 });
+
+// Map the workflow's internal uppercase status to the lowercase run_status enum
+// persisted in armageddon_runs (pending | running | passed | failed | cancelled).
+const TERMINAL_STATUS_MAP: Record<string, 'passed' | 'failed' | 'cancelled'> = {
+    [STATUS.COMPLETED]: 'passed',
+    [STATUS.FAILED]: 'failed',
+    [STATUS.CANCELLED]: 'cancelled',
+};
 
 // Signals
 export const cancelSignal = defineSignal('cancel');
@@ -171,6 +180,16 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
 
         // 4. Generate Final Report
         const report = await generateReport(state);
+
+        // 5. Persist terminal state — DURABLE PROOF. If this throws, the workflow
+        // fails and never reports success without a finalized row in the database.
+        await finalizeRunActivity({
+            runId: config.runId,
+            status: TERMINAL_STATUS_MAP[state.status] ?? 'failed',
+            startedAt: state.startTime,
+            report,
+        });
+
         return report;
 
     } catch (err) {
