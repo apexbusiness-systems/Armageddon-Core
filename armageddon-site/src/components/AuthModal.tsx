@@ -21,8 +21,33 @@ interface AuthModalProps {
     readonly onModeChange: (mode: AuthMode) => void;
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 6;
+
+/**
+ * Linear-time email validation. Uses deterministic structural checks instead of
+ * a backtracking regex: trims input, bounds length, rejects whitespace/control
+ * characters via a single char-code pass, then verifies exactly one `@`, a
+ * non-empty local part, and a non-empty dotted domain.
+ */
+export function isSafeEmail(value: string): boolean {
+    const email = value.trim();
+    if (email.length < 3 || email.length > 254) return false;
+    for (let i = 0; i < email.length; i += 1) {
+        const code = email.charCodeAt(i);
+        if (code <= 0x20 || code === 0x7f) return false; // whitespace or control char
+    }
+    const at = email.indexOf('@');
+    if (at <= 0) return false;
+    if (at !== email.lastIndexOf('@')) return false;
+    const local = email.slice(0, at);
+    const domain = email.slice(at + 1);
+    if (!local || local.length > 64) return false;
+    if (!domain || domain.length > 253) return false;
+    if (!domain.includes('.')) return false;
+    if (domain.startsWith('.') || domain.endsWith('.')) return false;
+    if (domain.includes('..')) return false;
+    return true;
+}
 
 type Feedback =
     | { readonly kind: 'none' }
@@ -74,14 +99,23 @@ function AuthModalPanel({ mode, initialError, onClose, onModeChange }: PanelProp
         const onKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        globalThis.addEventListener('keydown', onKey);
+        return () => globalThis.removeEventListener('keydown', onKey);
     }, [onClose]);
 
     const isSignup = mode === 'signup';
 
+    let submitLabel: string;
+    if (pending) {
+        submitLabel = 'Working…';
+    } else if (isSignup) {
+        submitLabel = 'Create Account';
+    } else {
+        submitLabel = 'Sign In';
+    }
+
     const validate = useCallback((): string | null => {
-        if (!EMAIL_PATTERN.test(email.trim())) return 'Enter a valid email address.';
+        if (!isSafeEmail(email)) return 'Enter a valid email address.';
         if (password.length < MIN_PASSWORD) return `Password must be at least ${MIN_PASSWORD} characters.`;
         return null;
     }, [email, password]);
@@ -123,7 +157,7 @@ function AuthModalPanel({ mode, initialError, onClose, onModeChange }: PanelProp
 
     const handleMagicLink = async () => {
         setFeedback({ kind: 'none' });
-        if (!EMAIL_PATTERN.test(email.trim())) {
+        if (!isSafeEmail(email)) {
             setFeedback({ kind: 'error', text: 'Enter a valid email to receive a magic link.' });
             return;
         }
@@ -211,9 +245,9 @@ function AuthModalPanel({ mode, initialError, onClose, onModeChange }: PanelProp
                             type="button"
                             onClick={() => onModeChange('signin')}
                             className={`flex-1 py-2.5 mono-small tracking-widest uppercase transition-colors ${
-                                !isSignup
-                                    ? 'bg-[var(--aerospace)] text-black font-bold'
-                                    : 'text-[var(--signal-dim)] hover:text-[var(--signal)]'
+                                isSignup
+                                    ? 'text-[var(--signal-dim)] hover:text-[var(--signal)]'
+                                    : 'bg-[var(--aerospace)] text-black font-bold'
                             }`}
                         >
                             Sign In
@@ -280,7 +314,7 @@ function AuthModalPanel({ mode, initialError, onClose, onModeChange }: PanelProp
                             disabled={pending}
                             className="w-full mt-2 bg-[var(--aerospace)] hover:bg-white text-black font-bold font-mono py-3.5 uppercase tracking-[0.2em] transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
                         >
-                            {pending ? 'Working…' : isSignup ? 'Create Account' : 'Sign In'}
+                            {submitLabel}
                         </button>
                     </form>
 
