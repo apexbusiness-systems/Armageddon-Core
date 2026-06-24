@@ -55,9 +55,13 @@ const SEVERITY_MAP: Record<EventType, EventSeverity> = {
 // armageddon_events.message is NOT NULL. Derive a safe, non-secret summary —
 // never serialize raw payloads or secrets into the message column.
 function deriveMessage(eventType: EventType, payload?: Record<string, unknown>): string {
-    const base = eventType.toLowerCase().replace(/_/g, ' ');
-    const detail = payload?.batteryId ?? payload?.reason ?? payload?.status ?? payload?.runId;
-    return detail ? `${base}: ${String(detail).slice(0, 120)}` : base;
+    const base = eventType.toLowerCase().split('_').join(' ');
+    const detailRaw = payload?.batteryId ?? payload?.reason ?? payload?.status ?? payload?.runId;
+    // Only stringify primitives — never let an object fall through to '[object Object]'.
+    const detail = (typeof detailRaw === 'string' || typeof detailRaw === 'number')
+        ? String(detailRaw).slice(0, 120)
+        : '';
+    return detail ? `${base}: ${detail}` : base;
 }
 
 // armageddon_events row, snake_case, schema-aligned. iteration is NOT NULL → default 0.

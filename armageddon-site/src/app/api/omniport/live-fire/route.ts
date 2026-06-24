@@ -167,10 +167,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         })
         .eq('id', runId);
 
-    // Step 6: Push live_fire.authorized telemetry — GATE G3: event in DB is the proof
-    await persistTelemetryEvent(supabase, runId, organizationId, 'live_fire.authorized', {
-        workflowId, level, iterations, waiverRecordId: waiverRecord.id, liveFire: true,
-    });
+    // Step 6: Push live_fire.authorized telemetry — GATE G3: the event in the DB is the proof.
+    // This is proof-critical: if it cannot be persisted we must NOT return authorized: true.
+    try {
+        await persistTelemetryEvent(supabase, runId, organizationId, 'live_fire.authorized', {
+            workflowId, level, iterations, waiverRecordId: waiverRecord.id, liveFire: true,
+        }, { required: true });
+    } catch (err) {
+        console.error('[OmniPort] Live-fire proof telemetry failed:', (err as Error).message);
+        // The run already started; record it as failed and report the proof failure truthfully.
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        return NextResponse.json(
+            { authorized: false, reason: 'PROOF_PERSIST_FAILED', code: 'PROOF_PERSIST_FAILED', runId },
+            { status: 500 }
+        );
+    }
 
     return NextResponse.json({
         authorized: true,

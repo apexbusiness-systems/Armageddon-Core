@@ -200,14 +200,19 @@ export async function parseOmniPortBody<T>(
 
 /**
  * Writes a telemetry event to the omniport_telemetry_events Supabase table.
- * Fail-silent: logs on error but never throws (must not crash a run).
+ *
+ * Default is fail-silent (logs on error, never throws) for non-critical telemetry.
+ * Pass { required: true } for proof-critical events (e.g. live_fire.authorized):
+ * the insert failure then throws so the caller must not report success without
+ * durable proof in the database.
  */
 export async function persistTelemetryEvent(
     supabase: SupabaseClient,
     runId: string,
     orgId: string,
     eventType: string,
-    payload: Record<string, unknown>
+    payload: Record<string, unknown>,
+    opts: { required?: boolean } = {}
 ): Promise<void> {
     try {
         const timestamp = Date.now();
@@ -219,9 +224,13 @@ export async function persistTelemetryEvent(
             timestamp,
         });
         if (error) {
+            if (opts.required) {
+                throw new Error(`Required telemetry '${eventType}' failed to persist: ${error.message}`);
+            }
             console.warn('[OmniPort] Telemetry DB write failed (non-fatal):', error.message);
         }
     } catch (err) {
+        if (opts.required) throw err;
         console.error('[OmniPort] Telemetry error (non-fatal):', (err as Error).message);
     }
 }
