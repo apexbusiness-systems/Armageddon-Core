@@ -1,7 +1,7 @@
 # Armageddon Documentation Hub
 
 **Docs version**: 2026.05.15<br>
-**Last reviewed**: 2026-05-15<br>
+**Last reviewed**: 2026-06-24<br>
 **Primary package manager**: npm<br>
 **Runtime baseline**: Node.js 22 in CI, Node.js >=20 for workspaces
 
@@ -13,6 +13,7 @@ This hub is the canonical entry point for onboarding engineers and agents. If a 
 | --- | --- | --- |
 | Install and run locally | [`docs/QUICKSTART.md`](./QUICKSTART.md) | Verified local setup, worker start, tests, and build commands. |
 | Understand repo rules | [`../AGENTS.md`](../AGENTS.md) | Agent and contributor guardrails that prevent drift. |
+| Freeze public UI surfaces | [`docs/CANONICAL_UI_CONTRACT.md`](./CANONICAL_UI_CONTRACT.md) | Canonical header/footer/pricing state, enforced by a CI regression test and CODEOWNERS. |
 | Deploy Cloudflare edge | [`docs/CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) | Static Cloudflare edge deployment path for the public site. |
 | Deploy local Moat | [`../DEPLOYMENT.md`](../DEPLOYMENT.md) | Local Docker/Temporal Moat protocol. |
 | Operate incidents | [`../OPS_RUNBOOKS.md`](../OPS_RUNBOOKS.md) | SEV response, key rotation, stuck workflow triage. |
@@ -83,3 +84,4 @@ npm run build:cloudflare -w armageddon-site
 - Prefer absolute dates over relative language such as "today" or "right now".
 - Keep deployment docs explicit about target: Cloudflare static edge vs local Moat vs historical provider references.
 - Mark unknown remote/CI/runtime state as `UNVERIFIED` instead of assuming success.
+- Do not edit the frozen public marketing surfaces outside [`docs/CANONICAL_UI_CONTRACT.md`](./CANONICAL_UI_CONTRACT.md); changes must update the matching assertion in `armageddon-site/tests/unit/canonical-ui-freeze.test.ts` and the contract together.
