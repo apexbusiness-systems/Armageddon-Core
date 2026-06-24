@@ -1,10 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
 import Image from 'next/image';
-import { getRequiredSupabase } from '@/lib/browser-supabase';
-import { startGithubOAuth } from '@/lib/client-auth-actions';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13,33 +11,19 @@ import { useAuth } from '@/lib/useAuth';
 
 export default function Footer() {
     const user = useAuth();
-    const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
-    const handleGetCertified = async () => {
-        const sb = getRequiredSupabase('Supabase not initialized');
-        if (!sb) return;
-
-        setIsLoading(true);
-        try {
-            // If already logged in, redirect to the console/dashboard
-            if (user) {
-                // Scroll to top where the destruction console is
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                setIsLoading(false);
-                return;
-            }
-
-            // If not logged in, trigger OAuth signup/login.
-            await startGithubOAuth(sb, 'Auth');
-        } catch (error) {
-            console.error('Failed to initiate auth:', error);
-        } finally {
-            setIsLoading(false);
+    // Public conversion CTA. This must NEVER start OAuth — buyers go to pricing,
+    // and signed-in users go straight into onboarding for a self-serve run.
+    const handleCtaClick = () => {
+        if (user) {
+            router.push('/onboarding?tier=self-serve');
+        } else {
+            router.push('/pricing');
         }
     };
 
     const getButtonText = () => {
-        if (isLoading) return 'LOADING...';
         if (user) return 'START TESTING';
         return 'GET CERTIFIED';
     };
@@ -62,7 +46,7 @@ export default function Footer() {
                     >
                         COMPLIANCE IS A CHECKLIST.
                         <br />
-                        <span className="text-[var(--aerospace)]">ARMAGEDDON IS A GUARANTEE.</span>
+                        <span className="text-[var(--aerospace)]">ARMAGEDDON PRODUCES EVIDENCE.</span>
                     </motion.p>
 
                     {/* CTA Button */}
@@ -73,9 +57,8 @@ export default function Footer() {
                         transition={{ duration: 0.8, delay: 0.1 }}
                     >
                         <button
-                            onClick={handleGetCertified}
-                            disabled={isLoading}
-                            className={`btn-cta mx-auto ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
+                            onClick={handleCtaClick}
+                            className="btn-cta mx-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                         >
                             <span>{getButtonText()}</span>
                         </button>
@@ -83,13 +66,13 @@ export default function Footer() {
 
                     {/* Tier info */}
                     <motion.p
-                        className="mt-8 mono-small text-signal/30"
+                        className="mt-8 mono-small text-signal/60"
                         initial={{ opacity: 0 }}
                         whileInView={{ opacity: 1 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.8, delay: 0.2 }}
                     >
-                        SELF-SERVE (FREE) → VERIFIED (EVIDENCE REVIEW) → CERTIFIED (SIGNED CERTIFICATE)
+                        SELF-SERVE (FREE) → VERIFIED (EVIDENCE REVIEW) → CERTIFIED (RELEASE-READINESS GATE)
                     </motion.p>
                 </div>
             </section>
@@ -134,7 +117,7 @@ export default function Footer() {
 
             {/* Legal */}
             <div className="py-6 px-4 bg-[var(--void)] border-t border-[var(--tungsten)]">
-                <p className="text-center mono-small text-signal/15 max-w-4xl mx-auto">
+                <p className="text-center mono-small text-signal/55 max-w-4xl mx-auto">
                     Armageddon Test Suite Certification is designed for controlled sandbox testing and does not guarantee breach prevention.
                     Certification reflects results of the tested build/configuration at time of run.
                     Not a substitute for compliance certifications (SOC 2, ISO 27001) or professional penetration testing.

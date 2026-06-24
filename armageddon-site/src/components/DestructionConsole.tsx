@@ -7,6 +7,7 @@ import { getSupabase } from '@/lib/supabase';
 import { endSupabaseSession, startGithubOAuth } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
+import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import LockdownModal from './paywall/LockdownModal';
 import AuthControl from './AuthControl';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
@@ -110,7 +111,9 @@ interface GatekeeperResponse {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function startWorkflowApi(orgId: string, level: number, batteries: string[]) {
-    const res = await fetch(API.RUN, {
+    // Routed to the configured external backend; callers must gate on
+    // isApiConfigured() first so this never hits a non-existent static route.
+    const res = await apiFetch(API.RUN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ organizationId: orgId, level, batteries }),
@@ -154,16 +157,18 @@ export default function DestructionConsole({
 
     useEffect(() => {
         const checkTier = async () => {
+            // No backend wired up → stay on the safe default (no custom batteries).
+            if (!isApiConfigured()) return;
             try {
                 const sb = getSupabase();
                 const session = (await sb?.auth.getSession())?.data.session;
-                
+
                 const headers: HeadersInit = { 'Content-Type': 'application/json' };
                 if (session?.access_token) {
                     headers['Authorization'] = `Bearer ${session.access_token}`;
                 }
 
-                const res = await fetch(API.GATEKEEPER, { 
+                const res = await apiFetch(API.GATEKEEPER, {
                     method: 'POST',
                     headers
                 });
@@ -222,11 +227,11 @@ export default function DestructionConsole({
             const passed = results?.passed || 13;
             const escapeRate = results?.escapeRate || 0;
             addLine(LABELS.SYS, `${passed}/13 BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, MSG_TYPE.SUCCESS);
-            addLine(LABELS.SYS, 'VERDICT: CERTIFICATION APPROVED — GRADE A+', MSG_TYPE.SUCCESS);
+            addLine(LABELS.SYS, 'VERDICT: EVIDENCE GENERATED — SUBMIT FOR REVIEW', MSG_TYPE.SUCCESS);
             onStatusChange?.('certified');
             setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
         } else {
-            addLine(LABELS.SYS, 'VERDICT: CERTIFICATION FAILED', MSG_TYPE.ERROR);
+            addLine(LABELS.SYS, 'VERDICT: BREACH EVIDENCE RECORDED — REVIEW REQUIRED', MSG_TYPE.ERROR);
             onStatusChange?.('rejected');
         }
         addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
@@ -236,6 +241,18 @@ export default function DestructionConsole({
 
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
+
+        // Honest degradation: the public static deployment has no live-fire
+        // backend. Never fabricate a run, verdict, or certificate.
+        if (!isApiConfigured()) {
+            setIsComplete(false);
+            setTerminalLines([]);
+            addLine(LABELS.SYS, 'LIVE-FIRE BACKEND NOT CONNECTED ON THIS DEPLOYMENT.', MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, 'This public preview cannot execute a real run.', MSG_TYPE.SYSTEM);
+            addLine(LABELS.SYS, 'Start onboarding at /pricing to request a live run.', MSG_TYPE.SYSTEM);
+            onStatusChange?.('idle');
+            return;
+        }
 
         setIsRunning(true);
         setIsComplete(false);
@@ -450,12 +467,19 @@ export default function DestructionConsole({
                     <div className="mt-[calc(2rem+2cm)] mb-6 relative">
                         <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">BATTERY CONFIGURATION</h3>
                         {!canCustomize && (
-                            <div className="absolute inset-0 z-10 bg-void/80 backdrop-blur-sm border border-zinc-800 flex items-center justify-center cursor-not-allowed">
-                                <div className="text-center p-4">
-                                    <div className="text-4xl mb-2">🔒</div>
-                                    <p className="mono-small text-signal/70">Custom Battery Selection</p>
-                                    <p className="mono-small text-aerospace mt-1">requires VERIFIED tier</p>
-                                    <a href="/pricing?upgrade=verified" className="text-xs text-zinc-400 hover:text-zinc-200 underline mt-2 inline-block">Upgrade Now</a>
+                            <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
+                                {/* Meaningful copy sits on a solid high-contrast panel — never
+                                    behind the blur — and the CTA is a real, focusable link. */}
+                                <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
+                                    <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3">LOCKED</p>
+                                    <p className="mono-data text-signal text-sm">Custom Battery Selection</p>
+                                    <p className="mono-small text-signal/80 mt-1">Requires the Verified tier or higher.</p>
+                                    <a
+                                        href="/pricing?upgrade=verified"
+                                        className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                    >
+                                        View pricing
+                                    </a>
                                 </div>
                             </div>
                         )}

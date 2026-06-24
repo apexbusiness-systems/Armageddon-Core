@@ -10,7 +10,7 @@
  *   • Network errors render the KEY_UNAVAILABLE tone without throwing.
  */
 
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import AttestationBadge from '@/components/AttestationBadge';
 
@@ -23,10 +23,25 @@ function setFetch(impl: FetchFn): void {
 describe('AttestationBadge', () => {
     const originalFetch = globalThis.fetch;
 
+    beforeEach(() => {
+        // A configured backend is required for the badge to fetch the pubkey.
+        process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE = 'https://api.test.local';
+    });
+
     afterEach(() => {
         cleanup();
         globalThis.fetch = originalFetch;
+        delete process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
         vi.restoreAllMocks();
+    });
+
+    it('shows KEY_UNAVAILABLE when no backend is configured for the deployment', () => {
+        delete process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
+        const fetchSpy = vi.fn(async () => new Response(null, { status: 200 }));
+        setFetch(fetchSpy);
+        render(<AttestationBadge />);
+        expect(screen.getByText('KEY_UNAVAILABLE')).toBeInTheDocument();
+        expect(fetchSpy).not.toHaveBeenCalled();
     });
 
     it('shows CHECKING_KEY while the fetch is in flight', () => {

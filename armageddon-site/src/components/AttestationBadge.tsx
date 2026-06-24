@@ -21,6 +21,7 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 
 interface PubKeyResponse {
     spec: string;
@@ -41,11 +42,19 @@ interface State {
 }
 
 export default function AttestationBadge() {
-    const [state, setState] = useState<State>({ status: 'loading' });
+    // isApiConfigured() reads a build-inlined NEXT_PUBLIC value (identical on
+    // server and client), so a lazy initializer avoids both a synchronous
+    // setState-in-effect and any hydration mismatch.
+    const [state, setState] = useState<State>(() =>
+        isApiConfigured()
+            ? { status: 'loading' }
+            : { status: 'error', detail: 'Attestation backend not connected on this deployment.' }
+    );
 
     useEffect(() => {
+        if (!isApiConfigured()) return;
         const abort = new AbortController();
-        fetch('/api/attestation/pubkey', { signal: abort.signal })
+        apiFetch('/api/attestation/pubkey', { signal: abort.signal })
             .then(async (res) => {
                 if (res.status === 503) {
                     const body = await res.json().catch(() => ({}));
@@ -140,8 +149,9 @@ export default function AttestationBadge() {
 export function useAttestationPubKey(): PubKeyResponse | null {
     const [data, setData] = useState<PubKeyResponse | null>(null);
     useEffect(() => {
+        if (!isApiConfigured()) return;
         const abort = new AbortController();
-        fetch('/api/attestation/pubkey', { signal: abort.signal })
+        apiFetch('/api/attestation/pubkey', { signal: abort.signal })
             .then((res) => (res.ok ? res.json() : null))
             .then((body) => {
                 if (body && typeof body === 'object' && 'publicKey' in body) {

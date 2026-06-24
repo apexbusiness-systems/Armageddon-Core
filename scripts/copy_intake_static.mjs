@@ -24,8 +24,8 @@ async function getGitCommit() {
 async function writeDeploymentManifest() {
   const deployment = {
     provider: 'cloudflare-workers',
-    canonicalHost: 'armageddon.icu',
-    redirectHost: 'www.armageddon.icu',
+    canonicalHost: 'armageddontest.icu',
+    redirectHost: 'www.armageddontest.icu',
     sourceCommit: await getGitCommit(),
     builtAt: new Date().toISOString(),
   };
