@@ -83,15 +83,8 @@ export default function Footer() {
                         <span className="mono-small text-signal/30">© 2026 APEX BUSINESS SYSTEMS</span>
                     </div>
 
-                    {/* Deployment badge */}
-                    <div className="flex items-center gap-3">
-                        <span className="mono-small text-signal/40">EDGE BY</span>
-                        <div className="h-5 w-5 rounded-full border border-[var(--safe)]/60 shadow-[0_0_16px_rgba(59,255,128,0.35)]" />
-                        <span className="mono-small text-signal/40">CLOUDFLARE / LOCAL MOAT</span>
-                    </div>
-
                     {/* Deployment indicator */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center gap-3">
                         <div className="w-2 h-2 bg-[var(--safe)] rounded-full animate-pulse" />
                         <span className="mono-small text-signal/30">CLOUDFLARE EDGE READY // LOCAL MOAT BACKED</span>
                     </div>
