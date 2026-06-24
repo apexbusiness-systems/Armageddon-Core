@@ -41,13 +41,31 @@ import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES } from '@ar
 
 const PORT = Number(process.env.API_PORT ?? '8081');
 
+// Deterministic (linear-time) trimming — avoids regex backtracking on attacker-
+// influenced env values while stripping the same characters as before.
+function trimChar(value: string, ch: string): string {
+    let start = 0;
+    let end = value.length;
+    while (start < end && value[start] === ch) start += 1;
+    while (end > start && value[end - 1] === ch) end -= 1;
+    return value.slice(start, end);
+}
+
+function trimTrailingChar(value: string, ch: string): string {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === ch) end -= 1;
+    return value.slice(0, end);
+}
+
 // Canonical: SUPABASE_SERVICE_ROLE_KEY; alias: SUPABASE_SERVICE_ROLE_SECRET
-const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/^"+|"+$/g, '').replace(/\/+$/, '');
-const SUPABASE_SERVICE_ROLE_KEY = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE_SECRET ??
-    ''
-).replace(/^"+|"+$/g, '');
+const SUPABASE_URL = trimTrailingChar(
+    trimChar(process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '', '"'),
+    '/',
+);
+const SUPABASE_SERVICE_ROLE_KEY = trimChar(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_SECRET ?? '',
+    '"',
+);
 
 const TEMPORAL_ADDRESS = process.env.TEMPORAL_ADDRESS ?? 'localhost:7233';
 const TEMPORAL_NAMESPACE = process.env.TEMPORAL_NAMESPACE ?? 'default';
@@ -115,6 +133,20 @@ function extractBearer(req: IncomingMessage): string | null {
     return auth.slice(7).trim() || null;
 }
 
+// Bound and strip control characters (incl. CR/LF) from any value before it
+// reaches a log line — prevents log injection/forging from user-controlled input.
+const MAX_LOG_VALUE_LENGTH = 200;
+
+function sanitizeLogValue(value: unknown): string {
+    const raw = String(value ?? '').slice(0, MAX_LOG_VALUE_LENGTH);
+    let out = '';
+    for (const ch of raw) {
+        const code = ch.codePointAt(0) ?? 0;
+        out += (code <= 0x1f || code === 0x7f) ? ' ' : ch;
+    }
+    return out;
+}
+
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
 interface AuthUser { id: string; email?: string }
@@ -168,6 +200,12 @@ async function handleReadiness(_req: IncomingMessage, res: ServerResponse): Prom
     json(res, status, { ready: status === 200, temporalOk, supabaseOk });
 }
 
+function resolveHealthStatus(temporalConnected: boolean, supabaseConnected: boolean): { status: number; statusLabel: string } {
+    if (temporalConnected && supabaseConnected) return { status: 200, statusLabel: 'operational' };
+    if (temporalConnected !== supabaseConnected) return { status: 207, statusLabel: 'degraded' };
+    return { status: 503, statusLabel: 'unavailable' };
+}
+
 // GET /api/omniport/health
 async function handleHealth(_req: IncomingMessage, res: ServerResponse): Promise<void> {
     let temporalConnected = false;
@@ -184,10 +222,7 @@ async function handleHealth(_req: IncomingMessage, res: ServerResponse): Promise
         if (error) { supabaseError = error.message; } else { supabaseConnected = true; }
     } catch (err) { supabaseError = (err as Error).message; }
 
-    const healthy = temporalConnected && supabaseConnected;
-    const degraded = temporalConnected !== supabaseConnected;
-    const status = healthy ? 200 : degraded ? 207 : 503;
-    const statusLabel = healthy ? 'operational' : degraded ? 'degraded' : 'unavailable';
+    const { status, statusLabel } = resolveHealthStatus(temporalConnected, supabaseConnected);
 
     json(res, status, {
         status: statusLabel,
@@ -230,6 +265,80 @@ async function handleOrganizations(req: IncomingMessage, res: ServerResponse): P
 }
 
 // POST /api/run
+const BATTERY_PATTERN = /^B1[0-4]$/;
+
+type BatteryValidation = { ok: true; batteries: string[] } | { ok: false; invalid: string[] };
+
+function validateBatteries(batteries: string[] | undefined): BatteryValidation {
+    if (!batteries || batteries.length === 0) return { ok: true, batteries: DEFAULT_BATTERIES };
+    const unique = Array.from(new Set(batteries));
+    const invalid = unique.filter((b: string) => !BATTERY_PATTERN.test(b));
+    if (invalid.length > 0) return { ok: false, invalid };
+    return { ok: true, batteries: unique };
+}
+
+interface RunPlan { iterations: number; tier: 'CERTIFIED' | 'FREE'; seed: number }
+
+function buildRunPlan(
+    organizationId: string,
+    runId: string,
+    level: number,
+    eligibleTier: string | undefined,
+    requestedIterations: number | undefined,
+): RunPlan {
+    const isCertified = eligibleTier === 'certified';
+    const defaultIterations = isCertified && level === 7 ? 10000 : 2500;
+    const iterations = normalizeIterations(requestedIterations ?? defaultIterations);
+    // In SIM_MODE always use FREE tier so SimulationAdapter runs (no live LLM calls).
+    const tier: 'CERTIFIED' | 'FREE' = (isCertified && process.env.SIM_MODE !== 'true') ? 'CERTIFIED' : 'FREE';
+    const digest = createHash('sha256').update(`${organizationId}:${runId}`).digest('hex');
+    const seed = Number.parseInt(digest.slice(0, 8), 16);
+    return { iterations, tier, seed };
+}
+
+interface StartRunParams {
+    runId: string;
+    workflowId: string;
+    organizationId: string;
+    level: number;
+    plan: RunPlan;
+    batteries: string[];
+}
+
+async function startCertificationRun(res: ServerResponse, supabase: SupabaseClient, params: StartRunParams): Promise<void> {
+    const { runId, workflowId, organizationId, plan, batteries } = params;
+
+    let client: Client;
+    try {
+        client = await getTemporalClient();
+    } catch (err) {
+        // Mark run as failed and propagate the error
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        console.error('[run] Temporal unavailable:', (err as Error).message);
+        json(res, 503, { success: false, error: 'Temporal is unavailable — run aborted', runId });
+        return;
+    }
+
+    try {
+        const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+            workflowId,
+            taskQueue: TEMPORAL_TASK_QUEUE,
+            args: [{ runId, organizationId, iterations: plan.iterations, tier: plan.tier, seed: plan.seed, batteries }],
+        });
+
+        await supabase
+            .from('armageddon_runs')
+            .update({ workflow_run_id: handle.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
+            .eq('id', runId);
+
+        json(res, 200, { success: true, runId, workflowId });
+    } catch (err) {
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        console.error('[run] workflow.start failed:', (err as Error).message);
+        json(res, 500, { success: false, error: 'Failed to start workflow', runId });
+    }
+}
+
 async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
     let body: { organizationId?: string; level?: number; iterations?: number; batteries?: string[] };
     try {
@@ -253,23 +362,18 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
     // Org membership check
     const isMember = await verifyMembership(supabase, user.id, organizationId);
     if (!isMember) {
-        console.warn(`[Security] User ${user.id} not a member of org ${organizationId}`);
+        console.warn(`[Security] User ${sanitizeLogValue(user.id)} not a member of org ${sanitizeLogValue(organizationId)}`);
         json(res, 403, { success: false, error: 'Forbidden: You are not a member of this organization' });
         return;
     }
 
     // Validate batteries
-    const validPattern = /^B1[0-4]$/;
-    let validatedBatteries = DEFAULT_BATTERIES;
-    if (batteries && batteries.length > 0) {
-        const unique = Array.from(new Set(batteries));
-        const invalid = unique.filter((b: string) => !validPattern.test(b));
-        if (invalid.length > 0) {
-            json(res, 400, { success: false, error: `Invalid battery IDs: ${invalid.join(', ')}` });
-            return;
-        }
-        validatedBatteries = unique;
+    const batteryCheck = validateBatteries(batteries);
+    if (!batteryCheck.ok) {
+        json(res, 400, { success: false, error: `Invalid battery IDs: ${batteryCheck.invalid.join(', ')}` });
+        return;
     }
+    const validatedBatteries = batteryCheck.batteries;
 
     // Eligibility check
     const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries, supabase);
@@ -283,17 +387,10 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
         return;
     }
 
-    // Determine iterations
-    const defaultIterations = eligibility.tier === 'certified' && level === 7 ? 10000 : 2500;
-    const iterations = normalizeIterations(body.iterations ?? defaultIterations);
-
     // Create run record
     const runId = uuidv4();
     const workflowId = `armageddon-${runId}`;
-    // In SIM_MODE always use FREE tier so SimulationAdapter runs (no live LLM calls).
-    const workflowTier = (eligibility.tier === 'certified' && process.env.SIM_MODE !== 'true') ? 'CERTIFIED' : 'FREE';
-    const digest = createHash('sha256').update(`${organizationId}:${runId}`).digest('hex');
-    const workflowSeed = Number.parseInt(digest.slice(0, 8), 16);
+    const plan = buildRunPlan(organizationId, runId, level, eligibility.tier, body.iterations);
 
     const { error: insertError } = await supabase
         .from('armageddon_runs')
@@ -307,9 +404,9 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
             status: 'pending',
             config: {
                 batteries: validatedBatteries,
-                iterations,
-                tier: workflowTier,
-                seed: workflowSeed,
+                iterations: plan.iterations,
+                tier: plan.tier,
+                seed: plan.seed,
             },
         });
 
@@ -319,36 +416,7 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
         return;
     }
 
-    // Start Temporal workflow
-    let client: Client;
-    try {
-        client = await getTemporalClient();
-    } catch (err) {
-        // Mark run as failed and propagate the error
-        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-        console.error('[run] Temporal unavailable:', (err as Error).message);
-        json(res, 503, { success: false, error: 'Temporal is unavailable — run aborted', runId });
-        return;
-    }
-
-    try {
-        const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
-            workflowId,
-            taskQueue: TEMPORAL_TASK_QUEUE,
-            args: [{ runId, organizationId, iterations, tier: workflowTier, seed: workflowSeed, batteries: validatedBatteries }],
-        });
-
-        await supabase
-            .from('armageddon_runs')
-            .update({ workflow_run_id: handle.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
-            .eq('id', runId);
-
-        json(res, 200, { success: true, runId, workflowId });
-    } catch (err) {
-        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-        console.error('[run] workflow.start failed:', (err as Error).message);
-        json(res, 500, { success: false, error: 'Failed to start workflow', runId });
-    }
+    await startCertificationRun(res, supabase, { runId, workflowId, organizationId, level, plan, batteries: validatedBatteries });
 }
 
 // GET /api/run?runId=<id>
@@ -414,6 +482,30 @@ function handleAttestationPubkey(_req: IncomingMessage, res: ServerResponse): vo
 
 // ── Router ─────────────────────────────────────────────────────────────────────
 
+type RouteHandler = (req: IncomingMessage, res: ServerResponse, url: URL) => void | Promise<void>;
+
+// Method+path → handler. Order is irrelevant: keys are exact `${METHOD} ${path}`
+// matches, so dispatch is unambiguous and the fallback is a single 404.
+const ROUTES: Record<string, RouteHandler> = {
+    'GET /health': (req, res) => handleLiveness(req, res),
+    'GET /ready': (req, res) => handleReadiness(req, res),
+    'GET /api/omniport/health': (req, res) => handleHealth(req, res),
+    'GET /api/me/organizations': (req, res) => handleOrganizations(req, res),
+    'POST /api/run': (req, res) => handleRunPost(req, res),
+    'GET /api/run': (req, res, url) => handleRunGet(req, res, url.searchParams),
+    'POST /api/gatekeeper': (req, res) => handleGatekeeper(req, res),
+    'GET /api/attestation/pubkey': (req, res) => handleAttestationPubkey(req, res),
+};
+
+function writeCorsPreflight(res: ServerResponse): void {
+    res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    });
+    res.end();
+}
+
 async function router(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
     const path = url.pathname;
@@ -421,28 +513,19 @@ async function router(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
     // CORS preflight
     if (method === 'OPTIONS') {
-        res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        });
-        res.end();
+        writeCorsPreflight(res);
         return;
     }
 
+    const handler = ROUTES[`${method} ${path}`];
     try {
-        if (path === '/health' && method === 'GET') { handleLiveness(req, res); return; }
-        if (path === '/ready' && method === 'GET') { await handleReadiness(req, res); return; }
-        if (path === '/api/omniport/health' && method === 'GET') { await handleHealth(req, res); return; }
-        if (path === '/api/me/organizations' && method === 'GET') { await handleOrganizations(req, res); return; }
-        if (path === '/api/run' && method === 'POST') { await handleRunPost(req, res); return; }
-        if (path === '/api/run' && method === 'GET') { await handleRunGet(req, res, url.searchParams); return; }
-        if (path === '/api/gatekeeper' && method === 'POST') { await handleGatekeeper(req, res); return; }
-        if (path === '/api/attestation/pubkey' && method === 'GET') { handleAttestationPubkey(req, res); return; }
-
+        if (handler) {
+            await handler(req, res, url);
+            return;
+        }
         json(res, 404, { error: 'Not found', path });
     } catch (err) {
-        console.error(`[${method} ${path}] Unhandled error:`, (err as Error).message);
+        console.error(`[${sanitizeLogValue(method)} ${sanitizeLogValue(path)}] Unhandled error:`, (err as Error).message);
         json(res, 500, { error: 'Internal server error' });
     }
 }
@@ -455,6 +538,71 @@ async function router(req: IncomingMessage, res: ServerResponse): Promise<void> 
 const PENDING_POLL_MS = 5000;
 const PENDING_CLAIM_WINDOW_MS = 10 * 60 * 1000; // only pick up runs < 10 min old
 
+interface PendingRun {
+    id: string;
+    organization_id: string;
+    level: number;
+    config: unknown;
+    workflow_id: string;
+}
+
+async function dispatchPendingRun(sb: SupabaseClient, client: Client, run: PendingRun): Promise<void> {
+    const cfg = (run.config ?? {}) as { batteries?: string[]; iterations?: number; tier?: string; seed?: number };
+    const { batteries = DEFAULT_BATTERIES, iterations = 2500, tier = 'FREE', seed = 0 } = cfg;
+    const workflowTier = (tier === 'certified' && process.env.SIM_MODE !== 'true') ? 'CERTIFIED' : 'FREE';
+
+    try {
+        const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+            workflowId: run.workflow_id,
+            taskQueue: TEMPORAL_TASK_QUEUE,
+            args: [{ runId: run.id, organizationId: run.organization_id, iterations, tier: workflowTier, seed, batteries }],
+        });
+
+        await sb.from('armageddon_runs')
+            .update({ status: 'running', workflow_run_id: handle.firstExecutionRunId, started_at: new Date().toISOString() })
+            .eq('id', run.id)
+            .eq('status', 'pending');
+
+        console.log(`[PendingLoop] Dispatched run ${run.id} → workflow ${run.workflow_id}`);
+    } catch (err) {
+        const name = (err as Error).name ?? '';
+        // Another dispatcher already claimed this run — leave it alone
+        if (name === 'WorkflowExecutionAlreadyStartedError') return;
+        console.error(`[PendingLoop] Failed to dispatch run ${run.id}:`, (err as Error).message);
+        await sb.from('armageddon_runs').update({ status: 'failed' }).eq('id', run.id).eq('status', 'pending');
+    }
+}
+
+async function pollPendingRunsOnce(): Promise<void> {
+    const sb = getServiceRole();
+    const cutoff = new Date(Date.now() - PENDING_CLAIM_WINDOW_MS).toISOString();
+
+    const { data: pendingRuns, error } = await sb
+        .from('armageddon_runs')
+        .select('id, organization_id, level, config, workflow_id')
+        .eq('status', 'pending')
+        .gte('created_at', cutoff)
+        .limit(5);
+
+    if (error) {
+        console.error('[PendingLoop] Query error:', error.message);
+        return;
+    }
+    if (!pendingRuns?.length) return;
+
+    let client: Client;
+    try {
+        client = await getTemporalClient();
+    } catch (err) {
+        console.warn('[PendingLoop] Temporal not ready:', (err as Error).message);
+        return;
+    }
+
+    for (const run of pendingRuns) {
+        await dispatchPendingRun(sb, client, run as PendingRun);
+    }
+}
+
 async function startPendingRunsLoop(): Promise<void> {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
         console.warn('[PendingLoop] Missing Supabase credentials — dispatcher disabled.');
@@ -464,59 +612,8 @@ async function startPendingRunsLoop(): Promise<void> {
 
     while (true) {
         await new Promise<void>(resolve => setTimeout(resolve, PENDING_POLL_MS));
-
         try {
-            const sb = getServiceRole();
-            const cutoff = new Date(Date.now() - PENDING_CLAIM_WINDOW_MS).toISOString();
-
-            const { data: pendingRuns, error } = await sb
-                .from('armageddon_runs')
-                .select('id, organization_id, level, config, workflow_id')
-                .eq('status', 'pending')
-                .gte('created_at', cutoff)
-                .limit(5);
-
-            if (error) {
-                console.error('[PendingLoop] Query error:', error.message);
-                continue;
-            }
-            if (!pendingRuns?.length) continue;
-
-            let client: Client;
-            try { client = await getTemporalClient(); }
-            catch (err) {
-                console.warn('[PendingLoop] Temporal not ready:', (err as Error).message);
-                continue;
-            }
-
-            for (const run of pendingRuns) {
-                const cfg = (run.config ?? {}) as { batteries?: string[]; iterations?: number; tier?: string; seed?: number };
-                const { batteries = DEFAULT_BATTERIES, iterations = 2500, tier = 'FREE', seed = 0 } = cfg;
-                const workflowTier = (tier === 'certified' && process.env.SIM_MODE !== 'true') ? 'CERTIFIED' : 'FREE';
-
-                try {
-                    const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
-                        workflowId: run.workflow_id,
-                        taskQueue: TEMPORAL_TASK_QUEUE,
-                        args: [{ runId: run.id, organizationId: run.organization_id, iterations, tier: workflowTier, seed, batteries }],
-                    });
-
-                    await sb.from('armageddon_runs')
-                        .update({ status: 'running', workflow_run_id: handle.firstExecutionRunId, started_at: new Date().toISOString() })
-                        .eq('id', run.id)
-                        .eq('status', 'pending');
-
-                    console.log(`[PendingLoop] Dispatched run ${run.id} → workflow ${run.workflow_id}`);
-                } catch (err) {
-                    const name = (err as Error).name ?? '';
-                    if (name === 'WorkflowExecutionAlreadyStartedError') {
-                        // Another dispatcher already claimed this run — leave it alone
-                        continue;
-                    }
-                    console.error(`[PendingLoop] Failed to dispatch run ${run.id}:`, (err as Error).message);
-                    await sb.from('armageddon_runs').update({ status: 'failed' }).eq('id', run.id).eq('status', 'pending');
-                }
-            }
+            await pollPendingRunsOnce();
         } catch (err) {
             console.error('[PendingLoop] Unexpected error:', (err as Error).message);
         }

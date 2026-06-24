@@ -194,66 +194,74 @@ async function handleMeOrganizations(request: Request, env: IntakeEnv, canonical
   return jsonResponse({ success: true, organizations: memberships, active }, canonicalHost);
 }
 
-async function handleOmniportHealth(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
-  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+interface HealthProbe {
+  connected: boolean;
+  error?: string;
+}
 
-  let supabaseConnected = false;
-  let supabaseError: string | undefined;
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
-    const { error } = await supabaseQuery(env, 'armageddon_runs', 'select=id&limit=1');
-    if (error) {
-      supabaseError = error;
-    } else {
-      supabaseConnected = true;
-    }
-  } else {
-    supabaseError = 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured';
+async function checkSupabaseHealth(env: IntakeEnv): Promise<HealthProbe> {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { connected: false, error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured' };
   }
+  const { error } = await supabaseQuery(env, 'armageddon_runs', 'select=id&limit=1');
+  return error ? { connected: false, error } : { connected: true };
+}
 
-  // Check Temporal Cloud reachability via its HTTP API (no gRPC needed from edge).
-  let temporalConnected = false;
-  let temporalError: string | undefined;
+// 200/2xx = connected; 400/401/403 = server reachable (auth/input issue); 415 = wrong content-type but server alive.
+function temporalReachable(status: number): boolean {
+  return status === 400 || status === 401 || status === 403 || status === 415;
+}
+
+async function checkTemporalHealth(env: IntakeEnv): Promise<HealthProbe> {
   const tHost = temporalHost(env);
   const tNamespace = env.TEMPORAL_NAMESPACE ?? '';
   const tApiKey = env.TEMPORAL_API_KEY ?? '';
-  if (tHost && tNamespace && tApiKey) {
-    try {
-      const tRes = await fetch(
-        `https://${tHost}/api/v1/namespaces/${encodeURIComponent(tNamespace)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${tApiKey}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-      // 200 = connected; 400/401/403 = server reachable (auth/input issue); 415 = wrong content-type but server alive
-      if (tRes.ok || tRes.status === 400 || tRes.status === 401 || tRes.status === 403 || tRes.status === 415) {
-        temporalConnected = true;
-      } else {
-        temporalError = `Temporal HTTP ${tRes.status}`;
-      }
-    } catch (err) {
-      temporalError = err instanceof Error ? err.message : 'Temporal unreachable';
-    }
-  } else {
-    temporalError = 'Temporal Cloud not configured (TEMPORAL_ADDRESS/NAMESPACE/API_KEY)';
+  if (!tHost || !tNamespace || !tApiKey) {
+    return { connected: false, error: 'Temporal Cloud not configured (TEMPORAL_ADDRESS/NAMESPACE/API_KEY)' };
   }
+  try {
+    const tRes = await fetch(
+      `https://${tHost}/api/v1/namespaces/${encodeURIComponent(tNamespace)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${tApiKey}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    if (tRes.ok || temporalReachable(tRes.status)) {
+      return { connected: true };
+    }
+    return { connected: false, error: `Temporal HTTP ${tRes.status}` };
+  } catch (err) {
+    return { connected: false, error: err instanceof Error ? err.message : 'Temporal unreachable' };
+  }
+}
 
-  const status = (supabaseConnected && temporalConnected) ? 'operational'
-    : (supabaseConnected || temporalConnected) ? 'degraded' : 'unavailable';
-  const httpStatus = status === 'operational' ? 200 : status === 'degraded' ? 207 : 503;
+function computeHealthStatus(supabaseConnected: boolean, temporalConnected: boolean): { status: string; httpStatus: number } {
+  if (supabaseConnected && temporalConnected) return { status: 'operational', httpStatus: 200 };
+  if (supabaseConnected || temporalConnected) return { status: 'degraded', httpStatus: 207 };
+  return { status: 'unavailable', httpStatus: 503 };
+}
+
+async function handleOmniportHealth(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+
+  const supabase = await checkSupabaseHealth(env);
+  // Check Temporal Cloud reachability via its HTTP API (no gRPC needed from edge).
+  const temporal = await checkTemporalHealth(env);
+  const { status, httpStatus } = computeHealthStatus(supabase.connected, temporal.connected);
 
   return jsonResponse({
     status,
     version: '1.0.0',
     simMode: false,
-    temporalConnected,
-    ...(temporalError ? { temporalError } : {}),
-    supabaseConnected,
-    ...(supabaseError ? { supabaseError } : {}),
+    temporalConnected: temporal.connected,
+    ...(temporal.error ? { temporalError: temporal.error } : {}),
+    supabaseConnected: supabase.connected,
+    ...(supabase.error ? { supabaseError: supabase.error } : {}),
     omniPortEnabled: true,
     timestamp: Date.now(),
   }, canonicalHost, httpStatus);
@@ -346,45 +354,38 @@ async function temporalStartWorkflow(
 
 // ── /api/run handler ──────────────────────────────────────────────────────────
 
-async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
-  if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
-  }
+interface RunInput {
+  organizationId: string;
+  level: number;
+  requestedBatteries: string[] | null;
+}
 
-  const token = extractBearer(request);
-  if (!token) return jsonResponse({ success: false, error: 'Unauthorized: Missing token' }, canonicalHost, 401);
-
-  const user = await getSupabaseUser(env, token);
-  if (!user) return jsonResponse({ success: false, error: 'Unauthorized: Invalid token' }, canonicalHost, 401);
-
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json() as Record<string, unknown>;
-  } catch {
-    return jsonResponse({ error: 'Invalid JSON body.' }, canonicalHost, 400);
-  }
-
+function parseRunInput(body: Record<string, unknown>): RunInput | { error: string } {
   const organizationId = typeof body.organizationId === 'string' ? body.organizationId : null;
   const level = typeof body.level === 'number' ? body.level : 1;
   const requestedBatteries = Array.isArray(body.batteries)
     ? (body.batteries as unknown[]).filter((b): b is string => typeof b === 'string')
     : null;
 
-  if (!organizationId) {
-    return jsonResponse({ error: 'organizationId is required.' }, canonicalHost, 400);
-  }
-  if (level < 1 || level > 7) {
-    return jsonResponse({ error: 'level must be 1–7.' }, canonicalHost, 400);
-  }
+  if (!organizationId) return { error: 'organizationId is required.' };
+  if (level < 1 || level > 7) return { error: 'level must be 1–7.' };
+  return { organizationId, level, requestedBatteries };
+}
+
+type RunAccess =
+  | { ok: true; batteries: string[] }
+  | { ok: false; status: number; body: Record<string, unknown> };
+
+async function evaluateRunAccess(env: IntakeEnv, userId: string, input: RunInput): Promise<RunAccess> {
+  const { organizationId, level, requestedBatteries } = input;
 
   // Verify user is member of the org
   const { data: memberships } = await supabaseQuery<OrgMembership>(
     env, 'organization_members',
-    `select=organization_id,role&user_id=eq.${encodeURIComponent(user.id)}&organization_id=eq.${encodeURIComponent(organizationId)}`,
+    `select=organization_id,role&user_id=eq.${encodeURIComponent(userId)}&organization_id=eq.${encodeURIComponent(organizationId)}`,
   );
   if (!memberships || memberships.length === 0) {
-    return jsonResponse({ success: false, error: 'ACCESS_DENIED: Not a member of this organization.' }, canonicalHost, 403);
+    return { ok: false, status: 403, body: { success: false, error: 'ACCESS_DENIED: Not a member of this organization.' } };
   }
 
   // Fetch org tier
@@ -396,12 +397,16 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
 
   // Level eligibility
   if (!(TIER_LEVEL_ACCESS[tier] ?? []).includes(level)) {
-    return jsonResponse({
-      success: false,
-      error: 'ACCESS_DENIED',
-      upsellMessage: `Level ${level} is not available on your current plan.`,
-      upgradeUrl: '/pricing',
-    }, canonicalHost, 403);
+    return {
+      ok: false,
+      status: 403,
+      body: {
+        success: false,
+        error: 'ACCESS_DENIED',
+        upsellMessage: `Level ${level} is not available on your current plan.`,
+        upgradeUrl: '/pricing',
+      },
+    };
   }
 
   // Battery selection
@@ -413,28 +418,50 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
     !batteries.every((b) => DEFAULT_BATTERIES.includes(b));
 
   if (isCustomized && !TIER_CAN_CUSTOMIZE[tier]) {
-    return jsonResponse({
-      success: false,
-      error: 'FEATURE_LOCKED',
-      upsellMessage: 'Custom battery selection requires Verified tier.',
-      upgradeUrl: '/pricing?upgrade=verified',
-    }, canonicalHost, 403);
+    return {
+      ok: false,
+      status: 403,
+      body: {
+        success: false,
+        error: 'FEATURE_LOCKED',
+        upsellMessage: 'Custom battery selection requires Verified tier.',
+        upgradeUrl: '/pricing?upgrade=verified',
+      },
+    };
   }
 
   const invalidBatteries = batteries.filter((b) => !ALLOWED_BATTERIES.has(b));
   if (invalidBatteries.length > 0) {
-    return jsonResponse({
-      success: false,
-      error: 'INVALID_BATTERIES',
-      message: `Unknown batteries: ${invalidBatteries.join(', ')}`,
-    }, canonicalHost, 400);
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        success: false,
+        error: 'INVALID_BATTERIES',
+        message: `Unknown batteries: ${invalidBatteries.join(', ')}`,
+      },
+    };
   }
 
-  // Create run record
+  return { ok: true, batteries };
+}
+
+/** Cryptographically-strong 32-bit unsigned seed (Web Crypto, available on the CF edge). */
+function secureSeed(): number {
+  return globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+}
+
+async function createRunRecord(
+  env: IntakeEnv,
+  canonicalHost: string,
+  organizationId: string,
+  level: number,
+  batteries: string[],
+): Promise<Response> {
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
   const iterations = 2500;
-  const seed = Math.floor(Math.random() * (2 ** 32));
+  const seed = secureSeed();
 
   const { error: insertError } = await supabaseInsert(env, 'armageddon_runs', {
     id: runId,
@@ -454,6 +481,34 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
   // Run is now 'pending' — the Node.js api-server polls Supabase for pending runs and
   // dispatches them to Temporal via gRPC (which cannot run on the CF Workers edge).
   return jsonResponse({ success: true, runId, workflowId }, canonicalHost);
+}
+
+async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+  if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
+  }
+
+  const token = extractBearer(request);
+  if (!token) return jsonResponse({ success: false, error: 'Unauthorized: Missing token' }, canonicalHost, 401);
+
+  const user = await getSupabaseUser(env, token);
+  if (!user) return jsonResponse({ success: false, error: 'Unauthorized: Invalid token' }, canonicalHost, 401);
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON body.' }, canonicalHost, 400);
+  }
+
+  const input = parseRunInput(body);
+  if ('error' in input) return jsonResponse({ error: input.error }, canonicalHost, 400);
+
+  const access = await evaluateRunAccess(env, user.id, input);
+  if (!access.ok) return jsonResponse(access.body, canonicalHost, access.status);
+
+  return createRunRecord(env, canonicalHost, input.organizationId, input.level, access.batteries);
 }
 
 // ── Intake form handler (unchanged) ──────────────────────────────────────────
