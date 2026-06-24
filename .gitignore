@@ -19,3 +19,6 @@ yarn-error.log*
 
 # Local attestation demo summary (generated on-demand)
 attestation-demo-evidence.json
+
+# TypeScript incremental build cache (generated)
+*.tsbuildinfo

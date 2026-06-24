@@ -1,5 +1,9 @@
 import { MetadataRoute } from 'next';
 
+// Required for `output: export` (Cloudflare static edge): the metadata-generated
+// /manifest.webmanifest route must be emitted as a static asset at build time.
+export const dynamic = 'force-static';
+
 export default function manifest(): MetadataRoute.Manifest {
     return {
         name: 'APEX ARMAGEDDON',
