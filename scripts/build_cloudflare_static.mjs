@@ -18,14 +18,20 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { rename } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const require = createRequire(import.meta.url);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const siteDir = path.join(repoRoot, 'armageddon-site');
 const apiDir = path.join(siteDir, 'src', 'app', 'api');
 // Stash outside `src/` so Next's App Router never scans it as routes.
 const stashDir = path.join(siteDir, '.api-static-export-stash');
+
+// Resolve absolute paths to the node binary and the Next.js CLI so we never
+// rely on PATH lookup to locate the executable (avoids PATH-injection risk).
+const nextCli = require.resolve('next/dist/bin/next');
 
 async function moveIfExists(from, to) {
     if (existsSync(from)) {
@@ -42,7 +48,7 @@ async function main() {
         if (stashed) {
             console.log('[cf-build] Excluded src/app/api from static export (dynamic routes run on the worker/Temporal backend)');
         }
-        execFileSync('npx', ['next', 'build'], {
+        execFileSync(process.execPath, [nextCli, 'build'], {
             cwd: siteDir,
             stdio: 'inherit',
             env: { ...process.env, CLOUDFLARE_STATIC_EXPORT: 'true' },
