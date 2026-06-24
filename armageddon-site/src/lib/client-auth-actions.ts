@@ -8,8 +8,10 @@ export async function startGithubOAuth(sb: SupabaseClient, logPrefix: string): P
         const { error } = await sb.auth.signInWithOAuth({
             provider: AUTH_PROVIDER,
             options: {
-                // Uses canonical runtime origin
-                redirectTo: `${getAuthOrigin()}/`,
+                // Redirect to /auth/callback so the callback page handles token exchange.
+                // getAuthOrigin() always returns https://armageddontest.icu in production,
+                // blocking any localhost value from propagating into email/OAuth redirect URLs.
+                redirectTo: `${getAuthOrigin()}/auth/callback`,
             },
         });
 

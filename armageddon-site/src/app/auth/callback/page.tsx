@@ -22,9 +22,18 @@ function readOAuthError(): string | null {
 }
 
 /**
- * Static-export-compatible OAuth callback. There is no server route handler in
- * a static export, so session detection happens client-side. On success we send
- * the user into the app; on failure we show a clear, recoverable state.
+ * Static-export-compatible auth callback. Handles two Supabase flows:
+ *
+ * 1. PKCE flow (recommended): Supabase appends `?code=<code>` to the redirect URL.
+ *    We call exchangeCodeForSession() to trade it for a session. This is the secure
+ *    path — no tokens in the URL hash.
+ *
+ * 2. Implicit flow (legacy / email verification): Supabase appends
+ *    `#access_token=<token>&...` to the redirect URL. getSession() picks this up
+ *    automatically from the hash.
+ *
+ * GUARDRAIL: getAuthOrigin() always returns https://armageddontest.icu in production,
+ * so neither flow can redirect to localhost regardless of Supabase Site URL config.
  */
 export default function AuthCallbackPage() {
     const router = useRouter();
@@ -47,6 +56,20 @@ export default function AuthCallbackPage() {
                 return;
             }
             try {
+                // PKCE flow: exchange the one-time code for a session.
+                // This must run before getSession() so the session is established.
+                const pkceCode = new URLSearchParams(window.location.search).get('code');
+                if (pkceCode) {
+                    const { error: exchangeError } = await sb.auth.exchangeCodeForSession(pkceCode);
+                    if (exchangeError) {
+                        if (!cancelled) setState({ kind: 'error', message: exchangeError.message });
+                        return;
+                    }
+                }
+
+                if (cancelled) return;
+
+                // Implicit flow / post-exchange: confirm session exists.
                 const { data } = await sb.auth.getSession();
                 if (cancelled) return;
                 if (data.session) {

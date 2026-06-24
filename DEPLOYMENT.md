@@ -33,6 +33,28 @@ unset, the console **degrades honestly** and never fabricates a run, verdict, or
 
 ---
 
+## 🔑 SUPABASE AUTH URL CONFIGURATION (REQUIRED BEFORE FIRST PRODUCTION DEPLOY)
+
+> **ROOT CAUSE GUARDRAIL**: Verification/magic-link emails embed the Supabase project's
+> **Site URL**. If this is `http://localhost:3000` (the default when bootstrapped locally),
+> every email link breaks in production with `ERR_CONNECTION_REFUSED`. This is a Supabase
+> dashboard setting — it cannot be fixed by code alone.
+
+### Steps (one-time, per Supabase project):
+
+1. Go to **Supabase Dashboard → Authentication → URL Configuration**
+2. Set **Site URL** to: `https://armageddontest.icu`
+3. Under **Redirect URLs**, add:
+   - `https://armageddontest.icu/**`
+   - `https://armageddontest.icu/auth/callback`
+4. Save changes.
+
+### Verify:
+- Send a test magic link / verification email and confirm the link points to `https://armageddontest.icu/auth/callback`.
+- Run `node scripts/validate-armageddon-production-env.mjs` with production env vars loaded — it will catch a localhost `NEXT_PUBLIC_SUPABASE_URL` at build time.
+
+---
+
 ## 🛑 PRE-FLIGHT CHECKLIST
 
 Before initiating the "Proprietary Moat" deployment, ensure the following constraints are met. The repository documentation source of truth is `docs/README.md`.
@@ -41,6 +63,9 @@ Before initiating the "Proprietary Moat" deployment, ensure the following constr
 - [ ] **Secrets** are configured in `.env.moat` (See `SECRETS MANAGEMENT`).
 - [ ] **Repo Context** is clean (no uncommitted critical changes).
 - [ ] **Validation** has passed with `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` when code changed.
+- [ ] **Supabase Site URL** is set to `https://armageddontest.icu` (not localhost) — see above.
+- [ ] **Env validation** passes: `node scripts/validate-armageddon-production-env.mjs`.
+- [ ] **Staging E2E** passes: `node scripts/staging-e2e-cert.mjs` (requires live Supabase + dynamic API).
 
 ---
 

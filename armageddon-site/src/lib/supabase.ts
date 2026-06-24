@@ -32,6 +32,28 @@ export function getSupabase(): SupabaseClient | null {
         return null;
     }
 
+    // Guardrail: a localhost Supabase URL in a non-localhost browser means the
+    // project's NEXT_PUBLIC_SUPABASE_URL env var was never set for production.
+    // Verification emails will redirect to localhost — fail loudly so it's caught.
+    try {
+        const parsed = new URL(url);
+        const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+        const browserIsProduction = globalThis.window !== undefined &&
+            globalThis.window.location.hostname !== 'localhost' &&
+            globalThis.window.location.hostname !== '127.0.0.1';
+        if (isLocalhost && browserIsProduction) {
+            console.error(
+                '[Supabase] CONFIGURATION ERROR: NEXT_PUBLIC_SUPABASE_URL points to localhost ' +
+                'but the browser is on a production domain. ' +
+                'Set NEXT_PUBLIC_SUPABASE_URL to your Supabase project URL and update ' +
+                'the Supabase dashboard Site URL to https://armageddontest.icu.'
+            );
+            return null;
+        }
+    } catch {
+        console.warn('[Supabase] Could not parse NEXT_PUBLIC_SUPABASE_URL');
+    }
+
     // Initialize and cache the client
     supabaseClient = createClient(url, anonKey);
 
