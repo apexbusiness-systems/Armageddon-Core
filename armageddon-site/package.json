@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "build:cloudflare": "node ../scripts/build_cloudflare_static.mjs && node ../scripts/copy_intake_static.mjs",
     "validate:production-env": "node ../scripts/validate-armageddon-production-env.mjs",
+    "certify:staging-e2e": "node ../scripts/staging-e2e-cert.mjs",
     "deploy:cloudflare": "npm run build:cloudflare && node ../scripts/deploy_cloudflare_static.mjs",
     "assets:icons": "node scripts/generate-app-icons.mjs",
     "assets:icons:check": "node scripts/check-app-icons.mjs"
