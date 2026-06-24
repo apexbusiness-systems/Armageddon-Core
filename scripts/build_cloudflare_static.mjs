@@ -41,28 +41,27 @@ async function moveIfExists(from, to) {
     return false;
 }
 
-async function main() {
-    let stashed = false;
-    try {
-        stashed = await moveIfExists(apiDir, stashDir);
-        if (stashed) {
-            console.log('[cf-build] Excluded src/app/api from static export (dynamic routes run on the worker/Temporal backend)');
-        }
-        execFileSync(process.execPath, [nextCli, 'build'], {
-            cwd: siteDir,
-            stdio: 'inherit',
-            env: { ...process.env, CLOUDFLARE_STATIC_EXPORT: 'true' },
-        });
-    } finally {
-        if (stashed && existsSync(stashDir)) {
-            await rename(stashDir, apiDir);
-            console.log('[cf-build] Restored src/app/api');
-        }
+// Top-level await (this is an ES module): the `finally` block always restores
+// the api segment before the process exits, and `process.exitCode` is used
+// instead of `process.exit()` so the restore is never skipped on failure.
+let stashed = false;
+try {
+    stashed = await moveIfExists(apiDir, stashDir);
+    if (stashed) {
+        console.log('[cf-build] Excluded src/app/api from static export (dynamic routes run on the worker/Temporal backend)');
     }
-}
-
-main().catch((err) => {
+    execFileSync(process.execPath, [nextCli, 'build'], {
+        cwd: siteDir,
+        stdio: 'inherit',
+        env: { ...process.env, CLOUDFLARE_STATIC_EXPORT: 'true' },
+    });
+} catch (err) {
     console.error('[cf-build] Static export build failed');
     console.error(err.message ?? err);
-    process.exit(1);
-});
+    process.exitCode = 1;
+} finally {
+    if (stashed && existsSync(stashDir)) {
+        await rename(stashDir, apiDir);
+        console.log('[cf-build] Restored src/app/api');
+    }
+}
