@@ -14,6 +14,41 @@ function formatTime(seconds: number): string {
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function getStateTag(state: PlayerState): string {
+    if (state === 'error') return 'ERR';
+    if (state === 'playing') return 'LIVE';
+    if (state === 'paused') return 'PAUSE';
+    return 'STANDBY';
+}
+
+function getStatusBadgeClassName(state: PlayerState): string {
+    const base = 'text-[8px] uppercase tracking-widest px-1.5 py-0.5';
+    if (state === 'playing') {
+        return `${base} bg-[var(--aerospace)]/20 text-[var(--aerospace)] border border-[var(--aerospace)]/40`;
+    }
+    if (state === 'error') {
+        return `${base} bg-red-900/30 text-red-400 border border-red-500/40`;
+    }
+    return `${base} bg-[var(--tungsten)] text-[var(--signal-dim)] border border-white/10`;
+}
+
+function getPlayButtonClassName(state: PlayerState): string {
+    const base = 'flex-1 text-[9px] uppercase tracking-widest py-1.5 border transition-colors duration-150';
+    if (state === 'error') {
+        return `${base} border-red-500/40 text-red-400/60 cursor-not-allowed`;
+    }
+    if (state === 'playing') {
+        return `${base} border-[var(--aerospace)]/60 text-[var(--aerospace)] hover:bg-[var(--aerospace)]/10`;
+    }
+    return `${base} border-[var(--tungsten-light)] text-[var(--signal-dim)] hover:border-[var(--aerospace)]/40 hover:text-[var(--aerospace)]`;
+}
+
+function getPlayButtonText(state: PlayerState): string {
+    if (state === 'error') return 'ERR';
+    if (state === 'playing') return '⏸ PAUSE';
+    return '▶ PLAY';
+}
+
 export default function StickyArmageddonPlayer() {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [state, setState] = useState<PlayerState>('idle');
@@ -104,33 +139,17 @@ export default function StickyArmageddonPlayer() {
 
     const playLabel = state === 'playing' ? 'Pause anthem' : 'Play anthem';
     const muteLabel = muted ? 'Unmute' : 'Mute';
-
-    const progressPct =
-        duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-
-    const stateTag =
-        state === 'error'
-            ? 'ERR'
-            : state === 'playing'
-              ? 'LIVE'
-              : state === 'paused'
-                ? 'PAUSE'
-                : 'STANDBY';
+    const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+    const stateTag = getStateTag(state);
 
     return (
         <>
             {/* preload="metadata" — no autoplay, only fetches duration headers */}
-            <audio
-                ref={audioRef}
-                src={AUDIO_SRC}
-                preload="metadata"
-                loop
-                muted={muted}
-                aria-hidden="true"
-            />
+            <audio ref={audioRef} src={AUDIO_SRC} preload="metadata" loop muted={muted}>
+                <track kind="captions" />
+            </audio>
 
-            <div
-                role="region"
+            <section
                 aria-label="Armageddon Anthem Player"
                 className={[
                     'fixed bottom-4 right-4 z-[20000]',
@@ -157,14 +176,7 @@ export default function StickyArmageddonPlayer() {
                             ATS_ANTHEM
                         </span>
                         <span
-                            className={[
-                                'text-[8px] uppercase tracking-widest px-1.5 py-0.5',
-                                state === 'playing'
-                                    ? 'bg-[var(--aerospace)]/20 text-[var(--aerospace)] border border-[var(--aerospace)]/40'
-                                    : state === 'error'
-                                      ? 'bg-red-900/30 text-red-400 border border-red-500/40'
-                                      : 'bg-[var(--tungsten)] text-[var(--signal-dim)] border border-white/10',
-                            ].join(' ')}
+                            className={getStatusBadgeClassName(state)}
                             aria-label={`Status: ${stateTag}`}
                         >
                             {stateTag}
@@ -198,17 +210,9 @@ export default function StickyArmageddonPlayer() {
                             onClick={togglePlayback}
                             disabled={state === 'error'}
                             aria-label={playLabel}
-                            className={[
-                                'flex-1 text-[9px] uppercase tracking-widest py-1.5',
-                                'border transition-colors duration-150',
-                                state === 'error'
-                                    ? 'border-red-500/40 text-red-400/60 cursor-not-allowed'
-                                    : state === 'playing'
-                                      ? 'border-[var(--aerospace)]/60 text-[var(--aerospace)] hover:bg-[var(--aerospace)]/10'
-                                      : 'border-[var(--tungsten-light)] text-[var(--signal-dim)] hover:border-[var(--aerospace)]/40 hover:text-[var(--aerospace)]',
-                            ].join(' ')}
+                            className={getPlayButtonClassName(state)}
                         >
-                            {state === 'error' ? 'ERR' : state === 'playing' ? '⏸ PAUSE' : '▶ PLAY'}
+                            {getPlayButtonText(state)}
                         </button>
 
                         <button
@@ -229,15 +233,12 @@ export default function StickyArmageddonPlayer() {
                     </div>
 
                     {state === 'error' && (
-                        <p
-                            className="text-[8px] text-red-400/80 tracking-wide"
-                            role="alert"
-                        >
+                        <p className="text-[8px] text-red-400/80 tracking-wide" role="alert">
                             AUDIO_LOAD_FAILED
                         </p>
                     )}
                 </div>
-            </div>
+            </section>
         </>
     );
 }

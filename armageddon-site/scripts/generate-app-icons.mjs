@@ -7,7 +7,7 @@
  * Exit non-zero on any failure. Logs every generated file.
  */
 
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
