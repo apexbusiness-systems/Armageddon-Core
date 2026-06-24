@@ -137,8 +137,8 @@ function extractBearer(req: IncomingMessage): string | null {
 // reaches a log line — prevents log injection/forging from user-controlled input.
 const MAX_LOG_VALUE_LENGTH = 200;
 
-function sanitizeLogValue(value: unknown): string {
-    const raw = String(value ?? '').slice(0, MAX_LOG_VALUE_LENGTH);
+function sanitizeLogValue(value: string): string {
+    const raw = value.slice(0, MAX_LOG_VALUE_LENGTH);
     let out = '';
     for (const ch of raw) {
         const code = ch.codePointAt(0) ?? 0;

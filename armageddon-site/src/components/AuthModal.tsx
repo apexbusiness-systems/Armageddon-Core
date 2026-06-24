@@ -32,8 +32,8 @@ const MIN_PASSWORD = 6;
 export function isSafeEmail(value: string): boolean {
     const email = value.trim();
     if (email.length < 3 || email.length > 254) return false;
-    for (let i = 0; i < email.length; i += 1) {
-        const code = email.charCodeAt(i);
+    for (const ch of email) {
+        const code = ch.codePointAt(0) ?? 0;
         if (code <= 0x20 || code === 0x7f) return false; // whitespace or control char
     }
     const at = email.indexOf('@');
