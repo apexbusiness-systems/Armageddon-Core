@@ -7,7 +7,10 @@ vi.mock('../../src/core/safety', () => ({
     SystemLockdownError: class SystemLockdownError extends Error {},
 }));
 
-const eqMock = vi.fn();
+// Chain: from('armageddon_runs').update(...).eq('id', id).select('id').single()
+const singleMock = vi.fn();
+const selectMock = vi.fn(() => ({ single: singleMock }));
+const eqMock = vi.fn(() => ({ select: selectMock }));
 const updateMock = vi.fn(() => ({ eq: eqMock }));
 const fromMock = vi.fn(() => ({ update: updateMock }));
 
@@ -35,7 +38,7 @@ describe('finalizeRunActivity — durable terminal persistence', () => {
         vi.clearAllMocks();
         process.env.SUPABASE_URL = 'http://localhost';
         process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
-        eqMock.mockResolvedValue({ error: null });
+        singleMock.mockResolvedValue({ data: { id: 'run-xyz' }, error: null });
     });
 
     // T3
@@ -58,12 +61,21 @@ describe('finalizeRunActivity — durable terminal persistence', () => {
         expect(update.batteries_passed).toEqual(['B10']);
         expect(update.batteries_failed).toEqual(['B11']);
         expect(eqMock).toHaveBeenCalledWith('id', 'run-xyz');
+        expect(selectMock).toHaveBeenCalledWith('id'); // proves the row was returned
     });
 
-    it('throws when the terminal persistence write fails', async () => {
-        eqMock.mockResolvedValue({ error: { message: 'update failed' } });
+    it('throws when the terminal persistence write returns an error', async () => {
+        singleMock.mockResolvedValue({ data: null, error: { message: 'update failed' } });
         await expect(
             finalizeRunActivity({ runId: 'r', status: 'failed', startedAt: Date.now(), report: makeReport() })
         ).rejects.toThrow(/update failed/);
+    });
+
+    // Zero matching rows: Supabase returns error: null AND data: null — must still throw.
+    it('throws when no run row matched (no durable proof produced)', async () => {
+        singleMock.mockResolvedValue({ data: null, error: null });
+        await expect(
+            finalizeRunActivity({ runId: 'missing', status: 'passed', startedAt: Date.now(), report: makeReport() })
+        ).rejects.toThrow(/no matching run row/);
     });
 });

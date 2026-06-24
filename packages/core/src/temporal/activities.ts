@@ -905,7 +905,7 @@ export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void
     const batteriesFailed = batteries.filter(b => b.status !== 'PASSED').map(b => b.batteryId);
     const escapeRate = totalIterations > 0 ? breaches / totalIterations : 0;
 
-    const { error } = await client
+    const { data, error } = await client
         .from('armageddon_runs')
         .update({
             status: input.status, // already lowercase run_status enum
@@ -918,10 +918,17 @@ export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void
             batteries_failed: batteriesFailed,
             escape_rate: escapeRate,
         })
-        .eq('id', input.runId);
+        .eq('id', input.runId)
+        .select('id')
+        .single();
 
-    if (error) {
-        throw new Error(`[FinalizeRun] Failed to persist terminal status for ${input.runId}: ${error.message}`);
+    // A Supabase update can return error: null with zero matching rows. Requiring the
+    // updated row back proves the run was actually finalized — never claim durable proof
+    // for a run row that does not exist.
+    if (error || !data) {
+        throw new Error(
+            `[FinalizeRun] Failed to persist terminal status for ${input.runId}: ${error?.message ?? 'no matching run row'}`
+        );
     }
 }
 

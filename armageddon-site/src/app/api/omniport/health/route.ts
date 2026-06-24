@@ -41,8 +41,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Honest status: only 'operational' when BOTH dependencies are reachable.
     const healthy = temporalConnected && supabaseConnected;
     const degraded = temporalConnected !== supabaseConnected; // exactly one is down
-    const status = healthy ? 'operational' : degraded ? 'degraded' : 'unavailable';
-    const httpStatus = healthy ? 200 : degraded ? 207 : 503;
+
+    let status: string;
+    let httpStatus: number;
+    if (healthy) {
+        status = 'operational';
+        httpStatus = 200;
+    } else if (degraded) {
+        status = 'degraded';
+        httpStatus = 207;
+    } else {
+        status = 'unavailable';
+        httpStatus = 503;
+    }
 
     return NextResponse.json({
         status,

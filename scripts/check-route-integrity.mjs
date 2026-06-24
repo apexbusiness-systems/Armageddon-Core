@@ -63,8 +63,8 @@ for (const file of walk(APP_DIR)) {
   const base = path.basename(file);
   const ext = path.extname(file);
   if (!CODE_EXT.has(ext)) continue;
-  if (/^page\./.test(base)) routePatterns.push(routePatternFromFile(file, APP_DIR, 'page'));
-  else if (/^route\./.test(base)) routePatterns.push(routePatternFromFile(file, APP_DIR, 'route'));
+  if (base.startsWith('page.')) routePatterns.push(routePatternFromFile(file, APP_DIR, 'page'));
+  else if (base.startsWith('route.')) routePatterns.push(routePatternFromFile(file, APP_DIR, 'route'));
 }
 // Legacy pages/ router (file = route).
 for (const file of walk(PAGES_DIR)) {
@@ -82,8 +82,7 @@ function segmentsOf(urlPath) {
 
 function matchesPattern(segments, pattern) {
   let i = 0;
-  for (let p = 0; p < pattern.length; p++) {
-    const m = pattern[p];
+  for (const m of pattern) {
     if (m.type === 'rest') return true; // catch-all consumes the remainder
     if (i >= segments.length) return false;
     if (m.type === 'literal' && m.value !== segments[i]) return false;
@@ -102,7 +101,9 @@ function routeExists(urlPath) {
 }
 
 // ─── Extract internal hrefs from source and validate them ────────────────────
-const hrefRegex = /href\s*[:=]\s*\{?\s*["'`]([^"'`]+)["'`]/g;
+// Single combined whitespace/brace class avoids the ambiguous adjacent \s* quantifiers
+// that cause super-linear backtracking; the value is captured up to the next quote.
+const hrefRegex = /href\s*[:=][\s{]*["'`]([^"'`]+)["'`]/g;
 const ghosts = [];
 let checked = 0;
 
@@ -115,7 +116,9 @@ for (const dir of SCAN_DIRS) {
       const raw = match[1];
       if (!raw.startsWith('/')) continue;            // external / anchor / mailto / tel
       if (raw.includes('${')) continue;              // unresolvable template literal
-      const clean = raw.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+      let clean = raw.split('?')[0].split('#')[0];
+      while (clean.endsWith('/') && clean.length > 1) clean = clean.slice(0, -1);
+      if (clean === '') clean = '/';
       if (allowMap.has(raw) || allowMap.has(clean)) continue;
       // Static assets served from public/ are valid targets (images, manifest, etc.).
       if (clean !== '/' && existsSync(path.join(SITE, 'public', clean))) continue;
