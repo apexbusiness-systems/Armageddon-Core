@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => {
     return {
         connect: vi.fn().mockResolvedValue({}),
         Client: vi.fn().mockImplementation(function() { return {}; }),
+        createClient: vi.fn((url: string, key: string, options?: unknown) => ({ url, key, options })),
     };
 });
 
@@ -29,6 +30,10 @@ vi.mock('@temporalio/client', () => ({
         connect: mocks.connect,
     },
     Client: mocks.Client,
+}));
+
+vi.mock('@supabase/supabase-js', () => ({
+    createClient: mocks.createClient,
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -42,6 +47,7 @@ beforeEach(() => {
     // Clear mocks
     mocks.connect.mockClear();
     mocks.Client.mockClear();
+    mocks.createClient.mockClear();
 
     // Mock environment variables
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
@@ -70,14 +76,16 @@ describe('Supabase Client Singletons', () => {
             // Mock browser environment
             (globalThis as any).window = {};
 
-            const client1 = getSupabase();
-            const client2 = getSupabase();
+            try {
+                const client1 = getSupabase();
+                const client2 = getSupabase();
 
-            expect(client1).toBe(client2);
-            expect(client1).not.toBeNull();
-
-            // Cleanup
-            delete (globalThis as any).window;
+                expect(client1).toBe(client2);
+                expect(client1).not.toBeNull();
+                expect(mocks.createClient).toHaveBeenCalledTimes(1);
+            } finally {
+                delete (globalThis as any).window;
+            }
         });
     });
 
@@ -94,10 +102,11 @@ describe('Supabase Client Singletons', () => {
             // Mock browser environment
             (globalThis as any).window = {};
 
-            expect(() => getSupabaseServiceRole()).toThrow(/browser context/i);
-
-            // Cleanup
-            delete (globalThis as any).window;
+            try {
+                expect(() => getSupabaseServiceRole()).toThrow(/browser context/i);
+            } finally {
+                delete (globalThis as any).window;
+            }
         });
 
         test('throws when credentials are missing', () => {
