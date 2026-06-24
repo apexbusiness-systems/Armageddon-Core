@@ -101,7 +101,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             organization_id: organizationId,
             level,
             sim_mode: false,
-            sandbox_tenant: null,
+            // armageddon_runs.sandbox_tenant is NOT NULL; live-fire runs are not
+            // sandboxed, so we record an explicit authorized marker instead of null.
+            sandbox_tenant: process.env.OMNIPORT_LIVE_FIRE_TENANT || 'live-fire-authorized',
             workflow_id: workflowId,
             status: 'pending',
             config: {
