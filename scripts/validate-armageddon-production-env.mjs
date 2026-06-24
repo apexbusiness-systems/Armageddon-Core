@@ -59,83 +59,97 @@ function parseUrl(raw, varName) {
     }
 }
 
+function isSupabaseHost(hostname) {
+    return hostname.endsWith('.supabase.co') || hostname.endsWith('.supabase.in');
+}
+
 // ── Guard 1: NEXT_PUBLIC_SITE_URL ─────────────────────────────────────────────
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-if (!siteUrl) {
-    fail('NEXT_PUBLIC_SITE_URL is missing.');
-} else {
+// Guard clauses (early return, no else) keep each branch positive and flat.
+function checkSiteUrl() {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (!siteUrl) return fail('NEXT_PUBLIC_SITE_URL is missing.');
+
     const parsed = parseUrl(siteUrl, 'NEXT_PUBLIC_SITE_URL');
-    if (parsed) {
-        if (isBannedHost(parsed.hostname)) {
-            fail(`NEXT_PUBLIC_SITE_URL contains banned hostname "${parsed.hostname}". Must be armageddontest.icu.`);
-        } else if (siteUrl !== CANONICAL_PRODUCTION_URL) {
-            fail(`NEXT_PUBLIC_SITE_URL "${siteUrl}" does not match canonical URL ${CANONICAL_PRODUCTION_URL}.`);
-        } else {
-            pass(`NEXT_PUBLIC_SITE_URL = ${siteUrl}`);
-        }
+    if (!parsed) return undefined;
+
+    if (isBannedHost(parsed.hostname)) {
+        return fail(`NEXT_PUBLIC_SITE_URL contains banned hostname "${parsed.hostname}". Must be armageddontest.icu.`);
     }
+    if (siteUrl !== CANONICAL_PRODUCTION_URL) {
+        return fail(`NEXT_PUBLIC_SITE_URL "${siteUrl}" does not match canonical URL ${CANONICAL_PRODUCTION_URL}.`);
+    }
+    return pass(`NEXT_PUBLIC_SITE_URL = ${siteUrl}`);
 }
 
 // ── Guard 2: NEXT_PUBLIC_SUPABASE_URL ─────────────────────────────────────────
 // CRITICAL: if this is localhost, Supabase verification emails will link to localhost.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-if (!supabaseUrl) {
-    fail('NEXT_PUBLIC_SUPABASE_URL is missing. Auth and DB are non-functional without it.');
-} else {
+function checkSupabaseUrl() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return fail('NEXT_PUBLIC_SUPABASE_URL is missing. Auth and DB are non-functional without it.');
+
     const parsed = parseUrl(supabaseUrl, 'NEXT_PUBLIC_SUPABASE_URL');
-    if (parsed) {
-        if (isBannedHost(parsed.hostname)) {
-            fail(
-                `NEXT_PUBLIC_SUPABASE_URL hostname "${parsed.hostname}" is localhost or banned. ` +
-                'This causes verification emails to redirect to localhost in production. ' +
-                'Set this to your Supabase project URL (https://<ref>.supabase.co) and ' +
-                'update the Supabase dashboard Site URL to https://armageddontest.icu.'
-            );
-        } else if (!parsed.hostname.endsWith('.supabase.co') && !parsed.hostname.endsWith('.supabase.in')) {
-            fail(
-                `NEXT_PUBLIC_SUPABASE_URL hostname "${parsed.hostname}" does not look like a Supabase project URL. ` +
-                'Expected *.supabase.co or *.supabase.in.'
-            );
-        } else {
-            pass(`NEXT_PUBLIC_SUPABASE_URL = ${supabaseUrl}`);
-        }
+    if (!parsed) return undefined;
+
+    if (isBannedHost(parsed.hostname)) {
+        return fail(
+            `NEXT_PUBLIC_SUPABASE_URL hostname "${parsed.hostname}" is localhost or banned. ` +
+            'This causes verification emails to redirect to localhost in production. ' +
+            'Set this to your Supabase project URL (https://<ref>.supabase.co) and ' +
+            'update the Supabase dashboard Site URL to https://armageddontest.icu.'
+        );
     }
+    if (!isSupabaseHost(parsed.hostname)) {
+        return fail(
+            `NEXT_PUBLIC_SUPABASE_URL hostname "${parsed.hostname}" does not look like a Supabase project URL. ` +
+            'Expected *.supabase.co or *.supabase.in.'
+        );
+    }
+    return pass(`NEXT_PUBLIC_SUPABASE_URL = ${supabaseUrl}`);
 }
 
 // ── Guard 3: NEXT_PUBLIC_SUPABASE_ANON_KEY ────────────────────────────────────
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-if (!anonKey || anonKey.trim() === '') {
-    fail('NEXT_PUBLIC_SUPABASE_ANON_KEY is missing or empty. Client-side auth will not work.');
-} else if (!anonKey.startsWith('eyJ')) {
-    fail(`NEXT_PUBLIC_SUPABASE_ANON_KEY does not look like a valid JWT (expected "eyJ..." prefix).`);
-} else {
-    pass(`NEXT_PUBLIC_SUPABASE_ANON_KEY is set (${anonKey.length} chars).`);
+function checkAnonKey() {
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!anonKey || anonKey.trim() === '') {
+        return fail('NEXT_PUBLIC_SUPABASE_ANON_KEY is missing or empty. Client-side auth will not work.');
+    }
+    if (!anonKey.startsWith('eyJ')) {
+        return fail('NEXT_PUBLIC_SUPABASE_ANON_KEY does not look like a valid JWT (expected "eyJ..." prefix).');
+    }
+    return pass(`NEXT_PUBLIC_SUPABASE_ANON_KEY is set (${anonKey.length} chars).`);
 }
 
 // ── Guard 4: NEXT_PUBLIC_ARMAGEDDON_API_BASE (optional, but validated if present) ─
-const apiBase = process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
-if (apiBase && apiBase.trim() !== '') {
-    const parsed = parseUrl(apiBase, 'NEXT_PUBLIC_ARMAGEDDON_API_BASE');
-    if (parsed) {
-        if (isBannedHost(parsed.hostname)) {
-            fail(
-                `NEXT_PUBLIC_ARMAGEDDON_API_BASE hostname "${parsed.hostname}" is localhost. ` +
-                'The dynamic API backend must be reachable from browsers — localhost is not valid for production.'
-            );
-        } else if (parsed.protocol !== 'https:') {
-            fail(`NEXT_PUBLIC_ARMAGEDDON_API_BASE must use https:// in production. Got: "${parsed.protocol}".`);
-        } else {
-            pass(`NEXT_PUBLIC_ARMAGEDDON_API_BASE = ${apiBase}`);
-        }
+function checkApiBase() {
+    const apiBase = process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
+    if (!apiBase || apiBase.trim() === '') {
+        console.warn('⚠️  NEXT_PUBLIC_ARMAGEDDON_API_BASE is not set — dynamic console will degrade honestly (no live runs).');
+        return undefined;
     }
-} else {
-    console.warn('⚠️  NEXT_PUBLIC_ARMAGEDDON_API_BASE is not set — dynamic console will degrade honestly (no live runs).');
+
+    const parsed = parseUrl(apiBase, 'NEXT_PUBLIC_ARMAGEDDON_API_BASE');
+    if (!parsed) return undefined;
+
+    if (isBannedHost(parsed.hostname)) {
+        return fail(
+            `NEXT_PUBLIC_ARMAGEDDON_API_BASE hostname "${parsed.hostname}" is localhost. ` +
+            'The dynamic API backend must be reachable from browsers — localhost is not valid for production.'
+        );
+    }
+    if (parsed.protocol !== 'https:') {
+        return fail(`NEXT_PUBLIC_ARMAGEDDON_API_BASE must use https:// in production. Got: "${parsed.protocol}".`);
+    }
+    return pass(`NEXT_PUBLIC_ARMAGEDDON_API_BASE = ${apiBase}`);
 }
+
+checkSiteUrl();
+checkSupabaseUrl();
+checkAnonKey();
+checkApiBase();
 
 // ── Result ────────────────────────────────────────────────────────────────────
 if (failed) {
     console.error('\n❌ ARMAGEDDON ENV VALIDATION FAILED — resolve all errors above before deploying.');
     process.exit(1);
-} else {
-    console.log('\n✅ ARMAGEDDON ENV VALIDATION PASSED — environment is production-ready.');
 }
+console.log('\n✅ ARMAGEDDON ENV VALIDATION PASSED — environment is production-ready.');

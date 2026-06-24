@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
 
 type CallbackState =
@@ -11,29 +12,55 @@ type CallbackState =
     | { readonly kind: 'success' };
 
 function readOAuthError(): string | null {
-    if (typeof window === 'undefined') return null;
-    const search = new URLSearchParams(window.location.search);
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (globalThis.window === undefined) return null;
+    const search = new URLSearchParams(globalThis.location.search);
+    const hash = new URLSearchParams(globalThis.location.hash.replace(/^#/, ''));
     const description = search.get('error_description') ?? hash.get('error_description');
     const code = search.get('error') ?? hash.get('error');
-    if (description) return description;
-    if (code) return code;
-    return null;
+    return description ?? code ?? null;
 }
 
 /**
- * Static-export-compatible auth callback. Handles two Supabase flows:
- *
- * 1. PKCE flow (recommended): Supabase appends `?code=<code>` to the redirect URL.
- *    We call exchangeCodeForSession() to trade it for a session. This is the secure
- *    path — no tokens in the URL hash.
- *
- * 2. Implicit flow (legacy / email verification): Supabase appends
- *    `#access_token=<token>&...` to the redirect URL. getSession() picks this up
- *    automatically from the hash.
+ * PKCE flow: Supabase appends `?code=<code>` to the redirect. Exchange it for a
+ * session. Returns an error message, or null when there was no code / it succeeded.
+ */
+async function exchangePkceCodeIfPresent(sb: SupabaseClient): Promise<string | null> {
+    const code = new URLSearchParams(globalThis.location.search).get('code');
+    if (!code) return null;
+    const { error } = await sb.auth.exchangeCodeForSession(code);
+    return error ? error.message : null;
+}
+
+/**
+ * Pure resolver for the terminal callback state. Kept free of React so the effect
+ * stays trivial and the branching cost stays low. Handles both Supabase flows:
+ * PKCE (`?code=`) and implicit/email (`#access_token=`, picked up by getSession()).
  *
  * GUARDRAIL: getAuthOrigin() always returns https://armageddontest.icu in production,
  * so neither flow can redirect to localhost regardless of Supabase Site URL config.
+ */
+async function resolveCallbackState(): Promise<CallbackState> {
+    const oauthError = readOAuthError();
+    if (oauthError) return { kind: 'error', message: oauthError };
+
+    const sb = getSupabase();
+    if (!sb) return { kind: 'error', message: 'Authentication is not configured on this deployment.' };
+
+    try {
+        const exchangeError = await exchangePkceCodeIfPresent(sb);
+        if (exchangeError) return { kind: 'error', message: exchangeError };
+
+        const { data } = await sb.auth.getSession();
+        if (data.session) return { kind: 'success' };
+        return { kind: 'error', message: 'No active session was returned. Please sign in again.' };
+    } catch {
+        return { kind: 'error', message: 'Could not complete sign-in. Please try again.' };
+    }
+}
+
+/**
+ * Static-export-compatible auth callback. There is no server route handler in a
+ * static export, so session detection happens client-side.
  */
 export default function AuthCallbackPage() {
     const router = useRouter();
@@ -41,51 +68,11 @@ export default function AuthCallbackPage() {
 
     useEffect(() => {
         let cancelled = false;
-        const resolveCallback = async () => {
-            const oauthError = readOAuthError();
-            if (oauthError) {
-                if (!cancelled) setState({ kind: 'error', message: oauthError });
-                return;
-            }
-
-            const sb = getSupabase();
-            if (!sb) {
-                if (!cancelled) {
-                    setState({ kind: 'error', message: 'Authentication is not configured on this deployment.' });
-                }
-                return;
-            }
-            try {
-                // PKCE flow: exchange the one-time code for a session.
-                // This must run before getSession() so the session is established.
-                const pkceCode = new URLSearchParams(window.location.search).get('code');
-                if (pkceCode) {
-                    const { error: exchangeError } = await sb.auth.exchangeCodeForSession(pkceCode);
-                    if (exchangeError) {
-                        if (!cancelled) setState({ kind: 'error', message: exchangeError.message });
-                        return;
-                    }
-                }
-
-                if (cancelled) return;
-
-                // Implicit flow / post-exchange: confirm session exists.
-                const { data } = await sb.auth.getSession();
-                if (cancelled) return;
-                if (data.session) {
-                    setState({ kind: 'success' });
-                    router.replace('/console');
-                } else {
-                    setState({ kind: 'error', message: 'No active session was returned. Please sign in again.' });
-                }
-            } catch {
-                if (!cancelled) {
-                    setState({ kind: 'error', message: 'Could not complete sign-in. Please try again.' });
-                }
-            }
-        };
-
-        void resolveCallback();
+        void resolveCallbackState().then((next) => {
+            if (cancelled) return;
+            setState(next);
+            if (next.kind === 'success') router.replace('/console');
+        });
         return () => {
             cancelled = true;
         };
