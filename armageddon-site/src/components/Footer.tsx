@@ -13,14 +13,9 @@ export default function Footer() {
     const user = useAuth();
     const router = useRouter();
 
-    // Public conversion CTA. This must NEVER start OAuth — buyers go to pricing,
-    // and signed-in users go straight into onboarding for a self-serve run.
+    // Public conversion CTA. Always sends to the intake page regardless of auth state.
     const handleCtaClick = () => {
-        if (user) {
-            router.push('/onboarding?tier=self-serve');
-        } else {
-            router.push('/pricing');
-        }
+        router.push('/intake');
     };
 
     const getButtonText = () => {
