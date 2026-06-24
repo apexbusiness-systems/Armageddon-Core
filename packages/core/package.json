@@ -9,6 +9,8 @@
     "build": "tsc",
     "dev": "tsx watch src/worker.ts",
     "worker": "tsx src/worker.ts",
+    "api": "tsx src/api-server.ts",
+    "api:dev": "tsx watch src/api-server.ts",
     "test": "vitest run --exclude \"tests/e2e/**\"",
     "bench": "vitest bench",
     "test:memory": "node --expose-gc --max-old-space-size=512 node_modules/vitest/vitest.mjs run --reporter=verbose",

@@ -15,7 +15,7 @@ const RETRY_INTERVAL_MS = 2000;
 // HEALTH MONITORING
 // ═══════════════════════════════════════════════════════════════════════════
 
-const healthServer = new HealthServer(8081);
+const healthServer = new HealthServer(Number(process.env.WORKER_HEALTH_PORT ?? '8082'));
 healthServer.start();
 
 // ═══════════════════════════════════════════════════════════════════════════
