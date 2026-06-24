@@ -611,7 +611,7 @@ function intakeAssetRequest(request: Request): Request {
 // Security: Rate Limit → Input Gate → Injection Guard → Anthropic Proxy
 // ════════════════════════════════════════════════════════════════════════════
 
-const INJECTION_PATTERNS: RegExp[] = [
+export const INJECTION_PATTERNS: RegExp[] = [
   /ignore\s+(previous|prior|above|all)\s+(instructions?|rules?|prompts?|constraints?)/i,
   /forget\s+(everything|all|your|the)\s+(rules?|instructions?|constraints?|system)/i,
   /disregard\s+(your|all|previous)\s+(instructions?|rules?|guidelines?)/i,
@@ -639,7 +639,7 @@ const INJECTION_PATTERNS: RegExp[] = [
   /unrestricted\s+(ai|mode)/i,
   /no\s+filter\s+mode/i,
   /base64\s*(decode|encode).*instruction/i,
-  /[A-Za-z0-9+/]{40,}={0,2}/,
+  /[A-Za-z0-9+/]{10,}[+/][A-Za-z0-9+/]{10,}={0,2}/,
   /<\/?system>/i,
   /<\/?human>/i,
   /<\/?assistant>/i,
@@ -657,17 +657,17 @@ const INJECTION_PATTERNS: RegExp[] = [
   /\bcsam\b/i,
 ];
 
-function detectEmojiPayload(text: string): boolean {
+export function detectEmojiPayload(text: string): boolean {
   const emojiRegex = /\p{Emoji_Presentation}/gu;
   const matches = text.match(emojiRegex) ?? [];
   if (new Set(matches).size > 8) return true;
   if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/.test(text)) return true;
-  if (/[​-‏‪-‮⁦-⁩﻿]/.test(text)) return true;
+  if (/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/.test(text)) return true;
   return false;
 }
 
-function validateSupportInput(text: string, maxChars: number): { blocked: boolean; reason?: string; code?: string } {
-  if (!text || typeof text !== 'string') return { blocked: true, reason: 'Invalid input.', code: 'INVALID_TYPE' };
+export function validateSupportInput(text: string, maxChars: number): { blocked: boolean; reason?: string; code?: string } {
+  if (typeof text !== 'string') return { blocked: true, reason: 'Invalid input.', code: 'INVALID_TYPE' };
   const trimmed = text.trim();
   if (trimmed.length === 0) return { blocked: true, reason: 'Empty message.', code: 'EMPTY' };
   if (trimmed.length > maxChars) return { blocked: true, reason: `Message exceeds ${maxChars} character limit.`, code: 'TOO_LONG' };
@@ -678,7 +678,7 @@ function validateSupportInput(text: string, maxChars: number): { blocked: boolea
   return { blocked: false };
 }
 
-async function checkSupportRateLimit(
+export async function checkSupportRateLimit(
   kv: NonNullable<IntakeEnv['RATE_LIMIT_KV']>,
   ip: string,
   maxPerMin: number,
@@ -688,8 +688,8 @@ async function checkSupportRateLimit(
   const minKey = `rl:min:${ip}:${Math.floor(now / 60000)}`;
   const hourKey = `rl:hour:${ip}:${Math.floor(now / 3600000)}`;
   const [minRaw, hourRaw] = await Promise.all([kv.get(minKey), kv.get(hourKey)]);
-  const minCount = minRaw ? parseInt(minRaw, 10) : 0;
-  const hourCount = hourRaw ? parseInt(hourRaw, 10) : 0;
+  const minCount = minRaw ? Number.parseInt(minRaw, 10) : 0;
+  const hourCount = hourRaw ? Number.parseInt(hourRaw, 10) : 0;
   if (minCount >= maxPerMin) return { allowed: false, retryAfter: 60 };
   if (hourCount >= maxPerHour) return { allowed: false, retryAfter: 3600 };
   await Promise.all([
@@ -771,6 +771,45 @@ Thank you,
 - GitHub App installation: via GitHub Marketplace → Install → select repos → authorize
 - Support email: info-outreach@armageddontest.icu`;
 
+// Extracted to reduce cognitive complexity of handleSupportChat.
+async function applyRateLimit(
+  kv: IntakeEnv['RATE_LIMIT_KV'] | undefined,
+  ip: string,
+  maxPerMin: number,
+  maxPerHour: number,
+  corsHeaders: Record<string, string>,
+): Promise<Response | null> {
+  if (!kv) return null;
+  const rateCheck = await checkSupportRateLimit(kv, ip, maxPerMin, maxPerHour);
+  if (!rateCheck.allowed) {
+    const waitMsg = rateCheck.retryAfter === 60 ? '1 minute' : '1 hour';
+    return new Response(
+      JSON.stringify({ error: true, code: 'RATE_LIMITED', message: `Too many requests. Please wait ${waitMsg} and try again.` }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter) } },
+    );
+  }
+  return null;
+}
+
+function buildBlockedResponse(
+  validation: { code?: string },
+  maxChars: number,
+  corsHeaders: Record<string, string>,
+  ip: string,
+  msgLen: number,
+): Response {
+  if (validation.code === 'INJECTION_DETECTED' || validation.code === 'EMOJI_PAYLOAD') {
+    console.warn(`SECURITY_BLOCK ip=${ip} code=${validation.code} len=${msgLen}`);
+  }
+  const message = validation.code === 'TOO_LONG'
+    ? `Message too long (max ${maxChars} characters).`
+    : 'I can only help with ARMAGEDDON Test Suite support. What issue are you seeing with the test suite?';
+  return new Response(
+    JSON.stringify({ error: false, blocked: true, message }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+}
+
 async function handleSupportChat(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   const corsHeaders = {
     'Access-Control-Allow-Origin': `https://${canonicalHost}`,
@@ -794,27 +833,13 @@ async function handleSupportChat(request: Request, env: IntakeEnv, canonicalHost
   }
 
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-  const maxPerMin = parseInt(env.MAX_MSGS_PER_MIN ?? '5', 10);
-  const maxPerHour = parseInt(env.MAX_MSGS_PER_HOUR ?? '30', 10);
-  const maxChars = parseInt(env.MAX_INPUT_CHARS ?? '2000', 10);
+  const maxPerMin = Number.parseInt(env.MAX_MSGS_PER_MIN ?? '5', 10);
+  const maxPerHour = Number.parseInt(env.MAX_MSGS_PER_HOUR ?? '30', 10);
+  const maxChars = Number.parseInt(env.MAX_INPUT_CHARS ?? '2000', 10);
 
   // Rate limiting (skip if KV not bound — graceful degradation)
-  if (env.RATE_LIMIT_KV) {
-    const rateCheck = await checkSupportRateLimit(env.RATE_LIMIT_KV, ip, maxPerMin, maxPerHour);
-    if (!rateCheck.allowed) {
-      return new Response(
-        JSON.stringify({
-          error: true,
-          code: 'RATE_LIMITED',
-          message: `Too many requests. Please wait ${rateCheck.retryAfter === 60 ? '1 minute' : '1 hour'} and try again.`,
-        }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateCheck.retryAfter) },
-        },
-      );
-    }
-  }
+  const rateLimitResponse = await applyRateLimit(env.RATE_LIMIT_KV, ip, maxPerMin, maxPerHour, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   let body: { message: string; history?: Array<{ role: string; content: string }> };
   try {
@@ -828,19 +853,7 @@ async function handleSupportChat(request: Request, env: IntakeEnv, canonicalHost
 
   const validation = validateSupportInput(body.message, maxChars);
   if (validation.blocked) {
-    if (validation.code === 'INJECTION_DETECTED' || validation.code === 'EMOJI_PAYLOAD') {
-      console.warn(`SECURITY_BLOCK ip=${ip} code=${validation.code} len=${body.message?.length}`);
-    }
-    return new Response(
-      JSON.stringify({
-        error: false,
-        blocked: true,
-        message: validation.code === 'TOO_LONG'
-          ? `Message too long (max ${maxChars} characters).`
-          : 'I can only help with ARMAGEDDON Test Suite support. What issue are you seeing with the test suite?',
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    return buildBlockedResponse(validation, maxChars, corsHeaders, ip, body.message?.length ?? 0);
   }
 
   const safeHistory = (body.history ?? [])

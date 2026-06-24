@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import type { Metadata } from 'next';
 
 // ════════════════════════════════════════════════════════════════════════════
 // ARMAGEDDON — SUPPORT TERMINAL
@@ -56,7 +55,27 @@ function detectEscalation(text: string): string | null {
 }
 
 function makeId() {
-  return Math.random().toString(36).slice(2, 10);
+  return globalThis.crypto.randomUUID().slice(0, 8);
+}
+
+const ROLE_LABEL_CLASS: Record<ChatMessage['role'], string> = {
+  agent: 'text-[var(--safe)]',
+  user: 'text-[var(--signal-dim)]',
+  system: 'text-[var(--aerospace)]',
+  error: 'text-[var(--warning)]',
+};
+
+const ROLE_BODY_CLASS: Record<ChatMessage['role'], string> = {
+  agent: 'text-[var(--safe)]',
+  user: 'text-[var(--signal)] bg-white/[0.03] pl-3 border-l-2 border-white/[0.1] py-2 pr-3',
+  system: 'text-[var(--aerospace)] text-xs',
+  error: 'text-[var(--warning)] text-xs',
+};
+
+function getCharCountClass(len: number, max: number): string {
+  if (len > max) return 'text-[var(--aerospace)]';
+  if (len > 1800) return 'text-[var(--warning)]';
+  return 'text-[var(--signal-dim)]/40';
 }
 
 export default function SupportPage() {
@@ -194,11 +213,11 @@ export default function SupportPage() {
     const to = encodeURIComponent('info-outreach@armageddontest.icu');
     const subject = encodeURIComponent(escalation.subject);
     const body = encodeURIComponent(escalation.body);
-    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    globalThis.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   }
 
   const charLen = input.length;
-  const charClass = charLen > 1800 ? 'text-[var(--warning)]' : charLen > MAX_CHARS ? 'text-[var(--aerospace)]' : 'text-[var(--signal-dim)]/40';
+  const charClass = getCharCountClass(charLen, MAX_CHARS);
 
   return (
     <main className="relative min-h-screen bg-[var(--void)] text-[var(--signal)] flex flex-col">
@@ -263,26 +282,19 @@ export default function SupportPage() {
 
           {/* MESSAGES */}
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 scroll-smooth" style={{ scrollbarWidth: 'thin', scrollbarColor: '#2a2a2a transparent' }}>
-            {messages.map((msg) => (
-              <div key={msg.id} className="flex flex-col gap-1">
-                <span className={`mono-small ${
-                  msg.role === 'agent' ? 'text-[var(--safe)]' :
-                  msg.role === 'user' ? 'text-[var(--signal-dim)]' :
-                  msg.role === 'system' ? 'text-[var(--aerospace)]' :
-                  'text-[var(--warning)]'
-                }`}>
-                  {msg.role === 'agent' ? 'ATLAS' : msg.role === 'user' ? 'YOU' : msg.role.toUpperCase()}
-                </span>
-                <span className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                  msg.role === 'agent' ? 'text-[var(--safe)]' :
-                  msg.role === 'user' ? 'text-[var(--signal)] bg-white/[0.03] pl-3 border-l-2 border-white/[0.1] py-2 pr-3' :
-                  msg.role === 'system' ? 'text-[var(--aerospace)] text-xs' :
-                  'text-[var(--warning)] text-xs'
-                }`} style={{ fontFamily: 'var(--font-mono)' }}>
-                  {msg.text}
-                </span>
-              </div>
-            ))}
+            {messages.map((msg) => {
+              const labelClass = ROLE_LABEL_CLASS[msg.role];
+              const bodyClass = ROLE_BODY_CLASS[msg.role];
+              const label = msg.role === 'agent' ? 'ATLAS' : msg.role === 'user' ? 'YOU' : msg.role.toUpperCase();
+              return (
+                <div key={msg.id} className="flex flex-col gap-1">
+                  <span className={`mono-small ${labelClass}`}>{label}</span>
+                  <span className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${bodyClass}`} style={{ fontFamily: 'var(--font-mono)' }}>
+                    {msg.text}
+                  </span>
+                </div>
+              );
+            })}
 
             {/* TYPING INDICATOR */}
             {isLoading && (
@@ -344,12 +356,16 @@ export default function SupportPage() {
       {escalation && (
         <div
           className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-6"
+          role="presentation"
           onClick={(e) => { if (e.target === e.currentTarget) setEscalation(null); }}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Escalation email draft"
+          onKeyDown={(e) => { if (e.key === 'Escape') setEscalation(null); }}
         >
-          <div className="bg-[#0a0a0a] border border-white/[0.12] max-w-lg w-full max-h-[80vh] overflow-y-auto">
+          <dialog
+            open
+            aria-label="Escalation email draft"
+            className="bg-[#0a0a0a] border border-white/[0.12] max-w-lg w-full max-h-[80vh] overflow-y-auto m-0 p-0"
+            style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.12)', color: 'inherit' }}
+          >
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] bg-[#050505]">
               <span className="mono-small text-[var(--warning)]">⚑ ESCALATION — EMAIL DRAFT</span>
               <button onClick={() => setEscalation(null)} className="text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors px-2" aria-label="Close">✕</button>
@@ -359,8 +375,9 @@ export default function SupportPage() {
                 This issue requires APEX team review. Fill in your details and click Copy to send via your email client.
               </p>
               <div>
-                <label className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">To</label>
+                <label htmlFor="escalation-to" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">To</label>
                 <input
+                  id="escalation-to"
                   readOnly
                   value="info-outreach@armageddontest.icu"
                   className="w-full bg-[#050505] border border-white/[0.08] text-[var(--signal)] text-xs px-3 py-2 outline-none"
@@ -368,8 +385,9 @@ export default function SupportPage() {
                 />
               </div>
               <div>
-                <label className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">Subject</label>
+                <label htmlFor="escalation-subject" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">Subject</label>
                 <input
+                  id="escalation-subject"
                   value={escalation.subject}
                   onChange={(e) => setEscalation((prev) => prev ? { ...prev, subject: e.target.value } : null)}
                   className="w-full bg-[#050505] border border-white/[0.08] text-[var(--signal)] text-xs px-3 py-2 outline-none focus:border-white/[0.2]"
@@ -377,8 +395,9 @@ export default function SupportPage() {
                 />
               </div>
               <div>
-                <label className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">Body</label>
+                <label htmlFor="escalation-body" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">Body</label>
                 <textarea
+                  id="escalation-body"
                   value={escalation.body}
                   onChange={(e) => setEscalation((prev) => prev ? { ...prev, body: e.target.value } : null)}
                   rows={10}
@@ -401,7 +420,7 @@ export default function SupportPage() {
                 <p className="mono-small text-[var(--safe)]">✓ COPIED TO CLIPBOARD</p>
               )}
             </div>
-          </div>
+          </dialog>
         </div>
       )}
 

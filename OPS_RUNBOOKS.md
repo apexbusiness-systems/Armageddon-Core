@@ -2,8 +2,8 @@
 
 > **CLASSIFICATION**: INTERNAL EYES ONLY
 > **SEVERITY**: CRITICAL
-> **VERSION**: 2.1.1 ("Kinetic Moat" docs refresh)
-> **LAST REVIEWED**: 2026-05-15
+> **VERSION**: 2.2.0 ("ATLAS support-chat" addition)
+> **LAST REVIEWED**: 2026-06-24
 
 ---
 
@@ -115,6 +115,54 @@ Handled by validated operator runbooks and repository scripts only; no `admin-to
 
 1. Edit `.env.moat` -> `SANDBOX_TENANT`.
 2. Redeploy.
+
+---
+
+---
+
+## 🤖 SEV-3: ATLAS SUPPORT CHAT
+
+### 5.1 ATLAS_SUPPORT_NOT_CONFIGURED (503 on every request)
+
+**Symptom**: `/api/support-chat` returns `{"error":true,"code":"NOT_CONFIGURED","message":"Support agent temporarily unavailable."}`.
+**Cause**: `ANTHROPIC_API_KEY` Wrangler secret is not set.
+**Fix**:
+```bash
+npx wrangler secret put ANTHROPIC_API_KEY
+```
+Re-deploy the Worker after setting the secret.
+
+### 5.2 ATLAS_RATE_LIMIT_KV_UNBOUND (rate limiting silently skipped)
+
+**Symptom**: Rate limits are not being enforced (confirmed by log absence of `RATE_LIMIT_KV`-related errors).
+**Cause**: KV namespace has not been provisioned or `wrangler.jsonc` still contains `REPLACE_WITH_KV_NAMESPACE_ID`.
+**Fix**:
+1. Create the namespace: `npx wrangler kv namespace create RATE_LIMIT_KV`
+2. Paste the returned `id` into `armageddon-site/wrangler.jsonc` `kv_namespaces[0].id`.
+3. Re-deploy.
+
+**Note**: Rate limiting skipped gracefully — the endpoint remains functional, just unprotected by server-side rate limits. Client-side rate limits (5/min, 30/hr) remain active in the UI.
+
+### 5.3 ATLAS_ANTHROPIC_UPSTREAM_ERROR (502 responses)
+
+**Symptom**: `/api/support-chat` returns `{"error":true,"code":"API_UPSTREAM_ERROR"}`.
+**Cause**: Anthropic API returned a non-2xx response (overload, quota exceeded, invalid key).
+**Diagnosis**:
+1. Check Cloudflare Worker logs for `Anthropic API error: <status>`.
+2. Status 429 → API quota exceeded; status 401 → invalid API key.
+**Fix**:
+- Quota: wait for reset or upgrade Anthropic plan.
+- Invalid key: rotate via `npx wrangler secret put ANTHROPIC_API_KEY`.
+
+### 5.4 ATLAS_SECURITY_BLOCK_SPIKE
+
+**Trigger**: Unusual volume of `SECURITY_BLOCK ip=... code=INJECTION_DETECTED` in Worker logs.
+**Impact**: Potential coordinated injection attack attempt.
+**Protocol**:
+1. Check log frequency: `wrangler tail --filter "SECURITY_BLOCK"`.
+2. If a single IP dominates, consider temporarily blocking it at the Cloudflare WAF level.
+3. Do NOT weaken injection patterns in `INJECTION_PATTERNS` to reduce log noise — investigate root cause.
+4. Invariants are documented in `CLAUDE.md`. Do not modify them without a signed-off security review.
 
 ---
 
