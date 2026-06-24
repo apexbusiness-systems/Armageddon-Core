@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import AuthIdentityBadge from './AuthIdentityBadge';
 import AuthModal, { type AuthMode } from './AuthModal';
@@ -88,6 +89,12 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
             >
+                <Link
+                    href="/pricing"
+                    className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
+                >
+                    Pricing
+                </Link>
                 {isLoggedIn ? (
                     <>
                         <AnimatePresence>

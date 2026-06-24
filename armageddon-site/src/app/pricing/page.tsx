@@ -63,24 +63,22 @@ export default function PricingPage() {
                                         href={target.href}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        className="btn-primary w-full text-center min-h-[3.5rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                                     >
                                         {plan.ctaLabel}
                                     </a>
                                 ) : (
                                     <Link
                                         href={target.href}
-                                        className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        className="btn-primary w-full text-center min-h-[3.5rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                                     >
                                         {plan.ctaLabel}
                                     </Link>
                                 )}
 
-                                {target.paymentPending && (
-                                    <p className="mt-3 mono-small text-signal/50 text-center text-[10px]">
-                                        Checkout opens in onboarding — payment is not collected until a secure link is configured.
-                                    </p>
-                                )}
+                                <p className={`mt-3 mono-small text-signal/50 text-center text-[10px] ${target.paymentPending ? '' : 'invisible'}`}>
+                                    Checkout opens in onboarding — payment is not collected until a secure link is configured.
+                                </p>
                             </div>
                         );
                     })}
