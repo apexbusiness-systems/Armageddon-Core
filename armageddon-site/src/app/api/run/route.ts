@@ -60,6 +60,14 @@ function deriveRunSeed(runId: string, organizationId: string): number {
     return Number.parseInt(digest.slice(0, 8), 16);
 }
 
+function getClientIp(request: NextRequest): string {
+    const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+    return request.headers.get('cf-connecting-ip')
+        ?? request.headers.get('x-real-ip')
+        ?? forwardedFor
+        ?? 'unknown';
+}
+
 // ELIGIBILITY CHECK
 // Using centralized checkRunEligibility from packages/core/src/core/monetization/gate.ts
 
@@ -70,8 +78,8 @@ function deriveRunSeed(runId: string, organizationId: string): number {
 export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         // 1. IP-based Rate Limiting (Pre-parsing)
-        // Securely identify client IP via Next.js request.ip (handles trusted proxies)
-        const ip = request.ip || 'unknown';
+        // Identify client IP from trusted deployment proxy headers, then fall back to an anonymous bucket.
+        const ip = getClientIp(request);
         const ipLimitResult = await dbRateLimit({ scope: 'ip', key: ip, limit: 10, windowMs: 60 * 1000 });
         if (!ipLimitResult.allowed) {
             console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);

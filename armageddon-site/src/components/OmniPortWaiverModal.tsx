@@ -95,6 +95,8 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
         }
 
         if (window.__OMNIPORT_LIVE_FIRE_PENDING && window.__OMNIPORT_WAIVER_TOKEN) {
+            // This effect intentionally hydrates modal state once from OmniHub URL/window handoff data.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setWaiverToken(window.__OMNIPORT_WAIVER_TOKEN);
             setOrgId(org);
             setRunLevel(isFinite(level) ? level : 7);

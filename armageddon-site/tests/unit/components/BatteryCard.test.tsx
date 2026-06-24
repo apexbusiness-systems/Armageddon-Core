@@ -19,7 +19,6 @@ vi.mock('framer-motion', () => ({
           HTMLElement,
           Record<string, unknown>
         >((props, ref) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { initial, whileInView, viewport, transition, animate, exit, ...rest } = props;
           return React.createElement(prop, { ...rest, ref });
         });
