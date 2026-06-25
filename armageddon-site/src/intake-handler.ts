@@ -639,7 +639,7 @@ export const INJECTION_PATTERNS: RegExp[] = [
   /unrestricted\s+(ai|mode)/i,
   /no\s+filter\s+mode/i,
   /base64\s*(decode|encode).*instruction/i,
-  /[A-Za-z0-9]{10,}[+/][A-Za-z0-9+/]{10,}={0,2}/,
+  /[A-Za-z0-9]{10}[+/][A-Za-z0-9+/]{10}/,
   /<\/?system>/i,
   /<\/?human>/i,
   /<\/?assistant>/i,

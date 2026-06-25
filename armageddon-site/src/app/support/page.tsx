@@ -363,12 +363,11 @@ export default function SupportPage() {
       {escalation && (
         <div
           className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-6"
-          onClick={(e) => { if (e.target === e.currentTarget) setEscalation(null); }}
-          onKeyDown={(e) => { if (e.key === 'Escape') setEscalation(null); }}
         >
           <dialog
             open
             aria-label="Escalation email draft"
+            onKeyDown={(e) => { if (e.key === 'Escape') setEscalation(null); }}
             className="bg-[#0a0a0a] border border-white/[0.12] max-w-lg w-full max-h-[80vh] overflow-y-auto m-0 p-0"
             style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.12)', color: 'inherit' }}
           >
