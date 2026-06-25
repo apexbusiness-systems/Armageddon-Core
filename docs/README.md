@@ -84,3 +84,4 @@ npm run build:cloudflare -w armageddon-site
 - Prefer absolute dates over relative language such as "today" or "right now".
 - Keep deployment docs explicit about target: Cloudflare static edge vs local Moat vs historical provider references.
 - Mark unknown remote/CI/runtime state as `UNVERIFIED` instead of assuming success.
+- Do not edit the frozen public marketing surfaces outside [`docs/CANONICAL_UI_CONTRACT.md`](./CANONICAL_UI_CONTRACT.md); changes must update the matching assertion in `armageddon-site/tests/unit/canonical-ui-freeze.test.ts` and the contract together.

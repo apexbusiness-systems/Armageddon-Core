@@ -1,0 +1,28 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# CODEOWNERS — review gate for canonical, frozen surfaces
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Files listed here require @apexbusiness-systems review before merge. They hold
+# the agreed canonical state of the public marketing surfaces and the guardrails
+# that protect it. The contract is documented in docs/CANONICAL_UI_CONTRACT.md
+# and enforced in CI by armageddon-site/tests/unit/canonical-ui-freeze.test.ts.
+#
+# To make this gate binding, enable branch protection on `main` with
+# "Require review from Code Owners". The regression test blocks merges with or
+# without branch protection.
+
+# Default owner for anything not otherwise matched.
+*                                                       @apexbusiness-systems
+
+# Canonical public marketing surfaces (frozen state).
+/armageddon-site/src/components/AuthHeader.tsx          @apexbusiness-systems
+/armageddon-site/src/components/Footer.tsx              @apexbusiness-systems
+/armageddon-site/src/app/pricing/page.tsx              @apexbusiness-systems
+/armageddon-site/src/app/globals.css                   @apexbusiness-systems
+/armageddon-site/src/lib/pricing.ts                    @apexbusiness-systems
+/armageddon-site/src/lib/payment-links.ts              @apexbusiness-systems
+
+# The guardrails themselves must not be weakened without owner review.
+/armageddon-site/tests/unit/canonical-ui-freeze.test.ts @apexbusiness-systems
+/docs/CANONICAL_UI_CONTRACT.md                          @apexbusiness-systems
+/.github/CODEOWNERS                                     @apexbusiness-systems

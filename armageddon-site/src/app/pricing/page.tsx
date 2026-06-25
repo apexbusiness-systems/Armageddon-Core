@@ -35,7 +35,7 @@ export default function PricingPage() {
                         return (
                             <div
                                 key={plan.id}
-                                className={`flex flex-col border ${borderClass} bg-black/40 rounded-sm p-6`}
+                                className={`pricing-card flex flex-col border ${borderClass} rounded-sm p-6`}
                             >
                                 <div className="mb-4">
                                     <h2 className="mono-data text-signal tracking-wider text-lg">{plan.name}</h2>
@@ -76,11 +76,9 @@ export default function PricingPage() {
                                     </Link>
                                 )}
 
-                                {target.paymentPending && (
-                                    <p className="mt-3 mono-small text-signal/50 text-center text-[10px]">
-                                        Checkout opens in onboarding — payment is not collected until a secure link is configured.
-                                    </p>
-                                )}
+                                <p className={`mt-3 mono-small text-signal/50 text-center text-[10px] ${target.paymentPending ? '' : 'invisible'}`}>
+                                    Checkout opens in onboarding — payment is not collected until a secure link is configured.
+                                </p>
                             </div>
                         );
                     })}
