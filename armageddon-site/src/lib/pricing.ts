@@ -78,7 +78,6 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
             'Team evidence dashboard',
         ],
         ctaLabel: 'Choose Team',
-        highlight: true,
     },
     verified: {
         id: 'verified',

@@ -28,14 +28,11 @@ export default function PricingPage() {
                     {PLAN_ORDER.map((planId) => {
                         const plan = PLANS[planId];
                         const target = getCheckoutTarget(planId);
-                        const borderClass = plan.highlight
-                            ? 'border-[var(--aerospace)] shadow-[0_0_30px_rgba(255,80,0,0.18)]'
-                            : 'border-white/10';
 
                         return (
                             <div
                                 key={plan.id}
-                                className={`pricing-card flex flex-col border ${borderClass} rounded-sm p-6`}
+                                className="pricing-card flex flex-col border border-white/10 rounded-sm p-6"
                             >
                                 <div className="mb-4">
                                     <h2 className="mono-data text-signal tracking-wider text-lg">{plan.name}</h2>
