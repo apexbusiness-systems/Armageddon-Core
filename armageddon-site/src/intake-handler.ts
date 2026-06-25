@@ -43,7 +43,7 @@ interface OrgMembership {
 }
 
 const ALLOWED_TIERS = new Set(['Self-Serve', 'Verified', 'Certified', 'Enterprise']);
-const DEFAULT_CANONICAL_HOST = 'armageddon.icu';
+const DEFAULT_CANONICAL_HOST = 'armageddontest.icu';
 const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   system_name: 160,
   contact_name: 160,

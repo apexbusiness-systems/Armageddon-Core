@@ -2,8 +2,8 @@
 
 > **CLASSIFICATION**: INTERNAL EYES ONLY
 > **SEVERITY**: CRITICAL
-> **VERSION**: 2.2.0 ("ATLAS support-chat" addition)
-> **LAST REVIEWED**: 2026-06-24
+> **VERSION**: 2.3.0 ("URL migration + RATE_LIMIT_KV status" update)
+> **LAST REVIEWED**: 2026-06-25
 
 ---
 
@@ -136,6 +136,9 @@ Re-deploy the Worker after setting the secret.
 
 **Symptom**: Rate limits are not being enforced (confirmed by log absence of `RATE_LIMIT_KV`-related errors).
 **Cause**: KV namespace has not been provisioned or `wrangler.jsonc` still contains `REPLACE_WITH_KV_NAMESPACE_ID`.
+
+> **ACTIVE AS OF 2026-06-24**: Confirmed via Cloudflare dashboard — production `armageddon-core` Worker only shows `ASSETS` binding. `RATE_LIMIT_KV` is not bound. This runbook is currently applicable.
+
 **Fix**:
 1. Create the namespace: `npx wrangler kv namespace create RATE_LIMIT_KV`
 2. Paste the returned `id` into `armageddon-site/wrangler.jsonc` `kv_namespaces[0].id`.

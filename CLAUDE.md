@@ -1,7 +1,7 @@
 # ARMAGEDDON AGENT GUARDRAILS — CLAUDE.md
 
-**Canonical version**: 2026-06-24
-**Last reviewed**: 2026-06-24
+**Canonical version**: 2026-06-25
+**Last reviewed**: 2026-06-25
 **Authority**: This file is the frozen canonical state reference. It supersedes conversational memory. All agents and contributors must read this before modifying any file listed here.
 
 ---
@@ -64,11 +64,24 @@ Removing these exports breaks the test suite (`tests/unit/worker-support-chat-se
 **Invariant 4 — CORS is origin-locked**
 `handleSupportChat` sets `Access-Control-Allow-Origin` to `https://${canonicalHost}`. Do not change this to `*`.
 
+**Invariant 7 — `DEFAULT_CANONICAL_HOST` must be `armageddontest.icu`**
+```typescript
+// CORRECT:
+const DEFAULT_CANONICAL_HOST = 'armageddontest.icu';
+```
+**WRONG (DO NOT restore):**
+```typescript
+const DEFAULT_CANONICAL_HOST = 'armageddon.icu';  // stale domain — all routes and CORS will break
+```
+This constant seeds the CORS header, the rate-limit KV key prefix, and the intake response origin. Using the stale domain breaks every security boundary that is origin-locked.
+
 **Invariant 5 — History truncation**
 Only the last 8 messages are forwarded to Anthropic. Do not increase this limit without a security review.
 
 **Invariant 6 — Rate limit graceful degradation**
 Rate limiting is skipped when `env.RATE_LIMIT_KV` is not bound. This is intentional to allow staging deployments without KV. Do not change it to fail-closed without operator agreement.
+
+> **Known production gap (confirmed 2026-06-24):** The `RATE_LIMIT_KV` binding is **not yet provisioned** in the Cloudflare dashboard — only the `ASSETS` binding is present. Rate limiting is currently being skipped gracefully. Runbook 5.2 (`ATLAS_RATE_LIMIT_KV_UNBOUND`) in `OPS_RUNBOOKS.md` applies. The operator must create the namespace and update `wrangler.jsonc` before rate limiting becomes active.
 
 ---
 

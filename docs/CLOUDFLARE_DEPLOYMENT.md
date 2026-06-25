@@ -1,7 +1,7 @@
 # Cloudflare Static Edge Deployment
 
-**Docs version**: 2026.06.24<br>
-**Last reviewed**: 2026-06-24<br>
+**Docs version**: 2026.06.25<br>
+**Last reviewed**: 2026-06-25<br>
 **Deployment surface**: Static Cloudflare edge assets for `armageddon-site`
 
 Armageddon's production-safe execution path remains the local Docker Moat. Cloudflare is used only for the static containment-interface edge surface; Temporal, the Python bridge, service-role operations, and test batteries remain local/Moat-backed.
@@ -47,6 +47,8 @@ Record Cloudflare API responses, asset upload status, and resulting verification
 The `/api/support-chat` endpoint (ATLAS agent) requires two resources that are not auto-created by deployment. The operator must run these **before** a production deployment:
 
 ### 1. KV namespace for rate limiting
+
+> **Current status (confirmed 2026-06-24):** The production `armageddon-core` Worker shows only one binding (`ASSETS`) in the Cloudflare dashboard. `RATE_LIMIT_KV` is **not yet provisioned**. Rate limiting is silently skipped. See OPS runbook 5.2.
 
 ```bash
 npx wrangler kv namespace create RATE_LIMIT_KV

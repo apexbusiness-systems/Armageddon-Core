@@ -1,8 +1,8 @@
 # ARMAGEDDON Agent Operating Instructions
 
 **Scope**: Entire repository.<br>
-**Docs version**: 2026.06.24<br>
-**Last reviewed**: 2026-06-24
+**Docs version**: 2026.06.25<br>
+**Last reviewed**: 2026-06-25
 
 ## Non-negotiable workflow
 
