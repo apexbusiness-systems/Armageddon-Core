@@ -1,8 +1,22 @@
 # Feature Registry — ARMAGEDDON Test Suite
 
-**Docs version**: 2026.05.17<br>
-**Last updated**: 2026-05-17<br>
-**Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`.
+**Docs version**: 2026.06.25<br>
+**Last updated**: 2026-06-25<br>
+**Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts` and site pages in `armageddon-site/src/app/`.
+
+## Domain: Support & Privacy (NEW — PR #143)
+
+- **Feature:** ATLAS Support-Chat Agent
+  - **Location:** `armageddon-site/src/intake-handler.ts` → `handleSupportChat`; `armageddon-site/src/app/support/page.tsx`
+  - **Scope:** `/api/support-chat` Cloudflare Worker endpoint. Multi-layer security: IP-based KV rate limiting (5/min, 30/hr), input validation, 40+ regex injection guards, emoji-payload detection, history truncation (last 8 messages). Proxies validated messages to Claude Haiku (claude-haiku-4-5-20251001) with an immutable ATLAS system prompt. CORS locked to canonical host. Client-side UI is an interactive terminal with client-side injection detection, escalation modal, and character counter.
+  - **Infrastructure requirements:** `RATE_LIMIT_KV` namespace and `ANTHROPIC_API_KEY` Wrangler secret — see `docs/CLOUDFLARE_DEPLOYMENT.md`.
+  - **Security invariants:** Documented and frozen in `CLAUDE.md`. Tests in `armageddon-site/tests/unit/worker-support-chat-security.test.ts`.
+  - **Status:** Implemented. `RATE_LIMIT_KV` not yet bound in production (confirmed 2026-06-24 — see OPS runbook 5.2). `ANTHROPIC_API_KEY` provisioning also required. See `docs/CLOUDFLARE_DEPLOYMENT.md`.
+
+- **Feature:** Privacy Policy Page
+  - **Location:** `armageddon-site/src/app/privacy/page.tsx`
+  - **Scope:** Static `/privacy` page. PIPEDA-compliant (Canadian jurisdiction, Edmonton AB). GDPR acknowledgment for EEA users. Documents third-party disclosures (GitHub, Cloudflare, Stripe, Anthropic, Supabase), data retention, and user rights.
+  - **Status:** Implemented.
 
 ## Domain: Cryptographic Attestation (NEW)
 

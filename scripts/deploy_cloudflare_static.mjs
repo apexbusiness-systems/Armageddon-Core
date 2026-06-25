@@ -378,7 +378,7 @@ async function main() {
   const workerSourcePath = process.env.CLOUDFLARE_WORKER_SOURCE?.trim()
     ? path.resolve(process.env.CLOUDFLARE_WORKER_SOURCE.trim())
     : path.join(repoRoot, 'armageddon-site', 'src', 'intake-handler.ts');
-  const zoneName = process.env.CLOUDFLARE_ZONE_NAME?.trim() || 'armageddon.icu';
+  const zoneName = process.env.CLOUDFLARE_ZONE_NAME?.trim() || 'armageddontest.icu';
   const canonicalHost = process.env.CLOUDFLARE_CANONICAL_HOST?.trim() || zoneName;
   const supabaseUrl = requiredEnv('SUPABASE_URL');
   const supabaseServiceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_SECRET');

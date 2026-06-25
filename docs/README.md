@@ -1,7 +1,7 @@
 # Armageddon Documentation Hub
 
-**Docs version**: 2026.05.15<br>
-**Last reviewed**: 2026-06-24<br>
+**Docs version**: 2026.06.25<br>
+**Last reviewed**: 2026-06-25<br>
 **Primary package manager**: npm<br>
 **Runtime baseline**: Node.js 22 in CI, Node.js >=20 for workspaces
 
@@ -13,10 +13,10 @@ This hub is the canonical entry point for onboarding engineers and agents. If a 
 | --- | --- | --- |
 | Install and run locally | [`docs/QUICKSTART.md`](./QUICKSTART.md) | Verified local setup, worker start, tests, and build commands. |
 | Understand repo rules | [`../AGENTS.md`](../AGENTS.md) | Agent and contributor guardrails that prevent drift. |
-| Freeze public UI surfaces | [`docs/CANONICAL_UI_CONTRACT.md`](./CANONICAL_UI_CONTRACT.md) | Canonical header/footer/pricing state, enforced by a CI regression test and CODEOWNERS. |
-| Deploy Cloudflare edge | [`docs/CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) | Static Cloudflare edge deployment path for the public site. |
+| Security invariants and frozen state | [`../CLAUDE.md`](../CLAUDE.md) | Frozen canonical state, security invariants for `intake-handler.ts`, and anti-regression guardrails. Read before modifying any protected module. |
+| Deploy Cloudflare edge | [`docs/CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) | Static Cloudflare edge deployment path including ATLAS support-chat KV and secret provisioning. |
 | Deploy local Moat | [`../DEPLOYMENT.md`](../DEPLOYMENT.md) | Local Docker/Temporal Moat protocol. |
-| Operate incidents | [`../OPS_RUNBOOKS.md`](../OPS_RUNBOOKS.md) | SEV response, key rotation, stuck workflow triage. |
+| Operate incidents | [`../OPS_RUNBOOKS.md`](../OPS_RUNBOOKS.md) | SEV response, key rotation, stuck workflow triage, and support-chat operational playbook. |
 | Security policy | [`../SECURITY.md`](../SECURITY.md) | Vulnerability reporting and security expectations. |
 | Authorized use | [`../ACCEPTABLE_USE.md`](../ACCEPTABLE_USE.md) | Permitted and prohibited use boundaries. |
 | Current release posture | [`../PRODUCTION_STATUS.md`](../PRODUCTION_STATUS.md) | Repository-verified production-readiness snapshot. |

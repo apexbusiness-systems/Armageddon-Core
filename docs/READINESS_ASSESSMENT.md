@@ -1,9 +1,11 @@
 # Platform Readiness Assessment — Armageddon Level 7
 
 **Date**: 2026-02-07<br>
-**Last reviewed**: 2026-05-15<br>
+**Last reviewed**: 2026-06-24<br>
 **Status**: Historical record — not current release posture<br>
-**Current source of truth**: `PRODUCTION_STATUS.md` and `docs/DOCUMENTATION_AUDIT_2026-05-15.md`
+**Current source of truth**: `PRODUCTION_STATUS.md`, `CLAUDE.md`, and `feature_registry.md`
+
+> **Annotation (2026-06-24)**: Much of the "What's Missing" section below has been resolved since this document was written. The Cloudflare static edge is deployed and live at `armageddontest.icu`. The ATLAS support-chat endpoint, privacy policy, attestation receipts (Ed25519+Merkle), 14 certification batteries (B1–B14), and full `/api/run`, `/api/intake`, `/api/support-chat`, `/api/attestation/pubkey`, and gatekeeper endpoints are all implemented. See `PRODUCTION_STATUS.md` and `feature_registry.md` for current release posture.
 
 ---
 
@@ -13,7 +15,7 @@
 
 **Current State**:
 
-- ✅ **Frontend target is Cloudflare/local Moat oriented** at [www.armageddon.icu](https://www.armageddon.icu); legacy preview hosting is not required by this repository
+- ✅ **Frontend target is Cloudflare/local Moat oriented** at [armageddontest.icu](https://armageddontest.icu); legacy preview hosting is not required by this repository
 - ✅ **API endpoint EXISTS** at `POST /api/run`
 - ❌ **Temporal worker connection** not configured/deployed
 - ❓ **GitHub integration** - needs verification

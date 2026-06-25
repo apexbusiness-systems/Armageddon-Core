@@ -1,12 +1,12 @@
 # ARMAGEDDON Agent Operating Instructions
 
 **Scope**: Entire repository.<br>
-**Docs version**: 2026.05.15<br>
-**Last reviewed**: 2026-06-24
+**Docs version**: 2026.06.25<br>
+**Last reviewed**: 2026-06-25
 
 ## Non-negotiable workflow
 
-1. Read `docs/README.md` before making repo-wide changes.
+1. Read `CLAUDE.md` **then** `docs/README.md` before making repo-wide changes. `CLAUDE.md` contains frozen security invariants that take priority over conversational context.
 2. Use `npm` from the repository root. Do not introduce Bun/Yarn/pnpm commands unless `package.json` is changed in the same patch.
 3. Never log, print, commit, or copy secrets. Use `.env.moat.example` as the only committed environment template.
 4. Keep production code changes small and verified. If a change touches more than three runtime modules, document the migration and rollback path in the PR body.

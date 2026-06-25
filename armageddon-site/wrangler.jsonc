@@ -11,13 +11,22 @@
     { "pattern": "armageddontest.icu/*", "zone_name": "armageddontest.icu" },
     { "pattern": "www.armageddontest.icu/*", "zone_name": "armageddontest.icu" }
   ],
+  // KV namespace for support chat rate limiting
+  // Create with: npx wrangler kv namespace create RATE_LIMIT_KV
+  "kv_namespaces": [
+    { "binding": "RATE_LIMIT_KV", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+  ],
   // Plain-text vars (secrets stay in dashboard; never commit secret values here)
+  // Secret: ANTHROPIC_API_KEY — set via: npx wrangler secret put ANTHROPIC_API_KEY
   "vars": {
     "NEXT_PUBLIC_ARMAGEDDON_API_BASE": "https://armageddontest.icu",
     "NEXT_PUBLIC_SUPABASE_URL": "https://qhjqselqpkfqjfpuxykb.supabase.co",
     "TEMPORAL_ADDRESS": "armageddon-prod.smvtx.tmprl.cloud:7233",
     "TEMPORAL_NAMESPACE": "armageddon-prod.smvtx",
-    "TEMPORAL_TASK_QUEUE": "armageddon-certification"
+    "TEMPORAL_TASK_QUEUE": "armageddon-certification",
+    "MAX_MSGS_PER_MIN": "5",
+    "MAX_MSGS_PER_HOUR": "30",
+    "MAX_INPUT_CHARS": "2000"
   },
   "observability": {
     "enabled": true
