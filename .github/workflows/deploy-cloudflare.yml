@@ -57,6 +57,8 @@ jobs:
         working-directory: armageddon-site
         env:
           NEXT_PUBLIC_SITE_URL: https://armageddontest.icu
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.SUPABASE_TOKEN }}
         run: npm run validate:production-env
 
       - name: Verify shared lib build
@@ -71,8 +73,8 @@ jobs:
           CLOUDFLARE_STATIC_EXPORT: "true"
           NEXT_PUBLIC_SITE_URL: https://armageddontest.icu
           NEXT_TELEMETRY_DISABLED: "1"
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.SUPABASE_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED: ${{ secrets.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED }}
