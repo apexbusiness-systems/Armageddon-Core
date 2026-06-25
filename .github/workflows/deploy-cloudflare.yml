@@ -8,6 +8,9 @@ name: Deploy → Cloudflare Workers
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 concurrency:
@@ -26,6 +29,7 @@ env:
 jobs:
   deploy:
     name: Build & Deploy to Cloudflare Workers
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
