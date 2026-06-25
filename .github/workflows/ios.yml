@@ -1,0 +1,53 @@
+name: iOS build
+
+on:
+  pull_request:
+  push:
+    branches: [main, "release/**"]
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build site assets
+        run: npm run build -w armageddon-site
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder' }}
+
+      - name: Sync Capacitor iOS project
+        if: hashFiles('armageddon-site/capacitor.config.*') != '' && hashFiles('armageddon-site/ios/App/App.xcodeproj/project.pbxproj') != ''
+        working-directory: armageddon-site
+        run: npx cap sync ios
+
+      - name: Install iOS pods
+        if: hashFiles('armageddon-site/ios/App/Podfile') != '' && hashFiles('armageddon-site/ios/App/App.xcodeproj/project.pbxproj') != ''
+        working-directory: armageddon-site/ios/App
+        run: pod install
+
+      - name: Build iOS workspace
+        if: hashFiles('armageddon-site/ios/App/App.xcworkspace/contents.xcworkspacedata') != ''
+        working-directory: armageddon-site/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Skip native iOS build when project is absent
+        if: hashFiles('armageddon-site/ios/App/App.xcodeproj/project.pbxproj') == ''
+        run: echo "No Capacitor iOS Xcode project found at armageddon-site/ios/App/App.xcodeproj; web checks completed."
