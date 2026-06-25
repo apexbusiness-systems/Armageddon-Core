@@ -121,7 +121,7 @@ describe('INJECTION_PATTERNS', () => {
   it('does NOT flag a plain 40-char alphanumeric string (no + or /)', () => {
     // UUID-style string with no base64-specific chars — must NOT trigger
     const plain40 = 'abcdefghijklmnopqrstuvwxyz1234567890ABCD';
-    expect(plain40.length).toBe(40);
+    expect(plain40).toHaveLength(40);
     expect(check(plain40)).toBe(false);
   });
 

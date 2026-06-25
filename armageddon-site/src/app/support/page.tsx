@@ -72,6 +72,13 @@ const ROLE_BODY_CLASS: Record<ChatMessage['role'], string> = {
   error: 'text-[var(--warning)] text-xs',
 };
 
+const ROLE_LABEL: Record<ChatMessage['role'], string> = {
+  agent: 'ATLAS',
+  user: 'YOU',
+  system: 'SYSTEM',
+  error: 'ERROR',
+};
+
 function getCharCountClass(len: number, max: number): string {
   if (len > max) return 'text-[var(--aerospace)]';
   if (len > 1800) return 'text-[var(--warning)]';
@@ -285,7 +292,7 @@ export default function SupportPage() {
             {messages.map((msg) => {
               const labelClass = ROLE_LABEL_CLASS[msg.role];
               const bodyClass = ROLE_BODY_CLASS[msg.role];
-              const label = msg.role === 'agent' ? 'ATLAS' : msg.role === 'user' ? 'YOU' : msg.role.toUpperCase();
+              const label = ROLE_LABEL[msg.role];
               return (
                 <div key={msg.id} className="flex flex-col gap-1">
                   <span className={`mono-small ${labelClass}`}>{label}</span>
@@ -356,7 +363,6 @@ export default function SupportPage() {
       {escalation && (
         <div
           className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-6"
-          role="presentation"
           onClick={(e) => { if (e.target === e.currentTarget) setEscalation(null); }}
           onKeyDown={(e) => { if (e.key === 'Escape') setEscalation(null); }}
         >

@@ -43,14 +43,16 @@ An empty string `""` must reach the `trimmed.length === 0` check and return `cod
 
 **Invariant 2 — Base64 blob pattern (INJECTION_PATTERNS array, line ~642)**
 ```typescript
-// CORRECT: requires at least one + or / (actual base64-distinguishing characters)
-/[A-Za-z0-9+/]{10,}[+/][A-Za-z0-9+/]{10,}={0,2}/,
+// CORRECT: first group is pure alphanum (no + or /), making it disjoint from the separator
+// — eliminates catastrophic backtracking; still requires a + or / to distinguish base64
+/[A-Za-z0-9]{10,}[+/][A-Za-z0-9+/]{10,}={0,2}/,
 ```
-**WRONG pattern (DO NOT restore):**
+**WRONG patterns (DO NOT restore either):**
 ```typescript
-/[A-Za-z0-9+/]{40,}={0,2}/,  // matches any 40+ alphanumeric string — too broad, blocks UUIDs and long tokens
+/[A-Za-z0-9+/]{40,}={0,2}/,         // too broad — matches UUIDs and long plain tokens
+/[A-Za-z0-9+/]{10,}[+/][A-Za-z0-9+/]{10,}={0,2}/,  // first class overlaps separator → backtracking (Sonar S5852)
 ```
-The correct pattern requires the presence of `+` or `/` to distinguish actual base64 from plain alphanumeric identifiers.
+The first character class must be `[A-Za-z0-9]` (no `+` or `/`) so there is no ambiguity between it and the mandatory `[+/]` separator — the regex engine cannot backtrack between the two.
 
 **Invariant 3 — Named exports for testability**
 The following must remain exported (named exports alongside `export default intakeWorker`):
