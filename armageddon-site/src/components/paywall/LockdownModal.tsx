@@ -14,11 +14,20 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
     }, [onClose]);
 
     return (
-        <div
+        <dialog
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
+            style={{
+                background: 'transparent',
+                border: 'none',
+                width: '100vw',
+                height: '100vh',
+                maxWidth: 'none',
+                maxHeight: 'none',
+                margin: 0
+            }}
             aria-modal="true"
             aria-labelledby="lockdown-modal-title"
+            open
         >
             {/* Backdrop with reduced opacity to show logs behind */}
             <motion.div
@@ -133,6 +142,6 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
                     </p>
                 </div>
             </motion.div>
-        </div>
+        </dialog>
     );
 }

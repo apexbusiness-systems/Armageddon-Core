@@ -186,12 +186,21 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
     if (!visible) return null;
 
     return (
-        <div
+        <dialog
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}
-            role="dialog"
+            style={{
+                background: 'rgba(0,0,0,0.85)',
+                backdropFilter: 'blur(4px)',
+                border: 'none',
+                width: '100vw',
+                height: '100vh',
+                maxWidth: 'none',
+                maxHeight: 'none',
+                margin: 0
+            }}
             aria-modal="true"
             aria-labelledby="omniport-waiver-title"
+            open
         >
             <div
                 className="relative w-full max-w-2xl flex flex-col"
@@ -229,7 +238,6 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                     onScroll={handleScroll}
                     className="flex-1 overflow-y-auto mx-6 mb-4 p-4"
                     aria-label="Live-fire acceptable use waiver — scroll to bottom to enable accept"
-                    tabIndex={0}
                     style={{
                         border: '1px solid rgba(255,255,255,0.08)',
                         background: 'rgba(255,255,255,0.02)',
@@ -294,6 +302,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                     </button>
                 </div>
             </div>
-        </div>
+        </dialog>
     );
 }
+
