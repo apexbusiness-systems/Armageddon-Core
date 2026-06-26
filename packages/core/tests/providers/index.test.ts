@@ -162,10 +162,10 @@ describe('Provider Factory', () => {
             const registry = CircuitBreakerRegistry.getInstance();
             const breaker = registry.getOrCreate('test-p');
 
-            // 100k input = $1.0 (default cost config in CircuitBreaker is 10/30)
+            // 100k input = $1 (default cost config in CircuitBreaker is 10/30)
             breaker.recordSuccess(100000, 0, 100);
 
-            expect(getTotalCost()).toBeCloseTo(1.0);
+            expect(getTotalCost()).toBeCloseTo(1);
         });
 
         it('resetAllProviders should reset the registry', () => {
