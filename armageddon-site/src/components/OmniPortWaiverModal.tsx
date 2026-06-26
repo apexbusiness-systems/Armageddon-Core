@@ -113,12 +113,12 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
         if (atBottom) setScrolledToBottom(true);
     }, []);
 
-    const handleDecline = () => {
+    const handleDecline = useCallback(() => {
         window.__OMNIPORT_LIVE_FIRE_PENDING = false;
         window.__OMNIPORT_WAIVER_TOKEN = undefined;
         setVisible(false);
         onDecline?.();
-    };
+    }, [onDecline]);
 
     const handleAccept = async () => {
         if (!scrolledToBottom || !user || !waiverToken) return;
@@ -189,6 +189,9 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="omniport-waiver-title"
         >
             <div
                 className="relative w-full max-w-2xl flex flex-col"
@@ -212,7 +215,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
 
                 {/* Title */}
                 <div className="px-6 pt-5 pb-3">
-                    <p className="display-medium text-signal" style={{ fontSize: '1rem' }}>
+                    <p id="omniport-waiver-title" className="display-medium text-signal" style={{ fontSize: '1rem' }}>
                         LIVE-FIRE AUTHORIZATION REQUIRED
                     </p>
                     <p className="mono-small text-signal/40 mt-1">
@@ -225,6 +228,8 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                     ref={scrollRef}
                     onScroll={handleScroll}
                     className="flex-1 overflow-y-auto mx-6 mb-4 p-4"
+                    aria-label="Live-fire acceptable use waiver — scroll to bottom to enable accept"
+                    tabIndex={0}
                     style={{
                         border: '1px solid rgba(255,255,255,0.08)',
                         background: 'rgba(255,255,255,0.02)',
@@ -246,7 +251,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
 
                 {/* Error */}
                 {status === 'error' && (
-                    <p className="mx-6 mb-3 mono-small text-center" style={{ color: '#ff4040', fontSize: '0.72rem' }}>
+                    <p role="alert" className="mx-6 mb-3 mono-small text-center" style={{ color: '#ff4040', fontSize: '0.72rem' }}>
                         ERROR: {errorMsg}
                     </p>
                 )}

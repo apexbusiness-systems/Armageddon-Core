@@ -27,8 +27,17 @@ jobs:
         if: always()
         run: npm audit --workspace armageddon-site --audit-level=critical || true
 
-      - name: Test (core)
-        run: npm run test -w armageddon-core
+      - name: Documentation Sync Check
+        run: npm run docs:check
+
+      - name: Lint Check
+        run: npm run lint
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Test (All Workspaces)
+        run: npm run test
 
       - name: Ensure core coverage file exists
         run: |

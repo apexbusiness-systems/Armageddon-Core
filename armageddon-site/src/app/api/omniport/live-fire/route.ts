@@ -47,7 +47,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const body = await parseOmniPortBody<OmniPortLiveFireRequest>(request, OmniPortLiveFireRequestSchema);
     if (body instanceof NextResponse) return body;
-    const { organizationId, waiverToken, level, iterations, batteries } = body;
+    const { organizationId, waiverToken, level, iterations, batteries, targetUrl } = body;
 
     // Step 2: Validate OmniHub-issued waiver JWT
     const waiverPayload = verifyWaiverToken(waiverToken);
@@ -113,6 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 seed,
                 liveFire: true,
                 waiverRecordId: waiverRecord.id,
+                targetUrl,
             },
         });
 
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 tier: 'CERTIFIED',
                 seed,
                 batteries: selectedBatteries,
+                targetUrl,
             }],
         });
     } catch (err) {
