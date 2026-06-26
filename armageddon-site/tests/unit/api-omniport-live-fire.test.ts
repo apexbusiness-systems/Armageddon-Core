@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { createHash } from 'node:crypto';
 
 const persistTelemetryEvent = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/omniport', () => ({
     guardOmniPort: vi.fn(() => null),
-    verifyWaiverToken: vi.fn(() => ({ runLevel: 7, expiresAt: Date.now() + 600000, orgId: 'org-1' })),
+    verifyWaiverToken: vi.fn(() => ({ runLevel: 7, expiresAt: Date.now() + 600000, orgId: 'org-1', acceptedByUserId: 'user-1', issuedAt: Date.now(), waiverVersion: '1.0' })),
     parseOmniPortBody: vi.fn(async () => ({
         organizationId: 'org-1', waiverToken: 't', level: 7, iterations: 100, batteries: ['B10'],
     })),
@@ -21,6 +22,8 @@ vi.mock('@/lib/temporal', () => ({
 vi.mock('@/lib/supabase', () => ({ getSupabaseServiceRole: vi.fn() }));
 
 import { getSupabaseServiceRole } from '@/lib/supabase';
+import { getTemporalClient } from '@/lib/temporal';
+import { verifyWaiverToken } from '@/lib/omniport';
 import { POST } from '@/app/api/omniport/live-fire/route';
 
 function makeChain(resolved: { single?: unknown; default?: unknown }) {
@@ -42,7 +45,7 @@ function supabaseOk() {
     return {
         from: (table: string) =>
             table === 'omniport_waiver_records'
-                ? makeChain({ single: { data: { id: 'waiver-1', expires_at: new Date(Date.now() + 600000).toISOString() }, error: null } })
+                ? makeChain({ single: { data: { id: 'waiver-1', expires_at: new Date(Date.now() + 600000).toISOString(), waiver_token_hash: createHash('sha256').update('t').digest('hex') }, error: null } })
                 : makeChain({ default: { error: null } }),
     };
 }
@@ -54,6 +57,50 @@ describe('POST /api/omniport/live-fire — proof-critical telemetry', () => {
         vi.clearAllMocks();
         process.env.OMNIPORT_LIVE_FIRE_SECRET = 'secret';
         (getSupabaseServiceRole as any).mockReturnValue(supabaseOk());
+    });
+
+
+
+    it('rejects mismatched org claim before creating any downstream proof', async () => {
+        (verifyWaiverToken as any).mockReturnValueOnce({ runLevel: 7, expiresAt: Date.now() + 600000, orgId: 'org-2', acceptedByUserId: 'user-1', issuedAt: Date.now(), waiverVersion: '1.0' });
+        const supabase = supabaseOk();
+        (getSupabaseServiceRole as any).mockReturnValue(supabase);
+
+        const res = await POST(req());
+        const data = await res.json();
+
+        expect(res.status).toBe(403);
+        expect(data.reason).toBe('WAIVER_ORG_MISMATCH');
+        expect(persistTelemetryEvent).not.toHaveBeenCalled();
+        expect(getTemporalClient).not.toHaveBeenCalled();
+    });
+
+    it('rejects mismatched runLevel claim before creating any downstream proof', async () => {
+        (verifyWaiverToken as any).mockReturnValueOnce({ runLevel: 6, expiresAt: Date.now() + 600000, orgId: 'org-1', acceptedByUserId: 'user-1', issuedAt: Date.now(), waiverVersion: '1.0' });
+
+        const res = await POST(req());
+        const data = await res.json();
+
+        expect(res.status).toBe(403);
+        expect(data.reason).toBe('WAIVER_RUN_LEVEL_MISMATCH');
+        expect(persistTelemetryEvent).not.toHaveBeenCalled();
+        expect(getTemporalClient).not.toHaveBeenCalled();
+    });
+
+    it('rejects when persisted waiver hash does not match presented token', async () => {
+        (getSupabaseServiceRole as any).mockReturnValue({
+            from: (table: string) => table === 'omniport_waiver_records'
+                ? makeChain({ single: { data: { id: 'waiver-1', expires_at: new Date(Date.now() + 600000).toISOString(), waiver_token_hash: 'different' }, error: null } })
+                : makeChain({ default: { error: null } }),
+        });
+
+        const res = await POST(req());
+        const data = await res.json();
+
+        expect(res.status).toBe(403);
+        expect(data.reason).toBe('WAIVER_TOKEN_HASH_MISMATCH');
+        expect(persistTelemetryEvent).not.toHaveBeenCalled();
+        expect(getTemporalClient).not.toHaveBeenCalled();
     });
 
     it('does NOT return authorized:true when the proof telemetry fails to persist', async () => {

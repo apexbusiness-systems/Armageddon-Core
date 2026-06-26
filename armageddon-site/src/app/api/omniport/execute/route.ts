@@ -62,6 +62,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         client = await getTemporalClient();
     } catch (err) {
         console.error('[OmniPort] Temporal unavailable:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
         return NextResponse.json(
             { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' },
             { status: 503 }
