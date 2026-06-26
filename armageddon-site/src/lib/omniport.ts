@@ -3,32 +3,82 @@
 // All comparisons use timing-safe equality. No secrets ever leave this module.
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type SupabaseClient } from '@supabase/supabase-js';
 
 // ─── SSRF Validation Helper ────────────────────────────────────────────────
-export function validateSSRF(url: string): boolean {
+
+function parseIPv4Address(hostname: string): string | null {
+    const host = hostname.toLowerCase();
+    if (/^\d+$/.test(host)) {
+        const value = Number(host);
+        if (Number.isInteger(value) && value >= 0 && value <= 0xffffffff) {
+            return [24, 16, 8, 0].map(shift => (value >>> shift) & 255).join('.');
+        }
+    }
+
+    const parts = host.split('.');
+    if (parts.length === 4 && parts.every(part => /^\d+$/.test(part))) {
+        const octets = parts.map(Number);
+        if (octets.every(octet => octet >= 0 && octet <= 255)) return octets.join('.');
+    }
+
+    return null;
+}
+
+function isBlockedIpAddress(address: string): boolean {
+    const ipVersion = isIP(address);
+    if (ipVersion === 4) {
+        const parsed = parseIPv4Address(address);
+        if (!parsed) return true;
+        const [a, b] = parsed.split('.').map(Number) as [number, number, number, number];
+        return (
+            a === 0 ||
+            a === 10 ||
+            a === 127 ||
+            a === 169 && b === 254 ||
+            a === 172 && b >= 16 && b <= 31 ||
+            a === 192 && b === 168 ||
+            a >= 224
+        );
+    }
+
+    if (ipVersion === 6) {
+        const normalized = address.toLowerCase();
+        return (
+            normalized === '::1' ||
+            normalized === '::' ||
+            normalized.startsWith('fc') ||
+            normalized.startsWith('fd') ||
+            normalized.startsWith('fe8') ||
+            normalized.startsWith('fe9') ||
+            normalized.startsWith('fea') ||
+            normalized.startsWith('feb')
+        );
+    }
+
+    return true;
+}
+
+export async function validateSSRF(url: string): Promise<boolean> {
     try {
         const parsed = new URL(url);
-        const hostname = parsed.hostname.toLowerCase();
-        
-        // Disallow private ranges and localhost
-        if (
-            hostname === 'localhost' ||
-            hostname.startsWith('127.') ||
-            hostname.startsWith('10.') ||
-            hostname.startsWith('192.168.') ||
-            hostname.startsWith('169.254.')
-        ) {
-            return false;
-        }
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
 
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            return false;
-        }
+        const hostname = parsed.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
+        if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false;
 
-        return true;
+        const decodedHostname = decodeURIComponent(hostname);
+        const directIPv4 = parseIPv4Address(decodedHostname);
+        if (directIPv4) return !isBlockedIpAddress(directIPv4);
+        if (isIP(decodedHostname)) return !isBlockedIpAddress(decodedHostname);
+
+        const results = await lookup(decodedHostname, { all: true, verbatim: true });
+        if (results.length === 0) return false;
+        return results.every(result => !isBlockedIpAddress(result.address));
     } catch {
         return false;
     }
@@ -55,7 +105,7 @@ export const OmniPortExecuteRequestSchema = z.object({
     iterations: z.number().int().positive(),
     batteries: z.array(z.string()).optional(),
     omniPortToken: z.string().min(1),
-    targetUrl: z.string().url().refine(validateSSRF, { message: 'SSRF_BLOCKED' }),
+    targetUrl: z.string().url().refine(async value => validateSSRF(value), { message: 'SSRF_BLOCKED' }),
 });
 export type OmniPortExecuteRequest = z.infer<typeof OmniPortExecuteRequestSchema>;
 
@@ -72,7 +122,7 @@ export const OmniPortLiveFireRequestSchema = z.object({
     level: z.number().int().min(1).max(7),
     iterations: z.number().int().positive(),
     batteries: z.array(z.string()).optional(),
-    targetUrl: z.string().url().refine(validateSSRF, { message: 'SSRF_BLOCKED' }),
+    targetUrl: z.string().url().refine(async value => validateSSRF(value), { message: 'SSRF_BLOCKED' }),
 });
 export type OmniPortLiveFireRequest = z.infer<typeof OmniPortLiveFireRequestSchema>;
 
@@ -215,7 +265,7 @@ export async function parseOmniPortBody<T>(
             { status: 400 }
         );
     }
-    const result = schema.safeParse(rawBody);
+    const result = await schema.safeParseAsync(rawBody);
     if (!result.success) {
         return NextResponse.json(
             { success: false, error: result.error.issues[0]?.message ?? 'Validation failed', code: 'VALIDATION_ERROR' },

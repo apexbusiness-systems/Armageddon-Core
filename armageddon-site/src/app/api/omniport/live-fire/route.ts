@@ -10,6 +10,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
@@ -58,12 +59,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     }
 
+    if (waiverPayload.orgId !== organizationId) {
+        return NextResponse.json(
+            { authorized: false, reason: 'WAIVER_ORG_MISMATCH', code: 'WAIVER_ORG_MISMATCH' },
+            { status: 403 }
+        );
+    }
+
+    if (waiverPayload.runLevel !== level) {
+        return NextResponse.json(
+            { authorized: false, reason: 'WAIVER_RUN_LEVEL_MISMATCH', code: 'WAIVER_RUN_LEVEL_MISMATCH' },
+            { status: 403 }
+        );
+    }
+
+    const waiverTokenHash = createHash('sha256').update(waiverToken).digest('hex');
     const supabase = getSupabaseServiceRole();
 
     // Step 3: Verify a persisted waiver record exists for this org + run level (not expired)
     const { data: waiverRecord, error: waiverError } = await supabase
         .from('omniport_waiver_records')
-        .select('id, expires_at')
+        .select('id, expires_at, waiver_token_hash')
         .eq('org_id', organizationId)
         .eq('run_level', level)
         .gte('expires_at', new Date().toISOString())
@@ -74,6 +90,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (waiverError || !waiverRecord) {
         return NextResponse.json(
             { authorized: false, reason: 'WAIVER_RECORD_NOT_FOUND' },
+            { status: 403 }
+        );
+    }
+
+    if (waiverRecord.waiver_token_hash !== waiverTokenHash) {
+        return NextResponse.json(
+            { authorized: false, reason: 'WAIVER_TOKEN_HASH_MISMATCH', code: 'WAIVER_TOKEN_HASH_MISMATCH' },
             { status: 403 }
         );
     }
@@ -130,6 +153,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         client = await getTemporalClient();
     } catch (err) {
+        console.error('[OmniPort] Live-fire Temporal unavailable:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
         return NextResponse.json(
             { authorized: false, reason: 'TEMPORAL_UNAVAILABLE', code: 'TEMPORAL_UNAVAILABLE' },
             { status: 503 }
