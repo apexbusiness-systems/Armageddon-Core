@@ -22,6 +22,8 @@ vi.mock('@/lib/temporal', () => ({
 vi.mock('@/lib/supabase', () => ({ getSupabaseServiceRole: vi.fn() }));
 
 import { getSupabaseServiceRole } from '@/lib/supabase';
+import { getTemporalClient } from '@/lib/temporal';
+import { verifyWaiverToken } from '@/lib/omniport';
 import { POST } from '@/app/api/omniport/live-fire/route';
 
 function makeChain(resolved: { single?: unknown; default?: unknown }) {

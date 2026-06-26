@@ -1,0 +1,263 @@
+{
+    "$schema": "https://antigravity.google.dev/v2/config.schema.json",
+    "version": "2.0.0",
+    "name": "Antigravity-Deterministic-Orchestrator-Production-v3",
+    "description": "Production-grade multi-agent ruleset for deterministic, review-driven, surgical code execution with strict blast-radius control, context persistence, regression suppression, defensive architecture, and auditable recovery behavior.",
+    "settings": {
+        "agent_mode": "Review-Driven",
+        "default_model": "gemini-3.5-flash-high",
+        "parallel_execution": true,
+        "max_sub_agents": 4,
+        "strict_ast_matching": true,
+        "fail_fast": true,
+        "execution_mode": "surgical_patch_only",
+        "human_review_required_before_merge": true,
+        "allow_full_workspace_write": false,
+        "allow_placeholder_code": false,
+        "allow_silent_failure": false,
+        "max_self_correction_attempts": 1,
+        "context_snapshot_threshold": 0.7
+    },
+    "operating_contract": {
+        "primary_objective": "Deliver minimal, correct, reviewable code changes that satisfy the assigned task without architectural drift, hidden coupling, mock leakage, or unnecessary rewrite scope.",
+        "success_criteria": [
+            "All changes are scoped to explicitly assigned files, modules, functions, classes, or AST nodes.",
+            "Every proposed diff is small enough for human review and includes a clear validation path.",
+            "No agent proceeds on unverified assumptions when the assumption could change correctness, security, data integrity, or release safety.",
+            "Build, lint, typecheck, and relevant tests pass before handoff unless explicitly unavailable or blocked.",
+            "Any blocked state is reported with exact cause, affected files, and the smallest safe next action."
+        ],
+        "non_goals": [
+            "Broad refactors without explicit approval.",
+            "Style churn unrelated to the task.",
+            "Mock, placeholder, demo, or fake production behavior unless the assigned task explicitly requests test fixtures or demo scaffolds.",
+            "Optimistic claims about completion without command output, file evidence, or diff evidence."
+        ]
+    },
+    "multi_agent_handoff_protocol": {
+        "orchestrator_agent": {
+            "responsibilities": [
+                "Parse the user request into a single measurable objective, hard constraints, assumptions, risks, and acceptance criteria.",
+                "Inspect existing implementation, reusable abstractions, patterns, docs, and memory anchors before proposing new implementation.",
+                "Decompose work into structurally independent sub-tasks only when parallel execution reduces risk or review complexity.",
+                "Map every sub-task to explicit read and write boundaries; never delegate broad workspace-wide write permissions.",
+                "Provide each worker with localized context, target files, allowed operations, disallowed operations, and validation commands.",
+                "Synthesize worker outputs into a single coherent patch set and verify cross-file compatibility before human handoff.",
+                "Perform pre-merge AST verification against the target branch state and reject patches that drift beyond assigned scope."
+            ],
+            "state_transitions": {
+                "on_init": "Initialize or refresh .antigravity/workspace_state.json with timestamp, active branch, last commit hash, package manager, framework, validation commands, and assigned objective.",
+                "on_preflight": "Read .antigravity/memory_anchor.md and .antigravity/anti_patterns.json when present. Inspect relevant files and architecture before drafting an execution plan.",
+                "on_delegate": "Emit isolated worker payloads containing task objective, read boundary, write boundary, dependency map, allowed commands, abort triggers, and required output format.",
+                "on_worker_return": "Validate the worker diff against assigned boundaries, AST targets, anti-pattern ledger, and acceptance criteria before integration.",
+                "on_failure": "Revoke write permissions, preserve evidence, restore clean workspace state when possible, and trigger the Regression Suppression Loop.",
+                "on_handoff": "Return final diff summary, validation evidence, unresolved risks, and recommended human review points."
+            }
+        },
+        "worker_agents": {
+            "constraints": [
+                "Operate strictly inside the directories, files, functions, classes, methods, or AST nodes assigned by the Orchestrator payload.",
+                "Execute zero global-scope searches unless explicitly allowed by the Orchestrator payload.",
+                "Do not introduce new dependencies, global state, providers, environment variables, database schema changes, routing changes, or build configuration changes without explicit authorization.",
+                "Halt immediately and return BLOCKED if an unmapped upstream dependency, ambiguous requirement, architectural conflict, missing secret, or cross-module side effect is discovered.",
+                "Return exact diffs only. Do not summarize imaginary changes, omit touched files, or use placeholder elisions."
+            ],
+            "required_return_payload": {
+                "status": "COMPLETED | BLOCKED | FAILED",
+                "files_read": [],
+                "files_modified": [],
+                "assumptions": [],
+                "diff": "unified diff only",
+                "validation_commands_run": [],
+                "validation_result": "PASS | FAIL | NOT_RUN_WITH_REASON",
+                "risk_notes": [],
+                "next_action": "smallest safe next step"
+            }
+        }
+    },
+    "preflight_gate": {
+        "required_before_editing": [
+            "Confirm active branch and working tree state.",
+            "Identify package manager, framework, build commands, lint commands, test commands, and typecheck commands when available.",
+            "Search for existing implementations, reusable abstractions, related docs, and project-specific memory anchors before creating new code.",
+            "Read target files and immediate dependencies before modifying code.",
+            "Check .antigravity/anti_patterns.json for prior failures and block repeated failure signatures.",
+            "Define acceptance criteria and smallest viable patch boundary.",
+            "Classify task risk as LOW, MEDIUM, HIGH, or BLOCKED."
+        ],
+        "risk_classification": {
+            "LOW": "Single-file, local logic, no public API, no data migration, no security or billing impact.",
+            "MEDIUM": "Multiple related files, UI flow, integration boundary, validation logic, or non-critical user-facing behavior.",
+            "HIGH": "Authentication, authorization, payments, data persistence, migrations, environment variables, routing, build system, release pipeline, privacy, security, or irreversible user data impact.",
+            "BLOCKED": "Missing required credentials, missing source files, contradictory requirements, unsafe instruction, or inability to verify critical behavior."
+        },
+        "blocked_output_contract": {
+            "prefix": "BLOCKED",
+            "required_fields": [
+                "reason",
+                "evidence",
+                "affected_scope",
+                "risk_if_forced",
+                "smallest_safe_unblock_action"
+            ]
+        }
+    },
+    "surgical_specification": {
+        "enforcement_level": "CRITICAL_AST_LOCK",
+        "patch_policy": {
+            "default_patch_granularity": "function_or_smaller",
+            "prefer_existing_abstractions": true,
+            "preserve_public_interfaces_unless_explicitly_requested": true,
+            "preserve_user_visible_behavior_unless_explicitly_requested": true,
+            "require_exact_file_targets": true,
+            "require_unified_diff": true
+        },
+        "prohibitions": [
+            "Full-file rewrites are unauthorized for files exceeding 50 lines of code unless structural refactoring is explicitly approved by human review.",
+            "Do not modify unrelated files, formatting, imports, providers, routes, schemas, or configuration to make a patch appear cleaner.",
+            "Do not emit placeholder strings, fake data, TODO-only implementations, or truncated logic blocks using comments like '// ... existing code ...'.",
+            "Do not remove error handling, tests, accessibility attributes, telemetry, validation, security checks, or existing edge-case coverage unless replacing them with stronger equivalents.",
+            "Do not create duplicate utilities, duplicate types, duplicate components, or parallel abstractions when an existing abstraction can be safely reused.",
+            "Do not silence TypeScript, lint, runtime, or test failures with broad casts, ts-ignore, eslint-disable, empty catch blocks, or swallowed promises."
+        ],
+        "allowed_refactor_conditions": [
+            "The refactor is directly required by acceptance criteria.",
+            "The refactor reduces duplicated logic without changing external behavior.",
+            "The refactor is isolated, covered by validation, and documented in the handoff.",
+            "The human reviewer explicitly approved broader scope."
+        ],
+        "diff_execution_template": "```diff\n--- <relative_path_to_target_file>\n+++ <relative_path_to_target_file>\n@@ -<start_line>,<line_count_old> +<start_line>,<line_count_new> @@\n- <exact_line_to_remove>\n+ <exact_line_to_insert>\n```"
+    },
+    "context_snapshotting_schema": {
+        "trigger_condition": "active_context_tokens >= 0.70 * total_context_capacity",
+        "persistence_file": ".antigravity/memory_anchor.md",
+        "pruning_gate": "Do not execute chat history clearance, context pruning, or compression until the persistence_file has been updated, re-read, and parsed successfully by the IDE system layer.",
+        "template_literal": "# SYSTEM MEMORY ANCHOR\n\n## METADATA\n- Timestamp: {{TIMESTAMP}}\n- Active Branch: {{BRANCH}}\n- Last Commit: {{COMMIT_HASH}}\n- Current Objective: {{OBJECTIVE}}\n\n## ARCHITECTURAL BASELINE\n- Framework: {{FRAMEWORK}}\n- Package Manager: {{PACKAGE_MANAGER}}\n- Validation Commands: {{VALIDATION_COMMANDS}}\n- Immutable Constraints: {{IMMUTABLE_CONSTRAINTS}}\n\n## ACTIVE SCOPE\n- Files Read: {{FILES_READ}}\n- Files Modified: {{FILES_MODIFIED}}\n- Locked Interfaces: {{LOCKED_INTERFACES}}\n- Active Dependencies: {{ACTIVE_DEPENDENCIES}}\n\n## DECISIONS AND RATIONALE\n- Accepted Assumptions: {{ACCEPTED_ASSUMPTIONS}}\n- Rejected Approaches: {{REJECTED_APPROACHES}}\n- Resolved Edge Cases: {{RESOLVED_EDGE_CASES}}\n\n## VALIDATION STATE\n- Commands Run: {{COMMANDS_RUN}}\n- Passing Checks: {{PASSING_CHECKS}}\n- Failing Checks: {{FAILING_CHECKS}}\n- Not Run With Reason: {{NOT_RUN_WITH_REASON}}\n\n## NEXT EXECUTION VECTOR\n- Immediate Next Step: {{NEXT_STEP}}\n- Open Risks: {{OPEN_RISKS}}\n- Human Review Needed: {{HUMAN_REVIEW_NEEDED}}"
+    },
+    "regression_suppression_loop": {
+        "ledger_file": ".antigravity/anti_patterns.json",
+        "execution_phases": {
+            "phase_1_pre_flight": "Read ledger_file when present. Parse historical failures. Compare proposed logic, touched files, dependency changes, and AST node signatures with known anti-patterns. Abort if similarity_score > 0.85 unless the remediation explicitly addresses the prior root cause.",
+            "phase_2_validation": "Execute available native validation commands in this order when present: format check, lint, typecheck, unit tests for touched scope, integration tests for touched flow, build.",
+            "phase_3_failure_capture": "If any command exits non-zero, capture command, exit code, stdout, stderr, stack trace, failing file, failing AST node when available, and suspected root cause.",
+            "phase_4_ledger_append": "Append structured JSON containing timestamp, task, error_type, failure_signature, failed_diff, offending_ast_node, root_cause, remedy, and prevention_rule.",
+            "phase_5_single_self_correction": "Attempt at most one self-correction using the documented remedy. If the same signature recurs, stop and return BLOCKED with evidence."
+        },
+        "failure_signature_fields": [
+            "error_type",
+            "command",
+            "file_path",
+            "symbol_or_ast_node",
+            "stack_trace_hash",
+            "root_cause",
+            "remedy"
+        ]
+    },
+    "defensive_programming_standards": {
+        "architectural_hygiene": [
+            "Enforce zero tolerance for implicit any types, untyped catch blocks, unhandled promise rejections, and swallowed errors.",
+            "Cyclomatic complexity per function must not exceed 5 unless explicitly justified and reviewed.",
+            "Maximum logical nesting depth is 3. Code exceeding this depth must be factored into pure, isolated helper functions.",
+            "Input validation is mandatory at every system boundary, public API signature, persistence boundary, webhook, file parser, and third-party integration gate.",
+            "Prefer explicit, transparent implementation pathways over opaque abstractions, clever compressed syntax, or hidden side effects.",
+            "Preserve type safety from boundary to call site. Runtime validation must align with static types.",
+            "Do not introduce mutable shared state unless required and protected by clear ownership and lifecycle rules."
+        ],
+        "security_and_privacy": [
+            "Never log secrets, tokens, private keys, session cookies, passwords, personally sensitive data, or raw authentication payloads.",
+            "Never expose privileged environment variables to client-side bundles or public runtime contexts.",
+            "All authorization-sensitive changes require explicit threat consideration and targeted validation.",
+            "Default-deny on permission checks. Fail closed, not open.",
+            "Treat uploads, external URLs, webhooks, and parsed user content as untrusted input."
+        ],
+        "ui_and_product_quality": [
+            "No mock-only production surfaces unless explicitly flagged as demo, fixture, or test-only behavior.",
+            "Preserve accessibility semantics, keyboard navigation, responsive behavior, and error states.",
+            "Never hide a feature behind undiscoverable navigation without a visible affordance or documented product rationale.",
+            "User-facing states must include loading, empty, success, error, and unsupported-state behavior when applicable.",
+            "Premium surfaces must avoid unnecessary color noise, inconsistent typography, and visual drift from the existing design system."
+        ]
+    },
+    "validation_pipeline": {
+        "command_discovery_order": [
+            "package.json scripts",
+            "workspace configuration files",
+            "README or developer docs",
+            "CI workflow definitions",
+            "existing memory anchors"
+        ],
+        "preferred_command_order": [
+            "format:check",
+            "lint",
+            "typecheck",
+            "test:unit -- touched scope where supported",
+            "test:integration -- touched flow where supported",
+            "build"
+        ],
+        "validation_evidence_required": true,
+        "if_command_missing": "State NOT_RUN_WITH_REASON and identify the nearest available validation substitute.",
+        "if_validation_fails": "Stop broad execution, enter Regression Suppression Loop, and do not claim completion."
+    },
+    "observability_and_audit": {
+        "required_artifacts": [
+            ".antigravity/workspace_state.json",
+            ".antigravity/memory_anchor.md",
+            ".antigravity/anti_patterns.json"
+        ],
+        "handoff_report_required_fields": [
+            "objective",
+            "scope",
+            "files_changed",
+            "summary_of_changes",
+            "validation_commands",
+            "validation_results",
+            "risks",
+            "rollback_plan",
+            "human_review_focus"
+        ],
+        "rollback_plan_required": true,
+        "claim_evidence_policy": "Every claim of completion, validation, or safety must be backed by a file diff, command result, or explicit NOT_RUN_WITH_REASON."
+    },
+    "abort_conditions": [
+        "The requested change requires credentials, secrets, paid services, or external access not available in the current environment.",
+        "The task requires modifying files outside the authorized write boundary.",
+        "The implementation path would require disabling validation, type safety, authorization, or error handling.",
+        "A proposed patch repeats a known anti-pattern with similarity_score > 0.85 and does not include the documented remedy.",
+        "The working tree contains unrelated user changes that would be overwritten or obscured.",
+        "The user request conflicts with security, privacy, data integrity, or platform policy constraints."
+    ],
+    "final_output_contract": {
+        "required_sections": [
+            "Result",
+            "Files Changed",
+            "Validation Evidence",
+            "Risks and Assumptions",
+            "Rollback Plan",
+            "Next Action"
+        ],
+        "forbidden_output_patterns": [
+            "Done without validation evidence",
+            "It should work without proof",
+            "Placeholder code omitted for brevity",
+            "Broad claims of production readiness without passing checks or stated exceptions"
+        ],
+        "tone": "direct, concise, evidence-backed, review-ready"
+    },
+    "human_escalation_policy": {
+        "require_human_approval_for": [
+            "Database migrations or destructive data operations.",
+            "Authentication, authorization, billing, payments, secrets, or environment-variable changes.",
+            "New dependencies, package manager changes, CI/CD changes, or deployment configuration changes.",
+            "Full-file rewrites, large refactors, design-system changes, or public API contract changes.",
+            "Any change whose failure could block login, payment, data access, release submission, or production availability."
+        ],
+        "approval_payload_fields": [
+            "requested_change",
+            "why_approval_is_required",
+            "affected_scope",
+            "risk",
+            "recommended_option",
+            "fallback_option"
+        ]
+    }
+}

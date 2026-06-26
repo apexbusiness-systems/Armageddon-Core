@@ -148,3 +148,15 @@ rewrite prior entries.
 | `docs/CANONICAL_UI_CONTRACT.md` | Canonical | Freezes the public header/footer/pricing state. Update alongside the matching assertion when an invariant intentionally changes. |
 | `armageddon-site/tests/unit/canonical-ui-freeze.test.ts` | Enforcement (CI) | Regression guardrail for the contract; runs via `npm run test -w armageddon-site`. Never delete an assertion to make CI pass. |
 | `.github/CODEOWNERS` | Review gate | Requires `@apexbusiness-systems` review on the canonical surfaces and the guardrails. Binding once `main` branch protection requires Code Owner review. |
+
+## Addendum — 2026-06-26
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+security regression tests added for the 2026-06-26 OmniPort remediation package.
+
+| Test file | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/tests/unit/api-omniport-waiver.test.ts` | Enforcement (CI) | Validates waiver acceptance rejects mismatched organization and user claims before inserting legal records. |
+| `armageddon-site/tests/unit/omniport-ssrf.test.ts` | Enforcement (CI) | Validates OmniPort SSRF rejection for localhost/private/reserved IP targets and private DNS resolutions while allowing public HTTPS. |
+| `armageddon-site/tests/unit/api-run-temporal-cleanup.test.ts` | Enforcement (CI) | Validates `/api/run` marks inserted rows failed when Temporal connection or workflow start fails. |
+| `armageddon-site/tests/unit/api-omniport-execute-temporal-cleanup.test.ts` | Enforcement (CI) | Validates OmniPort execute marks inserted rows failed when Temporal connection fails. |

@@ -11,6 +11,7 @@ export const runtime = 'nodejs';
 
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
@@ -156,6 +157,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         client = await getTemporalClient();
     } catch (err) {
+        console.error('[OmniPort] Live-fire Temporal unavailable:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
         return NextResponse.json(
             { authorized: false, reason: 'TEMPORAL_UNAVAILABLE', code: 'TEMPORAL_UNAVAILABLE' },
             { status: 503 }

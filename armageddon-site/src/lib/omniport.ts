@@ -3,6 +3,8 @@
 // All comparisons use timing-safe equality. No secrets ever leave this module.
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type SupabaseClient } from '@supabase/supabase-js';
@@ -144,7 +146,9 @@ export async function validateSSRF(url: string): Promise<boolean> {
             return false;
         }
 
-        return true;
+        const results = await lookup(decodedHostname, { all: true, verbatim: true });
+        if (results.length === 0) return false;
+        return results.every(result => !isBlockedIpAddress(result.address));
     } catch {
         return false;
     }
