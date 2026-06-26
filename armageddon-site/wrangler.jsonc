@@ -14,7 +14,7 @@
   // KV namespace for support chat rate limiting
   // Create with: npx wrangler kv namespace create RATE_LIMIT_KV
   "kv_namespaces": [
-    { "binding": "RATE_LIMIT_KV", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+    { "binding": "RATE_LIMIT_KV", "id": "92d18e3aa55a4769b4485ffb3616f034" }
   ],
   // Plain-text vars (secrets stay in dashboard; never commit secret values here)
   // Secret: ANTHROPIC_API_KEY — set via: npx wrangler secret put ANTHROPIC_API_KEY
