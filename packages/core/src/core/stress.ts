@@ -118,6 +118,7 @@ export class NativeHttpStressTester {
             const response = await fetch(url, {
                 method: 'GET',
                 signal: controller.signal,
+                redirect: 'manual',
             });
             
             clearTimeout(timeout);

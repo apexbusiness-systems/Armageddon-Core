@@ -41,6 +41,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     }
 
+    if (waiverPayload.orgId !== organizationId) {
+        return NextResponse.json(
+            { accepted: false, reason: 'WAIVER_ORG_MISMATCH' },
+            { status: 400 }
+        );
+    }
+
+    if (waiverPayload.acceptedByUserId !== acceptedByUserId) {
+        return NextResponse.json(
+            { accepted: false, reason: 'WAIVER_USER_MISMATCH' },
+            { status: 400 }
+        );
+    }
+
     // Hash the token for the legal record (never store the raw token)
     const waiverTokenHash = createHash('sha256').update(waiverToken).digest('hex');
 

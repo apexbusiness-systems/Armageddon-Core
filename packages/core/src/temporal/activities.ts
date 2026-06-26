@@ -1082,7 +1082,7 @@ export async function runBattery8_AssetSmoke(config: BatteryConfig): Promise<Bat
         for (const asset of assets) {
             try {
                 const url = new URL(asset, config.targetEndpoint).toString();
-                const res = await fetch(url);
+                const res = await fetch(url, { redirect: 'manual' });
                 if (res.ok) {
                     passedCount++; details[asset] = res.status;
                 } else {
