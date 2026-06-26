@@ -797,6 +797,37 @@
           btnLabel.textContent = 'INITIATE SEQUENCE';
         }
       });
+
+      // Hydrate form from localStorage draft if present
+      try {
+        const rawDraft = localStorage.getItem('armageddon:onboarding-draft');
+        if (rawDraft) {
+          const draft = JSON.parse(rawDraft);
+          
+          if (draft.orgName) {
+            const el = document.getElementById('company');
+            if (el) el.value = draft.orgName;
+          }
+          if (draft.contactEmail) {
+            const el = document.getElementById('email');
+            if (el) el.value = draft.contactEmail;
+          }
+          if (draft.tier) {
+            const el = document.getElementById('tier');
+            if (el) el.value = draft.tier;
+          }
+          if (draft.targetSystemName || draft.targetUrl) {
+            const el = document.getElementById('description');
+            if (el) {
+              const systemName = draft.targetSystemName ? `Target System: ${draft.targetSystemName}\n` : '';
+              const targetUrl = draft.targetUrl ? `Target URL: ${draft.targetUrl}\n` : '';
+              el.value = `${systemName}${targetUrl}`;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse onboarding draft:', e);
+      }
     </script>
   </body>
 </html>

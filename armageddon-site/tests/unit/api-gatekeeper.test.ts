@@ -8,6 +8,12 @@ vi.mock('../../src/lib/auth', () => ({
     authenticateRequest: vi.fn(),
 }));
 
+const mockSupabase = {
+    from: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockResolvedValue({ data: null }),
+};
+
 import { authenticateRequest } from '../../src/lib/auth';
 
 // Import the handler
@@ -30,7 +36,8 @@ describe('POST /api/gatekeeper', () => {
 
     it('should return eligible: true for valid admin token', async () => {
         (authenticateRequest as any).mockResolvedValueOnce({
-            user: { email: 'admin@example.com' },
+            user: { email: 'admin@example.com', id: 'admin-1' },
+            supabase: mockSupabase,
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -73,7 +80,8 @@ describe('POST /api/gatekeeper', () => {
 
     it('should return eligible: false for non-admin user', async () => {
         (authenticateRequest as any).mockResolvedValueOnce({
-            user: { email: 'user@example.com' },
+            user: { email: 'user@example.com', id: 'user-1' },
+            supabase: mockSupabase,
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -94,7 +102,8 @@ describe('POST /api/gatekeeper', () => {
         delete process.env.ADMIN_EMAIL;
 
         (authenticateRequest as any).mockResolvedValueOnce({
-            user: { email: 'admin@example.com' },
+            user: { email: 'admin@example.com', id: 'admin-1' },
+            supabase: mockSupabase,
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {
@@ -113,6 +122,7 @@ describe('POST /api/gatekeeper', () => {
     it('should return eligible: false if user has no email', async () => {
         (authenticateRequest as any).mockResolvedValueOnce({
             user: { id: 'some-id' },
+            supabase: mockSupabase,
         });
 
         const req = new NextRequest('http://localhost:3000/api/gatekeeper', {

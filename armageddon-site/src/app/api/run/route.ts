@@ -23,6 +23,7 @@ interface RunRequest {
     level?: number;
     iterations?: number;
     batteries?: string[]; // Optional battery selection for Verified/Certified tiers
+    targetEndpoint?: string;
 }
 
 interface RunResponse {
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // Parse request body
         const body: RunRequest = await request.json();
-        const { organizationId, level = 7, batteries } = body;
+        const { organizationId, level = 7, batteries, targetEndpoint } = body;
 
         // 3. Organization-based Rate Limiting
         if (organizationId) {
@@ -193,6 +194,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                     iterations,
                     tier: workflowTier,
                     seed: workflowSeed,
+                    targetEndpoint,
                 },
             });
 
@@ -220,6 +222,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 tier: workflowTier,
                 seed: workflowSeed,
                 batteries: validatedBatteries,
+                targetEndpoint,
             }],
         });
 

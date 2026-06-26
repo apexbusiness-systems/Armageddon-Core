@@ -12,6 +12,7 @@ import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
+import React from 'react';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS & CONFIGURATION
@@ -117,7 +118,7 @@ interface GatekeeperResponse {
 // HELPER FUNCTIONS (Extracted to reduce Component Complexity)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function startWorkflowApi(orgId: string, level: number, batteries: string[], accessToken: string) {
+async function startWorkflowApi(orgId: string, level: number, batteries: string[], accessToken: string, targetEndpoint?: string) {
     // Routed to the configured external backend; callers must gate on
     // isApiConfigured() first so this never hits a non-existent static route.
     // /api/run requires the Supabase access token (membership is verified server-side).
@@ -127,7 +128,7 @@ async function startWorkflowApi(orgId: string, level: number, batteries: string[
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ organizationId: orgId, level, batteries }),
+        body: JSON.stringify({ organizationId: orgId, level, batteries, targetEndpoint }),
     });
     const data = (await res.json()) as RunResponse;
     return { ok: res.ok, status: res.status, data };
@@ -158,6 +159,124 @@ async function resolveActiveOrg(): Promise<OrgResolution> {
     }
     return { ok: true, organizationId, accessToken: session.access_token };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEMOIZED SUB-COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BatterySelector = React.memo(function BatterySelector({
+    selectedBatteries,
+    canCustomize,
+    isRunning,
+    toggleBattery
+}: {
+    selectedBatteries: string[];
+    canCustomize: boolean;
+    isRunning: boolean;
+    toggleBattery: (id: string) => void;
+}) {
+    return (
+        <div className="grid grid-cols-2 gap-3 relative">
+            {[
+                { id: 'B10', name: 'Goal Hijack' },
+                { id: 'B11', name: 'Tool Misuse' },
+                { id: 'B12', name: 'Memory Poison' },
+                { id: 'B13', name: 'Supply Chain' },
+            ].map(battery => {
+                const isSelected = selectedBatteries.includes(battery.id);
+                return (
+                    <button
+                        key={battery.id}
+                        onClick={() => toggleBattery(battery.id)}
+                        disabled={!canCustomize || isRunning}
+                        className={`px-4 py-3 border transition-all duration-200 ${isSelected
+                            ? 'border-aerospace bg-aerospace/10 text-aerospace'
+                            : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
+                        } ${canCustomize && !isRunning
+                            ? 'hover:border-zinc-600 cursor-pointer'
+                            : 'cursor-not-allowed opacity-50'
+                        }`}
+                    >
+                        <span className="mono-small block text-left">
+                            <span className={`text-xs opacity-60 ${isSelected ? 'text-[var(--safe)] opacity-90' : ''}`}>
+                                {battery.id}
+                            </span>
+                            <span className="block mt-0.5">{battery.name}</span>
+                        </span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+});
+
+const TerminalLog = React.memo(function TerminalLog({
+    terminalLines,
+    terminalRef
+}: {
+    terminalLines: TerminalLine[];
+    terminalRef: React.RefObject<HTMLDivElement>;
+}) {
+    if (terminalLines.length === 0) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center text-signal/20 mono-data">
+                <p>AWAITING SEQUENCE INITIATION...</p>
+                <span className="animate-pulse mt-2 text-2xl">_</span>
+            </div>
+        );
+    }
+
+    return (
+        <AnimatePresence mode="popLayout">
+            {terminalLines.map(line => {
+                const MSG_COLORS: Record<string, string> = {
+                    [MSG_TYPE.SUCCESS]: 'text-[var(--safe)]',
+                    [MSG_TYPE.ERROR]: 'text-[var(--destructive)] font-bold',
+                    [MSG_TYPE.WARNING]: 'text-amber-500',
+                    [MSG_TYPE.COMMAND]: 'text-[var(--aerospace)]',
+                    [MSG_TYPE.BLOCKED]: 'text-zinc-500 line-through',
+                };
+                const msgColor = MSG_COLORS[line.type] || 'text-zinc-300';
+
+                return (
+                    <motion.div
+                        key={line.id}
+                        initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                        className="mb-1 break-words leading-relaxed"
+                    >
+                        <span className="text-zinc-600 mr-2 select-none">[{line.prefix}]</span>
+                        <span className={msgColor}>{line.content}</span>
+                    </motion.div>
+                );
+            })}
+            <div ref={terminalRef} />
+        </AnimatePresence>
+    );
+});
+
+const ThreatMatrix = React.memo(function ThreatMatrix({ threatMap }: { threatMap: ThreatCell[] }) {
+    return (
+        <div className="grid grid-cols-8 gap-2 w-full max-w-[400px] aspect-square">
+            {threatMap.map(cell => {
+                let cellClass = 'w-full h-full rounded-sm transition-colors duration-500 ';
+                if (cell.status === 'idle') cellClass += 'bg-white/5 border border-white/5';
+                else if (cell.status === 'danger') cellClass += 'bg-[var(--destructive)] shadow-[0_0_10px_var(--destructive)]';
+                else if (cell.status === 'safe') cellClass += 'bg-[var(--safe)]/20 border border-[var(--safe)]/50 shadow-[0_0_8px_rgba(0,255,100,0.2)]';
+                else if (cell.status === 'contained') cellClass += 'bg-amber-500/20 border border-amber-500/50';
+
+                return (
+                    <motion.div
+                        key={cell.id}
+                        className={cellClass}
+                        initial={false}
+                        animate={cell.status === 'danger' ? { scale: [1, 1.1, 1] } : {}}
+                        transition={{ duration: 0.2 }}
+                    />
+                );
+            })}
+        </div>
+    );
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COMPONENT
@@ -328,8 +447,26 @@ export default function DestructionConsole({
         setOrganizationId(orgId);
         let runId: string;
 
+        let targetUrl: string | undefined;
         try {
-            const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries, org.accessToken);
+            const rawDraft = localStorage.getItem('armageddon:onboarding-draft');
+            if (rawDraft) {
+                const draft = JSON.parse(rawDraft);
+                targetUrl = draft.targetUrl;
+            }
+        } catch {
+            // Ignore parse errors
+        }
+
+        if (!targetUrl || targetUrl.trim() === '') {
+            addLine('CRIT', 'FATAL ERROR: Target URL is missing. Please configure target in onboarding first.', MSG_TYPE.ERROR);
+            setIsRunning(false);
+            onStatusChange?.('idle');
+            return;
+        }
+
+        try {
+            const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries, org.accessToken, targetUrl);
 
             if (!ok || !data.runId) {
                 if (status === 403) {
@@ -340,7 +477,7 @@ export default function DestructionConsole({
             }
             runId = data.runId;
             setRunId(runId);
-            addLine(LABELS.SYS, `Workflow started: ${runId}`, MSG_TYPE.SYSTEM);
+            addLine(LABELS.SYS, `Workflow started against ${targetUrl}: ${runId}`, MSG_TYPE.SYSTEM);
             addLine(LABELS.SYS, 'Subscribing to real-time event stream...', MSG_TYPE.SYSTEM);
         } catch (e) {
             console.error("API call failed", e);
@@ -413,12 +550,12 @@ export default function DestructionConsole({
 
     }, [isRunning, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion]);
 
-    const handleLogout = async () => {
+    const handleLogout = useCallback(async () => {
         const sb = getRequiredSupabase('Supabase not initialized');
         if (sb) await endSupabaseSession(sb);
-    };
+    }, []);
 
-    const toggleBattery = (batteryId: string) => {
+    const toggleBattery = useCallback((batteryId: string) => {
         if (!canCustomize || isRunning) return;
         setSelectedBatteries(prev => {
             if (prev.includes(batteryId)) {
@@ -428,9 +565,9 @@ export default function DestructionConsole({
             }
             return [...prev, batteryId].sort((a, b) => a.localeCompare(b));
         });
-    };
+    }, [canCustomize, isRunning]);
 
-    const handleExportJson = () => {
+    const handleExportJson = useCallback(() => {
         // Block export without a durable organization id — never emit a demo/placeholder org.
         if (!organizationId || organizationId === 'demo-org-id' || organizationId === 'demo-org') {
             addLine(LABELS.SYS, 'EXPORT BLOCKED: no durable organization id for this run.', MSG_TYPE.ERROR);
@@ -470,7 +607,7 @@ export default function DestructionConsole({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    };
+    }, [organizationId, terminalStatus, runId, attestationPubKey, terminalLines, addLine]);
 
     // ────────────────────────────────────────────────────────────────────────
     // RENDER
@@ -551,37 +688,12 @@ export default function DestructionConsole({
                                 </div>
                             </div>
                         )}
-                        <div className="grid grid-cols-2 gap-3 relative">
-                            {[
-                                { id: 'B10', name: 'Goal Hijack' },
-                                { id: 'B11', name: 'Tool Misuse' },
-                                { id: 'B12', name: 'Memory Poison' },
-                                { id: 'B13', name: 'Supply Chain' },
-                            ].map(battery => {
-                                const isSelected = selectedBatteries.includes(battery.id);
-                                return (
-                                    <button
-                                        key={battery.id}
-                                        onClick={() => toggleBattery(battery.id)}
-                                        disabled={!canCustomize || isRunning}
-                                        className={`px-4 py-3 border transition-all duration-200 ${isSelected
-                                            ? 'border-aerospace bg-aerospace/10 text-aerospace'
-                                            : 'border-zinc-800 bg-zinc-900/30 text-zinc-400'
-                                        } ${canCustomize && !isRunning
-                                            ? 'hover:border-zinc-600 cursor-pointer'
-                                            : 'cursor-not-allowed opacity-50'
-                                        }`}
-                                    >
-                                        <span className="mono-small block text-left">
-                                            <span className={`text-xs opacity-60 ${isSelected ? 'text-[var(--safe)] opacity-90' : ''}`}>
-                                                {battery.id}
-                                            </span>
-                                            <span className="block mt-0.5">{battery.name}</span>
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <BatterySelector
+                            selectedBatteries={selectedBatteries}
+                            canCustomize={canCustomize}
+                            isRunning={isRunning}
+                            toggleBattery={toggleBattery}
+                        />
                     </div>
 
                     <div className="mt-8">
@@ -662,37 +774,7 @@ export default function DestructionConsole({
                             </div>
                         </div>
                         <div className="terminal-content flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar" ref={terminalRef}>
-                            {terminalLines.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-signal/20 mono-data">
-                                    <p>AWAITING SEQUENCE INITIATION...</p>
-                                    <span className="animate-pulse mt-2 text-2xl">_</span>
-                                </div>
-                            ) : (
-                                <AnimatePresence mode="popLayout">
-                                    {terminalLines.map(line => {
-                                        const MSG_COLORS: Record<string, string> = {
-                                            [MSG_TYPE.SUCCESS]: 'text-[var(--safe)]',
-                                            [MSG_TYPE.ERROR]: 'text-[var(--destructive)] font-bold',
-                                            [MSG_TYPE.WARNING]: 'text-amber-500',
-                                            [MSG_TYPE.COMMAND]: 'text-[var(--aerospace)]',
-                                            [MSG_TYPE.BLOCKED]: 'text-zinc-500 line-through',
-                                        };
-                                        const msgColor = MSG_COLORS[line.type] || 'text-zinc-300';
-
-                                        return (
-                                            <motion.div
-                                                key={line.id}
-                                                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                                                className="mb-1 break-words leading-relaxed"
-                                            >
-                                                <span className="text-zinc-600 mr-2 select-none">[{line.prefix}]</span>
-                                                <span className={msgColor}>{line.content}</span>
-                                            </motion.div>
-                                        );
-                                    })}
-                                    <div ref={terminalRef} />
-                                </AnimatePresence>
-                            )}
+                            <TerminalLog terminalLines={terminalLines} terminalRef={terminalRef} />
                         </div>
                     </div>
 
@@ -713,25 +795,7 @@ export default function DestructionConsole({
                                 </div>
                             </div>
                             <div className="p-6 flex-1 flex items-center justify-center bg-[url('/grid-pattern.png')] bg-repeat opacity-80">
-                                <div className="grid grid-cols-8 gap-2 w-full max-w-[400px] aspect-square">
-                                    {threatMap.map(cell => {
-                                        let cellClass = 'w-full h-full rounded-sm transition-colors duration-500 ';
-                                        if (cell.status === 'idle') cellClass += 'bg-white/5 border border-white/5';
-                                        else if (cell.status === 'danger') cellClass += 'bg-[var(--destructive)] shadow-[0_0_10px_var(--destructive)]';
-                                        else if (cell.status === 'safe') cellClass += 'bg-[var(--safe)]/20 border border-[var(--safe)]/50 shadow-[0_0_8px_rgba(0,255,100,0.2)]';
-                                        else if (cell.status === 'contained') cellClass += 'bg-amber-500/20 border border-amber-500/50';
-
-                                        return (
-                                            <motion.div
-                                                key={cell.id}
-                                                className={cellClass}
-                                                initial={false}
-                                                animate={cell.status === 'danger' ? { scale: [1, 1.1, 1] } : {}}
-                                                transition={{ duration: 0.2 }}
-                                            />
-                                        );
-                                    })}
-                                </div>
+                                <ThreatMatrix threatMap={threatMap} />
                             </div>
                         </div>
                         <LeaderboardWidget status={status} />

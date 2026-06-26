@@ -1,16 +1,25 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
-interface LockdownModalProps {
-    onClose: () => void;
-}
-
 export default function LockdownModal({ onClose }: { readonly onClose: () => void }) {
     const router = useRouter();
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        globalThis.addEventListener('keydown', onKey);
+        return () => globalThis.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lockdown-modal-title"
+        >
             {/* Backdrop with reduced opacity to show logs behind */}
             <motion.div
                 className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
@@ -34,7 +43,8 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
                 {/* Close Button X */}
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-signal/30 hover:text-[var(--aerospace)] transition-colors z-20"
+                    aria-label="Close lockdown modal"
+                    className="absolute top-4 right-4 text-signal/30 hover:text-[var(--aerospace)] transition-colors z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -61,7 +71,7 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
                     </motion.div>
 
                     {/* Access Denied Header */}
-                    <h2 className="display-medium text-[var(--aerospace)] mb-2 tracking-widest leading-none glitch-text" data-text="CONNECTION LOST">
+                    <h2 id="lockdown-modal-title" className="display-medium text-[var(--aerospace)] mb-2 tracking-widest leading-none glitch-text" data-text="CONNECTION LOST">
                         CONNECTION LOST
                     </h2>
 
@@ -109,10 +119,10 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
 
                     {/* Secondary Actions */}
                     <div className="flex justify-between items-center px-2">
-                        <button onClick={onClose} className="mono-small text-signal/40 hover:text-white transition-colors">
+                        <button onClick={onClose} className="mono-small text-signal/40 hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
                             ABORT SEQUENCE
                         </button>
-                        <button className="mono-small text-[var(--aerospace)] hover:text-white transition-colors">
+                        <button onClick={onClose} className="mono-small text-[var(--aerospace)] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
                             MEMBER LOGIN &gt;
                         </button>
                     </div>

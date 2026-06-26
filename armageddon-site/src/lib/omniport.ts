@@ -7,6 +7,33 @@ import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type SupabaseClient } from '@supabase/supabase-js';
 
+// ─── SSRF Validation Helper ────────────────────────────────────────────────
+export function validateSSRF(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        const hostname = parsed.hostname.toLowerCase();
+        
+        // Disallow private ranges and localhost
+        if (
+            hostname === 'localhost' ||
+            hostname.startsWith('127.') ||
+            hostname.startsWith('10.') ||
+            hostname.startsWith('192.168.') ||
+            hostname.startsWith('169.254.')
+        ) {
+            return false;
+        }
+
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return false;
+        }
+
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 // ─── WaiverTokenPayload (mirrored from packages/core/src/omniport/types.ts) ─
 // armageddon-core is not a workspace dep of armageddon-site; types are defined here locally.
 
@@ -28,6 +55,7 @@ export const OmniPortExecuteRequestSchema = z.object({
     iterations: z.number().int().positive(),
     batteries: z.array(z.string()).optional(),
     omniPortToken: z.string().min(1),
+    targetUrl: z.string().url().refine(validateSSRF, { message: 'SSRF_BLOCKED' }),
 });
 export type OmniPortExecuteRequest = z.infer<typeof OmniPortExecuteRequestSchema>;
 
@@ -44,6 +72,7 @@ export const OmniPortLiveFireRequestSchema = z.object({
     level: z.number().int().min(1).max(7),
     iterations: z.number().int().positive(),
     batteries: z.array(z.string()).optional(),
+    targetUrl: z.string().url().refine(validateSSRF, { message: 'SSRF_BLOCKED' }),
 });
 export type OmniPortLiveFireRequest = z.infer<typeof OmniPortLiveFireRequestSchema>;
 

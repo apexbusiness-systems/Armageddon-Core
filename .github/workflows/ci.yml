@@ -44,14 +44,14 @@ jobs:
       # APEX-POWER ZERO-FAILURE PROTOCOL
       # ═══════════════════════════════════════════════════════════
 
-      - name: Run Unit Tests (Core)
-        run: npm run test -w armageddon-core
+      - name: Documentation Sync Check
+        run: npm run docs:check
 
-      - name: Run Unit Tests (Cloudflare/local Site)
-        run: npm run test -w armageddon-site
+      - name: Lint Check (All Workspaces)
+        run: npm run lint
 
-      - name: Type Check (Core)
-        run: npm run typecheck -w armageddon-core
+      - name: Type Check (All Workspaces)
+        run: npm run typecheck
 
-      - name: Lint Check (Site)
-        run: npm run lint -w armageddon-site
+      - name: Run Unit Tests (All Workspaces)
+        run: npm run test
