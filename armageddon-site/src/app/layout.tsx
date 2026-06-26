@@ -67,10 +67,20 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className="bg-[var(--void)] text-[var(--signal)] antialiased">
-                {/* Preload the LCP hero wordmark — AVIF covers ~93% of browsers; the
-                    rest fall back through the <picture> element in DestructionConsole. */}
+            <head>
+                {/* Preconnect to Google Fonts origins so the TCP+TLS handshake is
+                    done before the stylesheet request fires. Eliminates the serial
+                    @import waterfall that was previously in globals.css. */}
+                <link rel="preconnect" href="https://fonts.googleapis.com" />
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" />
+                {/* LCP preload hints — must be in <head> for the preload scanner to
+                    discover them before body parsing. AVIF for modern browsers, WebP
+                    for Safari <16. Each browser fetches only the format it supports. */}
                 <link rel="preload" as="image" href="/wordmark.avif" type="image/avif" fetchPriority="high" />
+                <link rel="preload" as="image" href="/wordmark.webp" type="image/webp" fetchPriority="high" />
+            </head>
+            <body className="bg-[var(--void)] text-[var(--signal)] antialiased">
                 {/* CONTAINMENT VIEWPORT */}
                 <div className="relative min-h-screen">
                     {/* Main Content */}
