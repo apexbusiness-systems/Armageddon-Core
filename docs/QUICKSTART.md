@@ -13,6 +13,7 @@ Use this guide for local development and first-run validation. Run commands from
 - npm with lockfile installs (`npm ci`).
 - Docker if you are running the local Temporal/Postgres Moat stack.
 - `.env.moat` or local environment variables for integrations that require Supabase/Temporal credentials. Never commit populated env files.
+- `GROQ_API_KEY` configured in the environment if executing runs with Groq models in `packages/core`.
 
 ## Install and verify the repo
 

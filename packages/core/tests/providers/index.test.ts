@@ -19,6 +19,7 @@ import {
     OpenAIProvider,
     AnthropicProvider,
     SimulationProvider,
+    GroqProvider,
     CircuitBreakerRegistry
 } from '../../src/providers/index';
 import { ModelIdentifier } from '../../src/providers/types';
@@ -56,15 +57,24 @@ describe('Provider Factory', () => {
             expect(provider.name).toBe('simulation');
         });
 
-        it('should fallback to SimulationProvider with a warning for together/groq models', () => {
+        it('should create a GroqProvider for Groq models', () => {
+            const provider = createProvider({
+                model: 'llama-3.3-70b-versatile',
+                apiKey: 'test-key'
+            });
+            expect(provider).toBeInstanceOf(GroqProvider);
+            expect(provider.name).toBe('groq');
+        });
+
+        it('should fallback to SimulationProvider with a warning for together models', () => {
             const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
             const provider = createProvider({
-                model: 'llama3-70b-8192' as ModelIdentifier
+                model: 'meta-llama/Llama-3-70b-chat-hf'
             });
 
             expect(provider).toBeInstanceOf(SimulationProvider);
-            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('groq not yet implemented'));
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('together not yet implemented'));
         });
 
         it('should fallback to SimulationProvider for unknown models', () => {
@@ -89,20 +99,31 @@ describe('Provider Factory', () => {
             const configOpenAI = createAdversarialConfig('gpt-4o', {
                 apiKeys: {
                     openai: 'openai-key',
-                    anthropic: 'anthropic-key'
+                    anthropic: 'anthropic-key',
+                    groq: 'groq-key'
                 }
             });
-            // We can't easily check private apiKey but we can check the provider instance type
             expect(configOpenAI.target).toBeInstanceOf(OpenAIProvider);
 
             // Test Anthropic target
             const configAnthropic = createAdversarialConfig('claude-3-opus-20240229', {
                 apiKeys: {
                     openai: 'openai-key',
-                    anthropic: 'anthropic-key'
+                    anthropic: 'anthropic-key',
+                    groq: 'groq-key'
                 }
             });
             expect(configAnthropic.target).toBeInstanceOf(AnthropicProvider);
+
+            // Test Groq target
+            const configGroq = createAdversarialConfig('llama-3.3-70b-versatile', {
+                apiKeys: {
+                    openai: 'openai-key',
+                    anthropic: 'anthropic-key',
+                    groq: 'groq-key'
+                }
+            });
+            expect(configGroq.target).toBeInstanceOf(GroqProvider);
         });
 
         it('should use default models for attacker and judge if not provided', () => {
