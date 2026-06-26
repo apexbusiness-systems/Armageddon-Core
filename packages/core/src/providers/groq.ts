@@ -2,10 +2,10 @@
 // ARMAGEDDON Level 7 - Groq Provider Adapter
 // APEX Business Systems Ltd.
 // DATE: 2026-06-26
+// REFACTORED: Extends OpenAICompatibleProvider to eliminate code duplication (SonarQube)
 
 import type { CostConfig, LLMRequest, GroqModel, ProviderOptions } from './types';
-import { BaseProvider, type ProviderExecutionResult } from './base-provider';
-import { assertJsonResponse, mapStopFinishReason } from './provider-utils';
+import { OpenAICompatibleProvider } from './openai-compatible-provider';
 
 /**
  * Groq pricing per 1M tokens (as of 2026)
@@ -21,22 +21,6 @@ const GROQ_COSTS: Record<GroqModel, CostConfig> = {
 };
 
 /**
- * Groq API response structure
- */
-interface GroqCompletion {
-    id: string;
-    choices: Array<{
-        message: { role: string; content: string };
-        finish_reason: string;
-    }>;
-    usage: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
-    };
-}
-
-/**
  * Groq Provider - Real LLM integration for adversarial testing
  *
  * Features:
@@ -45,9 +29,10 @@ interface GroqCompletion {
  * - Retry with exponential backoff
  * - Full metrics collection
  */
-export class GroqProvider extends BaseProvider {
+export class GroqProvider extends OpenAICompatibleProvider {
     readonly name = 'groq' as const;
     readonly model: GroqModel;
+    readonly label = 'Groq';
 
     constructor(options: ProviderOptions) {
         const model = options.model as GroqModel;
@@ -57,46 +42,13 @@ export class GroqProvider extends BaseProvider {
         this.model = model;
     }
 
-    protected async executeRequest(request: LLMRequest): Promise<ProviderExecutionResult> {
-        const response = await this.makeAPIRequest(request);
-
+    protected getRequestBody(request: LLMRequest): Record<string, unknown> {
         return {
-            usage: {
-                inputTokens: response.usage.prompt_tokens,
-                outputTokens: response.usage.completion_tokens,
-                totalTokens: response.usage.total_tokens,
-            },
-            content: response.choices[0]?.message?.content || '',
-            finishReason: mapStopFinishReason(response.choices[0]?.finish_reason),
-            raw: response,
-        };
-    }
-
-    private async makeAPIRequest(request: LLMRequest): Promise<GroqCompletion> {
-        const messages = [];
-
-        if (request.systemPrompt) {
-            messages.push({ role: 'system', content: request.systemPrompt });
-        }
-        messages.push({ role: 'user', content: request.prompt });
-
-        const body = {
             model: this.model,
-            messages,
+            messages: this.buildMessages(request),
             max_completion_tokens: request.maxTokens || 1024,
             temperature: request.temperature ?? 0.7,
             stop: request.stopSequences,
         };
-
-        const response = await fetch(`${this.baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`,
-            },
-            body: JSON.stringify(body),
-        });
-
-        return assertJsonResponse<GroqCompletion>(response, 'Groq');
     }
 }

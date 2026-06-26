@@ -23,6 +23,7 @@ export { OpenAIProvider } from './openai';
 export { AnthropicProvider } from './anthropic';
 export { SimulationProvider } from './simulation';
 export { GroqProvider } from './groq';
+export { OpenAICompatibleProvider } from './openai-compatible-provider';
 
 /**
  * Model to provider mapping

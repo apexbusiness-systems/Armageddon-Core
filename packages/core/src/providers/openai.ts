@@ -2,11 +2,10 @@
 // ARMAGEDDON Level 7 - OpenAI Provider Adapter
 // APEX Business Systems Ltd.
 // DATE: 2026-02-06
-// REFACTORED: Extends BaseProvider to eliminate code duplication (SonarQube)
+// REFACTORED: Extends OpenAICompatibleProvider to eliminate code duplication (SonarQube)
 
 import type { CostConfig, LLMRequest, OpenAIModel, ProviderOptions } from './types';
-import { BaseProvider, type ProviderExecutionResult } from './base-provider';
-import { assertJsonResponse, mapStopFinishReason } from './provider-utils';
+import { OpenAICompatibleProvider } from './openai-compatible-provider';
 
 /**
  * OpenAI pricing per 1M tokens (as of 2026)
@@ -19,22 +18,6 @@ const OPENAI_COSTS: Record<OpenAIModel, CostConfig> = {
 };
 
 /**
- * OpenAI API response structure
- */
-interface OpenAICompletion {
-    id: string;
-    choices: Array<{
-        message: { role: string; content: string };
-        finish_reason: string;
-    }>;
-    usage: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
-    };
-}
-
-/**
  * OpenAI Provider - Real LLM integration for adversarial testing
  *
  * Features:
@@ -43,9 +26,10 @@ interface OpenAICompletion {
  * - Retry with exponential backoff
  * - Full metrics collection
  */
-export class OpenAIProvider extends BaseProvider {
+export class OpenAIProvider extends OpenAICompatibleProvider {
     readonly name = 'openai' as const;
     readonly model: OpenAIModel;
+    readonly label = 'OpenAI';
 
     constructor(options: ProviderOptions) {
         const model = options.model as OpenAIModel;
@@ -55,46 +39,13 @@ export class OpenAIProvider extends BaseProvider {
         this.model = model;
     }
 
-    protected async executeRequest(request: LLMRequest): Promise<ProviderExecutionResult> {
-        const response = await this.makeAPIRequest(request);
-
+    protected getRequestBody(request: LLMRequest): Record<string, unknown> {
         return {
-            usage: {
-                inputTokens: response.usage.prompt_tokens,
-                outputTokens: response.usage.completion_tokens,
-                totalTokens: response.usage.total_tokens,
-            },
-            content: response.choices[0]?.message?.content || '',
-            finishReason: mapStopFinishReason(response.choices[0]?.finish_reason),
-            raw: response,
-        };
-    }
-
-    private async makeAPIRequest(request: LLMRequest): Promise<OpenAICompletion> {
-        const messages = [];
-
-        if (request.systemPrompt) {
-            messages.push({ role: 'system', content: request.systemPrompt });
-        }
-        messages.push({ role: 'user', content: request.prompt });
-
-        const body = {
             model: this.model,
-            messages,
+            messages: this.buildMessages(request),
             max_tokens: request.maxTokens || 1024,
             temperature: request.temperature ?? 0.7,
             stop: request.stopSequences,
         };
-
-        const response = await fetch(`${this.baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`,
-            },
-            body: JSON.stringify(body),
-        });
-
-        return assertJsonResponse<OpenAICompletion>(response, 'OpenAI');
     }
 }
