@@ -13,11 +13,11 @@ import { OpenAICompatibleProvider } from './openai-compatible-provider';
 const GROQ_COSTS: Record<GroqModel, CostConfig> = {
     'llama-3.3-70b-versatile': { inputPer1M: 0.59, outputPer1M: 0.79 },
     'llama-3.1-8b-instant': { inputPer1M: 0.05, outputPer1M: 0.08 },
-    'openai/gpt-oss-120b': { inputPer1M: 0.15, outputPer1M: 0.60 },
-    'openai/gpt-oss-20b': { inputPer1M: 0.075, outputPer1M: 0.30 },
+    'openai/gpt-oss-120b': { inputPer1M: 0.15, outputPer1M: 0.6 },
+    'openai/gpt-oss-20b': { inputPer1M: 0.075, outputPer1M: 0.3 },
     // Legacy models (deprecated)
-    'llama3-70b-8192': { inputPer1M: 0.70, outputPer1M: 0.90 },
-    'mixtral-8x7b-32768': { inputPer1M: 0.10, outputPer1M: 0.10 },
+    'llama3-70b-8192': { inputPer1M: 0.7, outputPer1M: 0.9 },
+    'mixtral-8x7b-32768': { inputPer1M: 0.1, outputPer1M: 0.1 },
 };
 
 /**
