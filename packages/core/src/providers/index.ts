@@ -13,6 +13,7 @@ import type {
 import { OpenAIProvider } from './openai';
 import { AnthropicProvider } from './anthropic';
 import { SimulationProvider } from './simulation';
+import { GroqProvider } from './groq';
 import { CircuitBreakerRegistry } from './circuit-breaker';
 
 // Re-export types
@@ -21,6 +22,8 @@ export { CircuitBreaker, CircuitBreakerRegistry } from './circuit-breaker';
 export { OpenAIProvider } from './openai';
 export { AnthropicProvider } from './anthropic';
 export { SimulationProvider } from './simulation';
+export { GroqProvider } from './groq';
+export { OpenAICompatibleProvider } from './openai-compatible-provider';
 
 /**
  * Model to provider mapping
@@ -39,6 +42,10 @@ const MODEL_PROVIDER_MAP: Record<ModelIdentifier, ProviderName> = {
     'meta-llama/Llama-3-70b-chat-hf': 'together',
     'mistralai/Mixtral-8x7B-Instruct-v0.1': 'together',
     // Groq
+    'llama-3.1-8b-instant': 'groq',
+    'llama-3.3-70b-versatile': 'groq',
+    'openai/gpt-oss-120b': 'groq',
+    'openai/gpt-oss-20b': 'groq',
     'llama3-70b-8192': 'groq',
     'mixtral-8x7b-32768': 'groq',
     // Simulation
@@ -56,12 +63,13 @@ export function createProvider(options: ProviderOptions): ILLMProvider {
             return new OpenAIProvider(options);
         case 'anthropic':
             return new AnthropicProvider(options);
+        case 'groq':
+            return new GroqProvider(options);
         case 'simulation':
             return new SimulationProvider(options);
         case 'together':
-        case 'groq':
             // @see https://github.com/apexbusiness-systems/Armageddon-Core/issues/42
-            // Together and Groq providers planned for v2.0 release
+            // Together provider planned for v2.0 release
             console.warn(`[Providers] ${providerName} not yet implemented, falling back to simulation`);
             return new SimulationProvider(options);
         default:
@@ -85,28 +93,34 @@ export function createAdversarialConfig(
         apiKeys?: {
             openai?: string;
             anthropic?: string;
+            groq?: string;
         };
     }
 ): AdversarialConfig {
     const attackerModel = options?.attackerModel || 'gpt-4o-mini';
     const judgeModel = options?.judgeModel || 'claude-3-haiku-20240307';
 
+    const getApiKey = (provider: ProviderName) => {
+        if (provider === 'openai') return options?.apiKeys?.openai;
+        if (provider === 'anthropic') return options?.apiKeys?.anthropic;
+        if (provider === 'groq') return options?.apiKeys?.groq;
+        return undefined;
+    };
+
     return {
         attacker: createProvider({
             model: attackerModel,
-            apiKey: options?.apiKeys?.openai,
+            apiKey: getApiKey(MODEL_PROVIDER_MAP[attackerModel]),
             circuitBreaker: { maxCostUSD: 5 }, // $5 limit for attacker
         }),
         target: createProvider({
             model: targetModel,
-            apiKey: MODEL_PROVIDER_MAP[targetModel] === 'openai' 
-                ? options?.apiKeys?.openai 
-                : options?.apiKeys?.anthropic,
+            apiKey: getApiKey(MODEL_PROVIDER_MAP[targetModel]),
             circuitBreaker: { maxCostUSD: 3 }, // $3 limit for target
         }),
         judge: createProvider({
             model: judgeModel,
-            apiKey: options?.apiKeys?.anthropic,
+            apiKey: getApiKey(MODEL_PROVIDER_MAP[judgeModel]),
             circuitBreaker: { maxCostUSD: 2 }, // $2 limit for judge
         }),
     };
