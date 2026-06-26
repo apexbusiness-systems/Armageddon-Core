@@ -40,9 +40,15 @@ export default function PricingPage() {
                                 </div>
 
                                 <div className="mb-5 flex items-baseline gap-2">
-                                    <span className="text-3xl font-bold text-signal">{plan.price}</span>
+                                    <span
+                                        className={`font-bold text-signal whitespace-nowrap ${
+                                            plan.price.length > 12 ? 'text-2xl' : 'text-3xl'
+                                        }`}
+                                    >
+                                        {plan.price}
+                                    </span>
                                     {plan.cadenceLabel && (
-                                        <span className="mono-small text-signal/60">{plan.cadenceLabel}</span>
+                                        <span className="mono-small text-signal/60 whitespace-nowrap">{plan.cadenceLabel}</span>
                                     )}
                                 </div>
 
