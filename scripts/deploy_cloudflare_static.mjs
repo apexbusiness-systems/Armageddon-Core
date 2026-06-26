@@ -370,7 +370,7 @@ async function writeDeploymentManifest(outputDir, { canonicalHost, redirectHost 
 
 async function main() {
   const accountId = requiredEnv('CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_ID');
-  const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_TOKEN_ATS', 'CLOUDFLARE_AGENT_TOKEN');
+  const token = requiredEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_AGENT_TOKEN');
   const workerName = process.env.CLOUDFLARE_WORKER_NAME?.trim() || 'armageddon-core';
   const outputDir = process.env.CLOUDFLARE_OUTPUT_DIR?.trim()
     ? path.resolve(process.env.CLOUDFLARE_OUTPUT_DIR.trim())
