@@ -215,16 +215,16 @@ export default function OnboardingPage() {
                         </select>
                     </Field>
 
-                    <label className="flex items-start gap-3 cursor-pointer">
-                        <input type="checkbox" checked={draft.authorizationConfirmed}
+                    <label htmlFor="authorizationConfirmed" className="flex items-start gap-3 cursor-pointer">
+                        <input id="authorizationConfirmed" type="checkbox" checked={draft.authorizationConfirmed}
                             onChange={(e) => update('authorizationConfirmed', e.target.checked)} className="mt-1" />
                         <span className="mono-small text-signal/80">
                             I confirm I am authorized to run adversarial tests against this target.
                         </span>
                     </label>
 
-                    <label className="flex items-start gap-3 cursor-pointer">
-                        <input type="checkbox" checked={draft.acceptableUseAck}
+                    <label htmlFor="acceptableUseAck" className="flex items-start gap-3 cursor-pointer">
+                        <input id="acceptableUseAck" type="checkbox" checked={draft.acceptableUseAck}
                             onChange={(e) => update('acceptableUseAck', e.target.checked)} className="mt-1" />
                         <span className="mono-small text-signal/80">
                             I acknowledge the acceptable use policy and that Armageddon produces evidence, not a guarantee.

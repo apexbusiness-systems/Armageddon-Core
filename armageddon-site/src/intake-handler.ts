@@ -285,6 +285,27 @@ async function handleGatekeeper(request: Request, env: IntakeEnv, canonicalHost:
     if (user?.email && env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL) {
       return jsonResponse({ eligible: true, tier: 'verified', reason: 'ADMIN_OVERRIDE' }, canonicalHost);
     }
+    
+    if (user) {
+      const { data: memberships } = await supabaseQuery<OrgMembership>(
+        env,
+        'organization_members',
+        `select=organization_id,role&user_id=eq.${encodeURIComponent(user.id)}`
+      );
+      
+      const orgId = memberships?.[0]?.organization_id;
+      if (orgId) {
+        const { data: orgs } = await supabaseQuery<OrgRow>(
+          env,
+          'organizations',
+          `select=current_tier&id=eq.${encodeURIComponent(orgId)}`
+        );
+        const tier = orgs?.[0]?.current_tier ?? 'free_dry';
+        if (tier === 'verified' || tier === 'certified') {
+          return jsonResponse({ eligible: true, tier, reason: 'ACTIVE_SUBSCRIPTION' }, canonicalHost);
+        }
+      }
+    }
   }
 
   return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
@@ -476,7 +497,7 @@ async function createRunRecord(
     id: runId,
     organization_id: organizationId,
     level,
-    sim_mode: false,
+    sim_mode: true,
     sandbox_tenant: 'armageddon-prod',
     workflow_id: workflowId,
     status: 'pending',

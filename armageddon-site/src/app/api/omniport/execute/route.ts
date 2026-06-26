@@ -18,7 +18,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const body = await parseOmniPortBody<OmniPortExecuteRequest>(request, OmniPortExecuteRequestSchema);
     if (body instanceof NextResponse) return body;
-    const { organizationId, level, iterations, batteries } = body;
+    const { organizationId, level, iterations, batteries, targetUrl } = body;
 
     const runId = uuidv4();
     const workflowId = `armageddon-${runId}`;
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 tier: 'CERTIFIED',
                 seed,
                 omniPortRunRef,
+                targetUrl,
             },
         });
 
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 tier: 'CERTIFIED',
                 seed,
                 batteries: batteries ?? ['B10', 'B11', 'B12', 'B13', 'B14'],
+                targetUrl,
             }],
         });
     } catch (err) {
