@@ -210,21 +210,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // STEP 3: Start Temporal workflow
         // ═══════════════════════════════════════════════════════════════════
 
-        const client = await getTemporalClient();
+        let client;
+        try {
+            client = await getTemporalClient();
+        } catch (err) {
+            console.error('[Run API] Temporal client connection failed:', err);
+            await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+            return NextResponse.json(
+                { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' },
+                { status: 503 }
+            );
+        }
 
-        const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
-            workflowId,
-            taskQueue: TEMPORAL_TASK_QUEUE,
-            args: [{
-                runId,
-                organizationId,
-                iterations,
-                tier: workflowTier,
-                seed: workflowSeed,
-                batteries: validatedBatteries,
-                targetEndpoint,
-            }],
-        });
+        let handle;
+        try {
+            handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+                workflowId,
+                taskQueue: TEMPORAL_TASK_QUEUE,
+                args: [{
+                    runId,
+                    organizationId,
+                    iterations,
+                    tier: workflowTier,
+                    seed: workflowSeed,
+                    batteries: validatedBatteries,
+                    targetEndpoint,
+                }],
+            });
+        } catch (err) {
+            console.error('[Run API] Workflow start failed:', err);
+            await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+            return NextResponse.json(
+                { success: false, error: 'Failed to start workflow', code: 'WORKFLOW_START_FAILED' },
+                { status: 500 }
+            );
+        }
 
         // Update run with workflow_run_id
         await supabase

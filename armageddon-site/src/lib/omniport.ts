@@ -6,25 +6,141 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type SupabaseClient } from '@supabase/supabase-js';
+import dns from 'node:dns/promises';
+import net from 'node:net';
 
 // ─── SSRF Validation Helper ────────────────────────────────────────────────
-export function validateSSRF(url: string): boolean {
+export function isPrivateIP(ip: string): boolean {
+    let targetIp = ip.trim();
+    if (targetIp.startsWith('::ffff:')) {
+        targetIp = targetIp.substring(7);
+    }
+
+    if (net.isIPv4(targetIp)) {
+        const parts = targetIp.split('.').map(Number);
+        if (parts.length !== 4) return true;
+        const [p1, p2, p3, p4] = parts;
+        
+        if (p1 === 127) return true;
+        if (p1 === 10) return true;
+        if (p1 === 172 && p2 >= 16 && p2 <= 31) return true;
+        if (p1 === 192 && p2 === 168) return true;
+        if (p1 === 169 && p2 === 254) return true;
+        if (p1 === 0) return true;
+        
+        return false;
+    } else if (net.isIPv6(targetIp)) {
+        const lower = targetIp.toLowerCase();
+        if (lower === '::1' || lower === '0:0:0:0:0:0:0:1' || lower === '::0.0.0.1') return true;
+        if (lower.startsWith('fc') || lower.startsWith('fd')) return true;
+        if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true;
+        return false;
+    }
+    return true;
+}
+
+export function tryNormalizeIPv4(hostname: string): string | null {
+    const host = hostname.toLowerCase().trim();
+    
+    if (host.startsWith('0x')) {
+        const hexVal = host.slice(2);
+        if (/^[0-9a-f]+$/.test(hexVal)) {
+            const num = parseInt(hexVal, 16);
+            if (!isNaN(num) && num >= 0 && num <= 0xffffffff) {
+                return `${(num >> 24) & 255}.${(num >> 16) & 255}.${(num >> 8) & 255}.${num & 255}`;
+            }
+        }
+    }
+    
+    if (host.startsWith('0') && host.length > 1 && !host.startsWith('0x')) {
+        if (/^[0-7]+$/.test(host)) {
+            const num = parseInt(host, 8);
+            if (!isNaN(num) && num >= 0 && num <= 0xffffffff) {
+                return `${(num >> 24) & 255}.${(num >> 16) & 255}.${(num >> 8) & 255}.${num & 255}`;
+            }
+        }
+    }
+    
+    if (/^[0-9]+$/.test(host)) {
+        const num = parseInt(host, 10);
+        if (!isNaN(num) && num >= 0 && num <= 0xffffffff) {
+            return `${(num >> 24) & 255}.${(num >> 16) & 255}.${(num >> 8) & 255}.${num & 255}`;
+        }
+    }
+    
+    const parts = host.split('.');
+    if (parts.length > 0 && parts.length <= 4) {
+        const parsedParts: number[] = [];
+        for (const part of parts) {
+            let val: number;
+            if (part.startsWith('0x')) {
+                val = parseInt(part.slice(2), 16);
+            } else if (part.startsWith('0') && part.length > 1) {
+                val = parseInt(part, 8);
+            } else {
+                val = parseInt(part, 10);
+            }
+            if (isNaN(val) || val < 0 || val > 255) {
+                return null;
+            }
+            parsedParts.push(val);
+        }
+        if (parsedParts.length === 1) {
+            const num = parsedParts[0];
+            return `${(num >> 24) & 255}.${(num >> 16) & 255}.${(num >> 8) & 255}.${num & 255}`;
+        } else if (parsedParts.length === 2) {
+            const [p1, p2] = parsedParts;
+            return `${p1}.0.0.${p2}`;
+        } else if (parsedParts.length === 3) {
+            const [p1, p2, p3] = parsedParts;
+            return `${p1}.${p2}.0.${p3}`;
+        } else if (parsedParts.length === 4) {
+            return parsedParts.join('.');
+        }
+    }
+    
+    return null;
+}
+
+export async function validateSSRF(url: string): Promise<boolean> {
     try {
         const parsed = new URL(url);
-        const hostname = parsed.hostname.toLowerCase();
         
-        // Disallow private ranges and localhost
-        if (
-            hostname === 'localhost' ||
-            hostname.startsWith('127.') ||
-            hostname.startsWith('10.') ||
-            hostname.startsWith('192.168.') ||
-            hostname.startsWith('169.254.')
-        ) {
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
             return false;
         }
 
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        const hostname = parsed.hostname.toLowerCase().trim();
+        
+        if (hostname === 'localhost') {
+            return false;
+        }
+
+        const normalizedIp = tryNormalizeIPv4(hostname);
+        if (normalizedIp) {
+            if (isPrivateIP(normalizedIp)) return false;
+        }
+
+        let checkIp = hostname;
+        if (checkIp.startsWith('[') && checkIp.endsWith(']')) {
+            checkIp = checkIp.slice(1, -1);
+        }
+        if (net.isIPv6(checkIp)) {
+            if (isPrivateIP(checkIp)) return false;
+        }
+
+        try {
+            const addresses = await dns.resolve(hostname).catch(async () => {
+                const lookupRes = await dns.lookup(hostname, { all: true });
+                return lookupRes.map(r => r.address);
+            });
+            
+            for (const addr of addresses) {
+                if (isPrivateIP(addr)) {
+                    return false;
+                }
+            }
+        } catch {
             return false;
         }
 
@@ -55,7 +171,7 @@ export const OmniPortExecuteRequestSchema = z.object({
     iterations: z.number().int().positive(),
     batteries: z.array(z.string()).optional(),
     omniPortToken: z.string().min(1),
-    targetUrl: z.string().url().refine(validateSSRF, { message: 'SSRF_BLOCKED' }),
+    targetUrl: z.string().url().refine(async (val) => await validateSSRF(val), { message: 'SSRF_BLOCKED' }),
 });
 export type OmniPortExecuteRequest = z.infer<typeof OmniPortExecuteRequestSchema>;
 
@@ -72,7 +188,7 @@ export const OmniPortLiveFireRequestSchema = z.object({
     level: z.number().int().min(1).max(7),
     iterations: z.number().int().positive(),
     batteries: z.array(z.string()).optional(),
-    targetUrl: z.string().url().refine(validateSSRF, { message: 'SSRF_BLOCKED' }),
+    targetUrl: z.string().url().refine(async (val) => await validateSSRF(val), { message: 'SSRF_BLOCKED' }),
 });
 export type OmniPortLiveFireRequest = z.infer<typeof OmniPortLiveFireRequestSchema>;
 
@@ -215,7 +331,7 @@ export async function parseOmniPortBody<T>(
             { status: 400 }
         );
     }
-    const result = schema.safeParse(rawBody);
+    const result = await schema.safeParseAsync(rawBody);
     if (!result.success) {
         return NextResponse.json(
             { success: false, error: result.error.issues[0]?.message ?? 'Validation failed', code: 'VALIDATION_ERROR' },

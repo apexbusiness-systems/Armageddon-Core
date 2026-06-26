@@ -9,6 +9,7 @@
 
 export const runtime = 'nodejs';
 
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
@@ -58,12 +59,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     }
 
+    if (waiverPayload.orgId !== organizationId) {
+        return NextResponse.json(
+            { authorized: false, reason: 'WAIVER_ORG_MISMATCH' },
+            { status: 400 }
+        );
+    }
+
+    if (waiverPayload.runLevel !== level) {
+        return NextResponse.json(
+            { authorized: false, reason: 'WAIVER_LEVEL_MISMATCH' },
+            { status: 400 }
+        );
+    }
+
     const supabase = getSupabaseServiceRole();
 
     // Step 3: Verify a persisted waiver record exists for this org + run level (not expired)
     const { data: waiverRecord, error: waiverError } = await supabase
         .from('omniport_waiver_records')
-        .select('id, expires_at')
+        .select('id, expires_at, waiver_token_hash')
         .eq('org_id', organizationId)
         .eq('run_level', level)
         .gte('expires_at', new Date().toISOString())
@@ -74,6 +89,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (waiverError || !waiverRecord) {
         return NextResponse.json(
             { authorized: false, reason: 'WAIVER_RECORD_NOT_FOUND' },
+            { status: 403 }
+        );
+    }
+
+    const presentedHash = createHash('sha256').update(waiverToken).digest('hex');
+    const presentedBuf = Buffer.from(presentedHash, 'utf8');
+    const storedBuf = Buffer.from(waiverRecord.waiver_token_hash, 'utf8');
+
+    if (presentedBuf.length !== storedBuf.length || !timingSafeEqual(presentedBuf, storedBuf)) {
+        return NextResponse.json(
+            { authorized: false, reason: 'WAIVER_TOKEN_HASH_MISMATCH' },
             { status: 403 }
         );
     }
