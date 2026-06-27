@@ -67,7 +67,7 @@ export default function CertificationSeal() {
                             transition={{ duration: 0.4, ease: 'easeOut' }}
                         >
                             <Image
-                                src="/seal.png"
+                                src="/armageddon-certification-seal.png"
                                 alt="ARMAGEDDON Certified"
                                 fill
                                 className="object-contain drop-shadow-2xl"
