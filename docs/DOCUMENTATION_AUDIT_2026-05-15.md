@@ -160,3 +160,18 @@ security regression tests added for the 2026-06-26 OmniPort remediation package.
 | `armageddon-site/tests/unit/omniport-ssrf.test.ts` | Enforcement (CI) | Validates OmniPort SSRF rejection for localhost/private/reserved IP targets and private DNS resolutions while allowing public HTTPS. |
 | `armageddon-site/tests/unit/api-run-temporal-cleanup.test.ts` | Enforcement (CI) | Validates `/api/run` marks inserted rows failed when Temporal connection or workflow start fails. |
 | `armageddon-site/tests/unit/api-omniport-execute-temporal-cleanup.test.ts` | Enforcement (CI) | Validates OmniPort execute marks inserted rows failed when Temporal connection fails. |
+
+## Addendum — 2026-06-26 (site localization)
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+local i18n system added to `armageddon-site` (English, French, German,
+Italian, Spanish, Simplified Chinese, Portuguese) and the regression guardrail
+that keeps every locale dictionary in key parity with English. No runtime
+third-party translation calls are made; all dictionaries are static, typed,
+and bundled at build time.
+
+| Document / guardrail | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/src/i18n/types.ts` | Canonical schema | English (`dictionaries/en.ts`) is the schema source of truth. Add new keys here first, then to all six other locale files, before wiring a component. |
+| `armageddon-site/src/i18n/dictionaries/{en,fr,de,it,es,zh-CN,pt}.ts` | Canonical content | Legal/privacy body copy stays English-only (controlling version); only chrome and UI labels are translated. Non-Latin-script-free locales (fr/de/it/es/pt) are written without diacritics, matching existing file convention. |
+| `armageddon-site/tests/unit/i18n-dictionaries.test.ts` | Enforcement (CI) | Validates exact key parity across all locales, validates `SUPPORTED_LOCALES`, and rejects empty-string leaf values (except the intentionally blank `cadenceLabel` on the free tier). Never delete an assertion to make CI pass. |

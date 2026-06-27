@@ -61,7 +61,7 @@ export default function AttestationBadge() {
                     setState({
                         status: 'ephemeral',
                         spec: body.spec,
-                        detail: 'No signing seed configured — per-process key only.',
+                        detail: 'No signing seed configured. Per-process key only.',
                     });
                     return;
                 }

@@ -20,6 +20,7 @@ import {
     secureSectors,
     type SectorStatus,
 } from '@/lib/run-telemetry';
+import { useT } from '@/i18n/useT';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS & CONFIGURATION
@@ -320,6 +321,8 @@ export default function DestructionConsole({
     const terminalRef = useRef<HTMLDivElement>(null);
     const user = useAuth();
     const attestationPubKey = useAttestationPubKey();
+    const { dictionary } = useT();
+    const t = dictionary.home.console;
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
     // Removed unused userTier
     const [canCustomize, setCanCustomize] = useState(false);
@@ -416,13 +419,13 @@ export default function DestructionConsole({
             const denom = executed || passed || selectedBatteries.length;
             const escapeRate = run.escape_rate ?? 0;
             addLine(LABELS.SYS, `${passed}/${denom} BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, MSG_TYPE.SUCCESS);
-            addLine(LABELS.SYS, 'VERDICT: EVIDENCE GENERATED — SUBMIT FOR REVIEW', MSG_TYPE.SUCCESS);
+            addLine(LABELS.SYS, 'VERDICT: EVIDENCE GENERATED | SUBMIT FOR REVIEW', MSG_TYPE.SUCCESS);
             onStatusChange?.('certified');
         } else if (run.status === 'cancelled') {
-            addLine(LABELS.SYS, 'VERDICT: RUN CANCELLED — NO CERTIFICATION ISSUED', MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, 'VERDICT: RUN CANCELLED | NO CERTIFICATION ISSUED', MSG_TYPE.WARNING);
             onStatusChange?.('idle');
         } else {
-            addLine(LABELS.SYS, 'VERDICT: BREACH EVIDENCE RECORDED — REVIEW REQUIRED', MSG_TYPE.ERROR);
+            addLine(LABELS.SYS, 'VERDICT: BREACH EVIDENCE RECORDED | REVIEW REQUIRED', MSG_TYPE.ERROR);
             onStatusChange?.('rejected');
         }
         addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
@@ -611,8 +614,8 @@ export default function DestructionConsole({
 
         const isTerminal = terminalStatus !== null && isTerminalStatus(terminalStatus);
         const warnings: string[] = [];
-        if (!isTerminal) warnings.push('Run is not terminal — exported evidence is incomplete and non-certifiable.');
-        if (!runId) warnings.push('No durable run id — evidence cannot be verified.');
+        if (!isTerminal) warnings.push('Run is not terminal: exported evidence is incomplete and non-certifiable.');
+        if (!runId) warnings.push('No durable run id: evidence cannot be verified.');
 
         const evidence = {
             organizationId,
@@ -706,7 +709,7 @@ export default function DestructionConsole({
                     </div>
 
                     <div className="mt-16 mb-6 relative">
-                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">BATTERY CONFIGURATION</h3>
+                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider uppercase">{t.batteryConfigLabel}</h3>
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
                                 {/* Meaningful copy sits on a solid high-contrast panel — never
@@ -715,26 +718,26 @@ export default function DestructionConsole({
                                     from a genuine tier gate, so the lock is never misread. */}
                                 {backendConnected ? (
                                     <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
-                                        <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3">LOCKED</p>
-                                        <p className="mono-data text-signal text-sm">Custom Battery Selection</p>
-                                        <p className="mono-small text-signal/80 mt-1">Requires the Verified tier or higher.</p>
+                                        <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3 uppercase">{t.lockedLabel}</p>
+                                        <p className="mono-data text-signal text-sm">{t.customBatterySelection}</p>
+                                        <p className="mono-small text-signal/80 mt-1">{t.requiresVerifiedTier}</p>
                                         <a
                                             href="/pricing?upgrade=verified"
                                             className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                                         >
-                                            View pricing
+                                            {t.viewPricing}
                                         </a>
                                     </div>
                                 ) : (
                                     <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--destructive)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
-                                        <p className="mono-small tracking-[0.3em] text-[var(--destructive)] mb-3">BACKEND NOT CONNECTED</p>
-                                        <p className="mono-data text-signal text-sm">No live backend on this deployment</p>
-                                        <p className="mono-small text-signal/80 mt-1">Runs, tiers, and telemetry are unavailable here — this is a configuration state, not a tier limit.</p>
+                                        <p className="mono-small tracking-[0.3em] text-[var(--destructive)] mb-3 uppercase">{t.backendNotConnectedLabel}</p>
+                                        <p className="mono-data text-signal text-sm">{t.noLiveBackendDesc}</p>
+                                        <p className="mono-small text-signal/80 mt-1">{t.configStateNotice}</p>
                                         <a
                                             href="/pricing"
                                             className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                                         >
-                                            Request access
+                                            {t.requestAccess}
                                         </a>
                                     </div>
                                 )}
@@ -759,13 +762,17 @@ export default function DestructionConsole({
                             {(() => {
                                 if (isRunning) {
                                     return (
-                                        <span className="flex items-center gap-3">
+                                        <span className="flex items-center gap-3 uppercase">
                                             <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
-                                            EXECUTING {currentBattery}/13
+                                            {t.executingLabel} {currentBattery}/13
                                         </span>
                                     );
                                 }
-                                return isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE';
+                                return (
+                                    <span className="uppercase">
+                                        {isComplete ? t.reinitiateSequence : t.initiateSequence}
+                                    </span>
+                                );
                             })()}
                         </motion.button>
 
@@ -778,9 +785,9 @@ export default function DestructionConsole({
                                 >
                                     <button
                                         onClick={handleExportJson}
-                                        className="btn-secondary w-full"
+                                        className="btn-secondary w-full uppercase"
                                     >
-                                        EXPORT JSON EVIDENCE
+                                        {t.exportJsonEvidence}
                                     </button>
                                 </motion.div>
                             )}
@@ -802,7 +809,7 @@ export default function DestructionConsole({
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-50"></span>
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-30"></span>
                                 </div>
-                                <span className="mono-small text-signal/60 tracking-widest truncate">DESTRUCTION_CONSOLE</span>
+                                <span className="mono-small text-signal/60 tracking-widest truncate uppercase">{t.consoleLabel}</span>
                             </div>
                             <div className="flex items-center gap-2 sm:gap-4 shrink-0 flex-wrap justify-end">
                                 {user && (
@@ -817,8 +824,8 @@ export default function DestructionConsole({
                                 )}
                                 <div className="flex items-center gap-2 border-l border-white/10 pl-4">
                                     <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-[var(--safe)] animate-pulse' : 'bg-zinc-700'}`}></span>
-                                    <span className={`mono-small ${isRunning ? 'text-[var(--safe)]' : 'text-zinc-500'} opacity-70`}>
-                                        {isRunning ? 'ONLINE' : 'STANDBY'}
+                                    <span className={`mono-small ${isRunning ? 'text-[var(--safe)]' : 'text-zinc-500'} opacity-70 uppercase`}>
+                                        {isRunning ? t.statusOnline : t.statusStandby}
                                     </span>
                                 </div>
                                 <div className="border-l border-white/10 pl-4 shrink-0">
@@ -841,10 +848,10 @@ export default function DestructionConsole({
                                         <span className="w-1 h-1 bg-[var(--destructive)] opacity-50"></span>
                                         <span className="w-1 h-1 bg-[var(--destructive)] opacity-30"></span>
                                     </div>
-                                    <span className="mono-small text-signal/60 tracking-widest">THREAT_MATRIX</span>
+                                    <span className="mono-small text-signal/60 tracking-widest uppercase">{t.threatMatrixLabel}</span>
                                 </div>
-                                <div className="mono-small text-zinc-500">
-                                    SECURE_SECTORS: {secureSectorCount}/64
+                                <div className="mono-small text-zinc-500 uppercase">
+                                    {t.secureSectorsLabel}: {secureSectorCount}/64
                                 </div>
                             </div>
                             <div className="p-6 flex-1 flex items-center justify-center bg-[url('/grid-pattern.png')] bg-repeat opacity-80">

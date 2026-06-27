@@ -289,7 +289,7 @@ export default function RunTelemetryDeck({ telemetry, connection }: Readonly<Run
                 </div>
                 <span className="mono-small text-zinc-500 text-[10px] shrink-0">
                     {connection === 'live'
-                        ? `ACTIVE // ${telemetry.activeBattery ?? '—'}`
+                        ? `ACTIVE // ${telemetry.activeBattery ?? '--'}`
                         : connection.toUpperCase()}
                 </span>
             </div>
@@ -337,7 +337,7 @@ export default function RunTelemetryDeck({ telemetry, connection }: Readonly<Run
                         />
                         <Metric
                             label="THROUGHPUT"
-                            value={throughput > 0 ? `${throughput.toFixed(0)}/s` : '—'}
+                            value={throughput > 0 ? `${throughput.toFixed(0)}/s` : '--'}
                         />
                     </div>
 

@@ -18,7 +18,7 @@ declare global {
 }
 
 // Hardcoded waiver excerpt from /ACCEPTABLE_USE.md
-const WAIVER_TEXT = `ARMAGEDDON LIVE-FIRE ACCEPTABLE USE — LEGAL WAIVER
+const WAIVER_TEXT = `ARMAGEDDON LIVE-FIRE ACCEPTABLE USE: LEGAL WAIVER
 
 Version 1.0 · APEX Business Systems Ltd.
 
@@ -218,7 +218,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                 >
                     <span style={{ color: '#ff4040', fontSize: '1.1rem' }}>⚠</span>
                     <span className="mono-small" style={{ color: '#ff4040', letterSpacing: '0.08em' }}>
-                        LIVE-FIRE MODE — SIM_MODE=FALSE — REAL SYSTEMS TARGETED
+                        LIVE-FIRE MODE // SIM_MODE=FALSE // REAL SYSTEMS TARGETED
                     </span>
                 </div>
 
@@ -237,7 +237,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                     ref={scrollRef}
                     onScroll={handleScroll}
                     className="flex-1 overflow-y-auto mx-6 mb-4 p-4"
-                    aria-label="Live-fire acceptable use waiver — scroll to bottom to enable accept"
+                    aria-label="Live-fire acceptable use waiver: scroll to bottom to enable accept"
                     style={{
                         border: '1px solid rgba(255,255,255,0.08)',
                         background: 'rgba(255,255,255,0.02)',
@@ -278,7 +278,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                             letterSpacing: '0.08em',
                         }}
                     >
-                        DECLINE — CANCEL
+                        DECLINE / CANCEL
                     </button>
 
                     <button
@@ -298,7 +298,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                     >
                         {status === 'submitting'
                             ? 'AUTHORIZING...'
-                            : 'I ACCEPT — AUTHORIZE LIVE-FIRE RUN'}
+                            : 'I ACCEPT - AUTHORIZE LIVE-FIRE RUN'}
                     </button>
                 </div>
             </div>
