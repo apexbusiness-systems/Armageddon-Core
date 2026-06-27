@@ -48,7 +48,7 @@ describe('run-telemetry reducer — real-data aggregation', () => {
             iteration: i,
         }));
         const s = feed(many);
-        expect(s.spikes.length).toBe(WAVEFORM_CAPACITY);
+        expect(s.spikes).toHaveLength(WAVEFORM_CAPACITY);
         expect(s.totalBlocked).toBe(WAVEFORM_CAPACITY + 50); // totals are not truncated
     });
 
@@ -59,7 +59,7 @@ describe('run-telemetry reducer — real-data aggregation', () => {
             { id: '3', event_type: 'ATTACK_BLOCKED', battery_id: 'B10', iteration: 3 },
         ]);
         const cells = deriveSectorMatrix(s);
-        expect(cells.length).toBe(SECTOR_COUNT);
+        expect(cells).toHaveLength(SECTOR_COUNT);
         expect(cells[0]).toBe('safe');
         expect(cells[1]).toBe('danger');
         expect(cells[2]).toBe('safe');

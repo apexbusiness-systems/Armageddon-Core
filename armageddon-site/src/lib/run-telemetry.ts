@@ -116,16 +116,54 @@ function vitalsFor(state: TelemetryState, battery: string): BatteryVitals {
     );
 }
 
+function normIteration(raw: number | null | undefined): number {
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
+}
+
+/**
+ * Fold a scored outcome (block/breach/drift) into per-battery vitals, run totals
+ * and the rolling sector wall. Markers pass through unchanged. Mutates `next`
+ * (a fresh copy created by the caller) and returns it.
+ */
+function foldOutcome(
+    next: TelemetryState,
+    prev: TelemetryState,
+    kind: SpikeKind,
+    battery: string,
+    iteration: number
+): TelemetryState {
+    if (kind !== 'block' && kind !== 'breach' && kind !== 'drift') return next;
+
+    const v = vitalsFor(prev, battery);
+    next.batteries = {
+        ...prev.batteries,
+        [battery]: {
+            battery,
+            blocked: v.blocked + (kind === 'block' ? 1 : 0),
+            breaches: v.breaches + (kind === 'breach' ? 1 : 0),
+            drift: v.drift + (kind === 'drift' ? 1 : 0),
+            lastIteration: Math.max(v.lastIteration, iteration),
+        },
+    };
+
+    if (kind === 'block') {
+        next.totalBlocked = prev.totalBlocked + 1;
+        next.outcomes = [...prev.outcomes, 'safe' as SectorStatus].slice(-SECTOR_COUNT);
+    } else if (kind === 'breach') {
+        next.totalBreaches = prev.totalBreaches + 1;
+        next.outcomes = [...prev.outcomes, 'danger' as SectorStatus].slice(-SECTOR_COUNT);
+    }
+
+    return next;
+}
+
 function applyEvent(state: TelemetryState, event: RawTelemetryEvent): TelemetryState {
     // Idempotency: realtime may redeliver. Skip ids we've already folded in.
     if (event.id && state.seenIds.includes(event.id)) return state;
 
     const kind = SPIKE_KIND[event.event_type] ?? 'marker';
     const battery = event.battery_id ?? 'SYS';
-    const iteration =
-        typeof event.iteration === 'number' && Number.isFinite(event.iteration)
-            ? event.iteration
-            : 0;
+    const iteration = normIteration(event.iteration);
     const at = event.created_at ? Date.parse(event.created_at) : Date.now();
     const seq = state.seq + 1;
 
@@ -137,38 +175,13 @@ function applyEvent(state: TelemetryState, event: RawTelemetryEvent): TelemetryS
         seenIds: event.id
             ? [...state.seenIds, event.id].slice(-SEEN_CAPACITY)
             : state.seenIds,
+        // Waveform ring buffer.
+        spikes: [...state.spikes, { seq, kind, battery, iteration }].slice(-WAVEFORM_CAPACITY),
+        // Active battery follows the most recent battery-scoped event.
+        activeBattery: battery !== 'SYS' ? battery : state.activeBattery,
     };
 
-    // Waveform ring buffer (skip pure markers that carry no battery signal).
-    next.spikes = [...state.spikes, { seq, kind, battery, iteration }].slice(
-        -WAVEFORM_CAPACITY
-    );
-
-    // Active battery follows the most recent battery-scoped event.
-    if (battery !== 'SYS') next.activeBattery = battery;
-
-    // Per-battery vitals + run totals + the rolling sector wall.
-    if (kind === 'block' || kind === 'breach' || kind === 'drift') {
-        const v = vitalsFor(state, battery);
-        next.batteries = {
-            ...state.batteries,
-            [battery]: {
-                battery,
-                blocked: v.blocked + (kind === 'block' ? 1 : 0),
-                breaches: v.breaches + (kind === 'breach' ? 1 : 0),
-                drift: v.drift + (kind === 'drift' ? 1 : 0),
-                lastIteration: Math.max(v.lastIteration, iteration),
-            },
-        };
-        if (kind === 'block') next.totalBlocked = state.totalBlocked + 1;
-        if (kind === 'breach') next.totalBreaches = state.totalBreaches + 1;
-        if (kind === 'block' || kind === 'breach') {
-            const outcome: SectorStatus = kind === 'block' ? 'safe' : 'danger';
-            next.outcomes = [...state.outcomes, outcome].slice(-SECTOR_COUNT);
-        }
-    }
-
-    return next;
+    return foldOutcome(next, state, kind, battery, iteration);
 }
 
 function applyRun(state: TelemetryState, run: RawRunProgress): TelemetryState {

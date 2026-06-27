@@ -38,7 +38,7 @@ describe('RunTelemetryDeck', () => {
         expect(screen.getByText('5.00%')).toBeInTheDocument(); // escape rate from run row
         // Per-battery vitals reflect the real per-battery counts.
         expect(screen.getByLabelText(/B12.*0 repelled, 1 breached/)).toBeInTheDocument();
-        // Seismograph is an accessible image labelled with real counts.
-        expect(screen.getByRole('img', { name: /1 attacks repelled, 1 breaches/ })).toBeInTheDocument();
+        // Seismograph exposes a concise screen-reader summary with real counts.
+        expect(screen.getByText(/1 attacks repelled, 1 breaches/)).toBeInTheDocument();
     });
 });

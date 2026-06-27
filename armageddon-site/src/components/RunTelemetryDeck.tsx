@@ -35,6 +35,14 @@ interface RunTelemetryDeckProps {
     connection: DeckConnection;
 }
 
+/** Header status-light colour per connection state. */
+const HEADER_LIGHT: Record<DeckConnection, string> = {
+    live: 'bg-[var(--safe)] animate-pulse',
+    complete: 'bg-[var(--safe)]',
+    disconnected: 'bg-[var(--destructive)]',
+    standby: 'bg-zinc-700',
+};
+
 /** Read a CSS custom property off an element (falls back to a literal). */
 function cssVar(el: Element | null, name: string, fallback: string): string {
     if (!el) return fallback;
@@ -47,10 +55,10 @@ function cssVar(el: Element | null, name: string, fallback: string): string {
 const Seismograph = React.memo(function Seismograph({
     telemetry,
     animate,
-}: {
+}: Readonly<{
     telemetry: TelemetryState;
     animate: boolean;
-}) {
+}>) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const spikes = telemetry.spikes;
 
@@ -66,7 +74,6 @@ const Seismograph = React.memo(function Seismograph({
         const dim = 'rgba(232,232,232,0.18)';
 
         let raf = 0;
-        let phase = 0;
 
         const resize = () => {
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -102,8 +109,8 @@ const Seismograph = React.memo(function Seismograph({
                 const x = w - (spikes.length - i) * step + step / 2;
                 if (x < 0) continue;
 
-                let color = dim;
-                let amp = 0;
+                let color: string;
+                let amp: number;
                 if (s.kind === 'block') {
                     color = safe;
                     amp = -maxAmp * 0.85; // up
@@ -136,15 +143,12 @@ const Seismograph = React.memo(function Seismograph({
 
             // Live "now" cursor sweep (animation only).
             if (animate) {
-                phase = (phase + 1.5) % w;
-                const cx = w - (phase % step) - 0; // subtle shimmer near the leading edge
                 ctx.strokeStyle = 'rgba(255,51,0,0.25)';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(w - 1, 0);
                 ctx.lineTo(w - 1, h);
                 ctx.stroke();
-                void cx;
                 raf = requestAnimationFrame(draw);
             }
         };
@@ -159,35 +163,38 @@ const Seismograph = React.memo(function Seismograph({
 
     const label = `Containment seismograph: ${telemetry.totalBlocked} attacks repelled, ${telemetry.totalBreaches} breaches`;
 
+    // The canvas is a visual rendering of data already exposed accessibly via the
+    // metric readouts and per-battery bars; expose a concise text summary for
+    // assistive tech and mark the canvas itself decorative.
     return (
-        <canvas
-            ref={canvasRef}
-            role="img"
-            aria-label={label}
-            className="w-full h-[160px] block"
-        />
+        <div className="relative">
+            <span className="sr-only">{label}</span>
+            <canvas ref={canvasRef} aria-hidden="true" className="w-full h-[160px] block" />
+        </div>
     );
 });
 
 // ── Metric readout ───────────────────────────────────────────────────────────
 
+type MetricTone = 'neutral' | 'safe' | 'danger' | 'warn';
+
+const METRIC_TONE_CLASS: Record<MetricTone, string> = {
+    neutral: 'text-signal',
+    safe: 'text-[var(--safe)]',
+    danger: 'text-[var(--destructive)]',
+    warn: 'text-amber-500',
+};
+
 function Metric({
     label,
     value,
     tone = 'neutral',
-}: {
+}: Readonly<{
     label: string;
     value: string;
-    tone?: 'neutral' | 'safe' | 'danger' | 'warn';
-}) {
-    const toneClass =
-        tone === 'safe'
-            ? 'text-[var(--safe)]'
-            : tone === 'danger'
-              ? 'text-[var(--destructive)]'
-              : tone === 'warn'
-                ? 'text-amber-500'
-                : 'text-signal';
+    tone?: MetricTone;
+}>) {
+    const toneClass = METRIC_TONE_CLASS[tone];
     return (
         <div className="flex flex-col">
             <span className="mono-small text-signal/40 text-[10px] tracking-widest">{label}</span>
@@ -211,12 +218,12 @@ function VitalBar({
     blocked,
     breaches,
     active,
-}: {
+}: Readonly<{
     battery: string;
     blocked: number;
     breaches: number;
     active: boolean;
-}) {
+}>) {
     const total = blocked + breaches;
     const breachPct = total > 0 ? (breaches / total) * 100 : 0;
     const blockPct = total > 0 ? 100 - breachPct : 0;
@@ -244,7 +251,7 @@ function VitalBar({
 
 // ── Idle / honest states ─────────────────────────────────────────────────────
 
-function DeckMessage({ title, body, tone }: { title: string; body: string; tone: 'danger' | 'neutral' }) {
+function DeckMessage({ title, body, tone }: Readonly<{ title: string; body: string; tone: 'danger' | 'neutral' }>) {
     return (
         <div className="h-[220px] flex flex-col items-center justify-center text-center px-6">
             <p
@@ -266,14 +273,7 @@ export default function RunTelemetryDeck({ telemetry, connection }: Readonly<Run
     const escapeRate = useMemo(() => effectiveEscapeRate(telemetry), [telemetry]);
     const throughput = useMemo(() => throughputPerSec(telemetry), [telemetry]);
 
-    const headerLight =
-        connection === 'live'
-            ? 'bg-[var(--safe)] animate-pulse'
-            : connection === 'complete'
-              ? 'bg-[var(--safe)]'
-              : connection === 'disconnected'
-                ? 'bg-[var(--destructive)]'
-                : 'bg-zinc-700';
+    const headerLight = HEADER_LIGHT[connection];
 
     return (
         <section
