@@ -44,6 +44,26 @@ describe('AttestationBadge', () => {
         expect(fetchSpy).not.toHaveBeenCalled();
     });
 
+    it('exposes an accessible name for the error state regardless of viewport', () => {
+        delete process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
+        setFetch(vi.fn(async () => new Response(null, { status: 200 })));
+        render(<AttestationBadge />);
+        // aria-label carries the full status independent of which label variant
+        // is visually shown — clip-proofing must never strip meaning from AT.
+        const badge = screen.getByLabelText('Attestation: key unavailable');
+        expect(badge).toHaveAttribute('data-attestation-status', 'error');
+    });
+
+    it('keeps both the full label and the compact code in the DOM (clip-proof contract)', () => {
+        delete process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
+        setFetch(vi.fn(async () => new Response(null, { status: 200 })));
+        render(<AttestationBadge />);
+        // Full word stays rendered for lg+ and assistive tech; compact code
+        // ('OFF') is the narrow-viewport fallback so the chip never overflows.
+        expect(screen.getByText('KEY_UNAVAILABLE')).toBeInTheDocument();
+        expect(screen.getByText('OFF')).toBeInTheDocument();
+    });
+
     it('shows CHECKING_KEY while the fetch is in flight', () => {
         setFetch(vi.fn(() => new Promise<Response>(() => undefined)));
         render(<AttestationBadge />);
