@@ -455,7 +455,7 @@ export default function DestructionConsole({
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
 
-        addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 7 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
+        addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 8 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
         addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);
 
         // Resolve a real session + organization. Never fall back to a demo or user id.
@@ -694,7 +694,7 @@ export default function DestructionConsole({
                             <source srcSet="/wordmark.webp" type="image/webp" />
                             <img
                                 src="/wordmark.png"
-                                alt="ARMAGEDDON LEVEL 7"
+                                alt="ARMAGEDDON LEVEL 8"
                                 width={824}
                                 height={315}
                                 fetchPriority="high"

@@ -38,15 +38,8 @@ interface RunResponse {
 type OrganizationTier = 'free_dry' | 'verified' | 'certified';
 type WorkflowTier = 'FREE' | 'CERTIFIED';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TIER ACCESS CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════════════
-
-const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
-    free_dry: [1, 2, 3],
-    verified: [1, 2, 3, 4, 5, 6],
-    certified: [1, 2, 3, 4, 5, 6, 7],
-};
+// Tier→level access is enforced by `checkRunEligibility` from @armageddon/shared
+// (single source of truth: packages/shared/src/levels.ts). No local copy here.
 
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
 
@@ -166,7 +159,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             );
         }
 
-        const defaultIterations = eligibility.tier === 'certified' && level === 7 ? 10000 : 2500;
+        const defaultIterations = eligibility.tier === 'certified' && level >= 7 ? 10000 : 2500;
         const iterations = normalizeIterations(body.iterations ?? defaultIterations);
 
         // ═══════════════════════════════════════════════════════════════════

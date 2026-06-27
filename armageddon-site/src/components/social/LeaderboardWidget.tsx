@@ -161,7 +161,7 @@ function UserStatusRow({
                                 [ GOD MODE ]
                             </span>
                             <span className="text-[10px] text-yellow-400/70 uppercase">
-                                Clearance Level 7
+                                Clearance Level 8
                             </span>
                         </div>
                     )}

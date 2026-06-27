@@ -312,13 +312,18 @@ async function handleGatekeeper(request: Request, env: IntakeEnv, canonicalHost:
 }
 
 // ── Tier / eligibility helpers (edge-compatible, no SDK import) ───────────────
+//
+// MIRROR of the single source of truth in `packages/shared/src/levels.ts`.
+// The Cloudflare edge Worker cannot import `@armageddon/shared` (Node deps), so
+// these tables are duplicated here BY DESIGN and kept in lockstep by the CI gate
+// `scripts/check-level-integrity.mjs` — it fails the build if they ever drift.
 
 interface OrgRow { current_tier: string }
 
 const TIER_LEVEL_ACCESS: Record<string, number[]> = {
   free_dry: [1, 2, 3],
   verified: [1, 2, 3, 4, 5, 6],
-  certified: [1, 2, 3, 4, 5, 6, 7],
+  certified: [1, 2, 3, 4, 5, 6, 7, 8],
 };
 const TIER_CAN_CUSTOMIZE: Record<string, boolean> = {
   free_dry: false,
