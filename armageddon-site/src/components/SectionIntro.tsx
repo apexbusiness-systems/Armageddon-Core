@@ -25,10 +25,10 @@ export default function SectionIntro({
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
         >
-            <span className="mono-small text-[var(--aerospace)] tracking-[0.4em] block mb-4">
+            <span className="mono-small text-[var(--aerospace)] tracking-[0.4em] block mb-4 uppercase">
                 {eyebrow}
             </span>
-            <h2 className={titleClassName}>{title}</h2>
+            <h2 className={`${titleClassName} uppercase`}>{title}</h2>
             <p className={descriptionClassName}>{description}</p>
         </motion.div>
     );

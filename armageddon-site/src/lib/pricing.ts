@@ -129,7 +129,7 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
 export const PRICING_COPY = {
     headline: 'Know if your release can survive before customers do.',
     subheadline:
-        'Armageddon Test Suite runs failure-focused checks, captures evidence, and gives teams a clear release-readiness path — from free dry runs to verified certification gates.',
+        'Armageddon Test Suite runs failure-focused checks, captures evidence, and gives teams a clear release-readiness path: from free dry runs to verified certification gates.',
     safety:
         'Armageddon evidence is release-readiness evidence, not a substitute for SOC 2, ISO certification, or a formal penetration test.',
 } as const;

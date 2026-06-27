@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
+import { useT } from '@/i18n/useT';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FOOTER
@@ -12,6 +13,7 @@ import { useAuth } from '@/lib/useAuth';
 export default function Footer() {
     const user = useAuth();
     const router = useRouter();
+    const { dictionary } = useT();
 
     // Public conversion CTA. Always sends to the intake page regardless of auth state.
     const handleCtaClick = () => {
@@ -19,8 +21,8 @@ export default function Footer() {
     };
 
     const getButtonText = () => {
-        if (user) return 'START TESTING';
-        return 'GET CERTIFIED';
+        if (user) return dictionary.common.footer.ctaButtonLoggedIn;
+        return dictionary.common.footer.ctaButtonLoggedOut;
     };
 
     return (
@@ -33,15 +35,15 @@ export default function Footer() {
                 <div className="relative z-10 max-w-4xl mx-auto text-center">
                     {/* Context line */}
                     <motion.p
-                        className="display-medium text-signal/80 mb-12"
+                        className="display-medium text-signal/80 mb-12 uppercase"
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.8 }}
                     >
-                        COMPLIANCE IS A CHECKLIST.
+                        {dictionary.common.footer.ctaHeadline}
                         <br />
-                        <span className="text-[var(--aerospace)]">ARMAGEDDON PRODUCES EVIDENCE.</span>
+                        <span className="text-[var(--aerospace)]">{dictionary.common.footer.ctaHeadlineHighlight}</span>
                     </motion.p>
 
                     {/* CTA Button */}
@@ -61,13 +63,13 @@ export default function Footer() {
 
                     {/* Tier info */}
                     <motion.p
-                        className="mt-8 mono-small text-signal/60"
+                        className="mt-8 mono-small text-signal/60 uppercase"
                         initial={{ opacity: 0 }}
                         whileInView={{ opacity: 1 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.8, delay: 0.2 }}
                     >
-                        SELF-SERVE (FREE) → VERIFIED (EVIDENCE REVIEW) → CERTIFIED (RELEASE-READINESS GATE)
+                        {dictionary.common.footer.tierLadder}
                     </motion.p>
                 </div>
             </section>
@@ -80,18 +82,18 @@ export default function Footer() {
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
                     {/* Brand */}
                     <div className="flex items-center gap-4">
-                        <span className="mono-small text-signal/30">© 2026 APEX BUSINESS SYSTEMS</span>
+                        <span className="mono-small text-signal/30 uppercase">{dictionary.common.footer.copyright}</span>
                     </div>
 
                     {/* Deployment indicator */}
                     <div className="flex items-center justify-center gap-3">
                         <div className="w-2 h-2 bg-[var(--safe)] rounded-full animate-pulse" />
-                        <span className="mono-small text-signal/30">CLOUDFLARE EDGE READY // LOCAL MOAT BACKED</span>
+                        <span className="mono-small text-signal/30 uppercase">{dictionary.common.footer.deploymentIndicator}</span>
                     </div>
 
-                    {/* OmniHub Attribution — visible, not loud */}
+                    {/* OmniHub Attribution: visible, not loud */}
                     <div className="relative z-10 flex items-center gap-2">
-                        <span className="mono-small text-signal/40">POWERED BY</span>
+                        <span className="mono-small text-signal/40 uppercase">{dictionary.common.footer.poweredBy}</span>
                         <Image
                             src="/apex-wordmark-logo.png"
                             alt="APEX-OmniHub"
@@ -106,9 +108,7 @@ export default function Footer() {
             {/* Legal */}
             <div className="py-6 px-4 bg-[var(--void)] border-t border-[var(--tungsten)]">
                 <p className="text-center mono-small text-signal/55 max-w-4xl mx-auto">
-                    Armageddon Test Suite Certification is designed for controlled sandbox testing and does not guarantee breach prevention.
-                    Certification reflects results of the tested build/configuration at time of run.
-                    Not a substitute for compliance certifications (SOC 2, ISO 27001) or professional penetration testing.
+                    {dictionary.common.footer.legalDisclaimer}
                 </p>
             </div>
         </footer>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useT } from '@/i18n/useT';
 
 // ════════════════════════════════════════════════════════════════════════════
 // ARMAGEDDON — SUPPORT TERMINAL
@@ -86,16 +87,18 @@ function getCharCountClass(len: number, max: number): string {
 }
 
 export default function SupportPage() {
+  const { dictionary } = useT();
+  const t = dictionary.support;
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'sys-init',
       role: 'system',
-      text: 'ATLAS v1.0 initialized. Topic-locked to ARMAGEDDON Test Suite. Rate limit active.',
+      text: t.systemInit,
     },
     {
       id: 'atlas-greeting',
       role: 'agent',
-      text: 'ARMAGEDDON Support online. What are you running into? Describe the issue — battery failures, certification questions, GitHub App setup, or access issues. I\'ll get you to resolution.',
+      text: t.greeting,
     },
   ]);
   const [input, setInput] = useState('');
@@ -180,7 +183,7 @@ export default function SupportPage() {
         const escalationType = detectEscalation(text);
         if (escalationType) {
           setEscalation({
-            subject: `[ARMAGEDDON Support] ${escalationType} Issue — Please provide your email`,
+            subject: `[ARMAGEDDON Support] ${escalationType} Issue: Please provide your email`,
             body: `Hello APEX Team,\n\nI need help with a ${escalationType.toLowerCase()} issue for the ARMAGEDDON Test Suite.\n\n- GitHub username / email: [FILL IN]\n- Organization: [FILL IN]\n- Plan / tier: [FILL IN]\n- Issue summary: ${text}\n- When it occurred: ${new Date().toISOString()}\n- Additional context: [FILL IN]\n\nPlease advise.\n\nThank you,\n[Your name]`,
           });
         }
@@ -238,9 +241,9 @@ export default function SupportPage() {
           </picture>
         </Link>
         <div className="flex items-center gap-6">
-          <Link href="/" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">Home</Link>
-          <Link href="/privacy" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">Privacy</Link>
-          <a href="https://github.com/apexbusiness-systems/armageddon-test-suite" target="_blank" rel="noopener noreferrer" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">Docs</a>
+          <Link href="/" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">{dictionary.common.nav.home}</Link>
+          <Link href="/privacy" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">{dictionary.common.nav.privacy}</Link>
+          <a href="https://github.com/apexbusiness-systems/armageddon-test-suite" target="_blank" rel="noopener noreferrer" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">{dictionary.common.nav.docs}</a>
         </div>
       </nav>
 
@@ -253,20 +256,20 @@ export default function SupportPage() {
             <span className="mono-small text-[var(--aerospace)] border border-[var(--aerospace)]/30 px-2 py-0.5">SUPPORT</span>
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--safe)] animate-pulse shadow-[0_0_6px_var(--safe)]" />
-              <span className="mono-small text-[var(--safe)]">ATLAS ONLINE</span>
+              <span className="mono-small text-[var(--safe)] uppercase">{t.statusOnline}</span>
             </span>
           </div>
           <h1 className="font-[var(--font-display)] text-2xl tracking-widest uppercase text-[var(--signal)] mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
-            SUPPORT TERMINAL
+            {t.title}
           </h1>
           <p className="mono-small text-[var(--signal-dim)] normal-case tracking-normal" style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', letterSpacing: '0.02em', textTransform: 'none' }}>
-            ATLAS handles ARMAGEDDON Test Suite support autonomously. Privacy, billing, and subscription issues are escalated to the APEX team.
+            {t.description}
           </p>
         </div>
 
         {/* SCOPE BADGES */}
         <div className="flex flex-wrap gap-2">
-          {['Batteries B01–B13', 'Certification', 'GitHub App', 'Access & Auth', 'CI/CD Integration', 'Results & Artifacts'].map((label) => (
+          {t.scopeBadges.map((label) => (
             <span key={label} className="mono-small text-[var(--signal-dim)] border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 tracking-wider">
               {label}
             </span>
@@ -281,7 +284,7 @@ export default function SupportPage() {
             <span className="w-2.5 h-2.5 rounded-full bg-[var(--aerospace)]" />
             <span className="w-2.5 h-2.5 rounded-full bg-[var(--warning)]" />
             <span className="w-2.5 h-2.5 rounded-full bg-[var(--safe)]" />
-            <span className="flex-1 text-center mono-small text-[var(--signal-dim)]/60">ATLAS — ARMAGEDDON SUPPORT</span>
+            <span className="flex-1 text-center mono-small text-[var(--signal-dim)]/60">ATLAS / ARMAGEDDON SUPPORT</span>
             <span className={`mono-small ${isLoading ? 'text-[var(--warning)]' : 'text-[var(--safe)]'}`}>
               {isLoading ? '● PROCESSING' : '● ONLINE'}
             </span>
@@ -315,7 +318,7 @@ export default function SupportPage() {
                     />
                   ))}
                 </div>
-                <span className="mono-small text-[var(--signal-dim)]/60">Processing</span>
+                <span className="mono-small text-[var(--signal-dim)]/60">{t.processing}</span>
               </div>
             )}
 
@@ -333,7 +336,7 @@ export default function SupportPage() {
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Describe your issue..."
+                placeholder={t.inputPlaceholder}
                 rows={1}
                 maxLength={MAX_CHARS}
                 disabled={isLoading}
@@ -347,11 +350,11 @@ export default function SupportPage() {
                 className="bg-[var(--aerospace)] hover:bg-[var(--aerospace-dark)] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold text-xs tracking-widest uppercase px-5 py-3.5 self-stretch transition-colors"
                 style={{ fontFamily: 'var(--font-mono)' }}
               >
-                SEND
+                {t.sendButton}
               </button>
             </div>
             <div className="flex justify-between px-3.5 pb-2 pt-1">
-              <span className="mono-small text-[var(--signal-dim)]/30">ENTER to send · SHIFT+ENTER for new line</span>
+              <span className="mono-small text-[var(--signal-dim)]/30">{t.enterToSend}</span>
               <span className={`mono-small ${charClass}`}>{charLen} / {MAX_CHARS}</span>
             </div>
           </div>
@@ -372,15 +375,15 @@ export default function SupportPage() {
             style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.12)', color: 'inherit' }}
           >
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] bg-[#050505]">
-              <span className="mono-small text-[var(--warning)]">⚑ ESCALATION — EMAIL DRAFT</span>
-              <button onClick={() => setEscalation(null)} className="text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors px-2" aria-label="Close">✕</button>
+              <span className="mono-small text-[var(--warning)]">⚑ ESCALATION / EMAIL DRAFT</span>
+              <button onClick={() => setEscalation(null)} className="text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors px-2" aria-label={t.escalation.closeButton}>✕</button>
             </div>
             <div className="p-5 flex flex-col gap-4">
               <p className="text-xs text-[var(--signal-dim)]" style={{ fontFamily: 'var(--font-body)' }}>
-                This issue requires APEX team review. Fill in your details and click Copy to send via your email client.
+                {t.escalation.modalIntro}
               </p>
               <div>
-                <label htmlFor="escalation-to" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">To</label>
+                <label htmlFor="escalation-to" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">{t.escalation.toLabel}</label>
                 <input
                   id="escalation-to"
                   readOnly
@@ -390,7 +393,7 @@ export default function SupportPage() {
                 />
               </div>
               <div>
-                <label htmlFor="escalation-subject" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">Subject</label>
+                <label htmlFor="escalation-subject" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">{t.escalation.subjectLabel}</label>
                 <input
                   id="escalation-subject"
                   value={escalation.subject}
@@ -400,7 +403,7 @@ export default function SupportPage() {
                 />
               </div>
               <div>
-                <label htmlFor="escalation-body" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">Body</label>
+                <label htmlFor="escalation-body" className="mono-small text-[var(--signal-dim)]/60 block mb-1.5">{t.escalation.bodyLabel}</label>
                 <textarea
                   id="escalation-body"
                   value={escalation.body}
@@ -412,17 +415,17 @@ export default function SupportPage() {
               </div>
               <div className="flex gap-3 flex-wrap">
                 <button onClick={copyEmail} className="bg-[var(--aerospace)] hover:bg-[var(--aerospace-dark)] text-white mono-small px-4 py-2.5 transition-colors">
-                  Copy Email Draft
+                  {t.escalation.copyButton}
                 </button>
                 <button onClick={openMailApp} className="border border-white/[0.12] text-[var(--signal-dim)] hover:text-[var(--signal)] hover:border-white/[0.25] mono-small px-4 py-2.5 transition-colors">
-                  Open in Mail App
+                  {t.escalation.openMailButton}
                 </button>
                 <button onClick={() => setEscalation(null)} className="border border-white/[0.12] text-[var(--signal-dim)] hover:text-[var(--signal)] hover:border-white/[0.25] mono-small px-4 py-2.5 transition-colors">
-                  Close
+                  {t.escalation.closeButton}
                 </button>
               </div>
               {copyConfirm && (
-                <p className="mono-small text-[var(--safe)]">✓ COPIED TO CLIPBOARD</p>
+                <p className="mono-small text-[var(--safe)] uppercase">✓ {t.escalation.copiedConfirm}</p>
               )}
             </div>
           </dialog>
@@ -433,9 +436,9 @@ export default function SupportPage() {
       <footer className="border-t border-white/[0.06] px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
         <span className="mono-small text-[var(--signal-dim)]/40">© 2026 APEX BUSINESS SYSTEMS LTD.</span>
         <div className="flex gap-5">
-          <Link href="/privacy" className="mono-small text-[var(--signal-dim)]/40 hover:text-[var(--signal-dim)] transition-colors">Privacy Policy</Link>
+          <Link href="/privacy" className="mono-small text-[var(--signal-dim)]/40 hover:text-[var(--signal-dim)] transition-colors">{dictionary.privacy.title}</Link>
           <a href="mailto:info-outreach@armageddontest.icu" className="mono-small text-[var(--signal-dim)]/40 hover:text-[var(--signal-dim)] transition-colors">Email Support</a>
-          <Link href="/" className="mono-small text-[var(--signal-dim)]/40 hover:text-[var(--signal-dim)] transition-colors">Home</Link>
+          <Link href="/" className="mono-small text-[var(--signal-dim)]/40 hover:text-[var(--signal-dim)] transition-colors">{dictionary.common.nav.home}</Link>
         </div>
       </footer>
 
