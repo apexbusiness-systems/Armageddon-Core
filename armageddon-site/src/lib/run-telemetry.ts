@@ -178,7 +178,7 @@ function applyEvent(state: TelemetryState, event: RawTelemetryEvent): TelemetryS
         // Waveform ring buffer.
         spikes: [...state.spikes, { seq, kind, battery, iteration }].slice(-WAVEFORM_CAPACITY),
         // Active battery follows the most recent battery-scoped event.
-        activeBattery: battery !== 'SYS' ? battery : state.activeBattery,
+        activeBattery: battery === 'SYS' ? state.activeBattery : battery,
     };
 
     return foldOutcome(next, state, kind, battery, iteration);
