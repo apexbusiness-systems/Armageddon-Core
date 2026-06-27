@@ -94,7 +94,7 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
                         <p className="text-signal/60 text-xs text-center border-l-2 border-[var(--aerospace)] pl-3 ml-12 py-1 text-left">
                             DETECTED: PROMPT_INJECTION_PAYLOAD<br />
                             STATUS: INTERCEPTED<br />
-                            ACTION: LEVEL 7 CLEARANCE REQUIRED
+                            ACTION: LEVEL 8 CLEARANCE REQUIRED
                         </p>
                     </div>
 

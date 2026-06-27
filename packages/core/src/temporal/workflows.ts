@@ -114,6 +114,7 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
         results: [],
         currentBattery: null,
         startTime: Date.now(),
+        level: normalizedConfig.level,
     };
 
     try {

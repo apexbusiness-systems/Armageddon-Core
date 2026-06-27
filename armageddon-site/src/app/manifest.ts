@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     return {
         name: 'APEX ARMAGEDDON',
         short_name: 'APEX L7',
-        description: 'Adversarial Defense Console // Level 7 Clearance',
+        description: 'Adversarial Defense Console // Level 8 Clearance',
         start_url: '/',
         display: 'standalone',
         orientation: 'portrait',
