@@ -88,7 +88,7 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
                     style={{ transformStyle: 'preserve-3d' }}
                 >
                     <Image
-                        src="/armageddon-certification-seal.png"
+                        src="/seal.png"
                         alt="ARMAGEDDON Certified"
                         fill
                         className="object-contain drop-shadow-2xl"
