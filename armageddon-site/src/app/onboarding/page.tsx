@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import type { PlanId } from '@/lib/pricing';
 import { PLANS, PLAN_ORDER } from '@/lib/pricing';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { useT } from '@/i18n/useT';
 import {
     DRAFT_KEY,
     createRepositoryTarget,

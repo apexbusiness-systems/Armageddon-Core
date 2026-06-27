@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OnboardingPage from '@/app/onboarding/page';
+import { I18nProvider } from '@/i18n/I18nProvider';
 import { CODEBASE_TARGET_KEY, DRAFT_KEY, type CodebaseTarget } from '@/lib/codebase-target';
 
 const push = vi.fn();
@@ -33,9 +34,13 @@ async function completeCommonFields() {
     fireEvent.click(screen.getByLabelText(/acceptable use/i));
 }
 
+function renderOnboardingPage() {
+    return render(<I18nProvider><OnboardingPage /></I18nProvider>);
+}
+
 describe('OnboardingPage codebase target flow', () => {
     it('blocks an empty repository URL with clear validation copy', async () => {
-        render(<OnboardingPage />);
+        renderOnboardingPage();
         await completeCommonFields();
         await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
         expect(await screen.findByText('Repository URL is required.')).toBeInTheDocument();
@@ -43,7 +48,7 @@ describe('OnboardingPage codebase target flow', () => {
     });
 
     it('saves a repository target and honestly reports local-only state without a backend', async () => {
-        render(<OnboardingPage />);
+        renderOnboardingPage();
         await completeCommonFields();
         fireEvent.change(screen.getByLabelText(/Repository URL/i), { target: { value: 'https://github.com/acme/app.git' } });
         await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
@@ -56,7 +61,7 @@ describe('OnboardingPage codebase target flow', () => {
     });
 
     it('saves zip metadata locally without claiming upload or analysis', async () => {
-        render(<OnboardingPage />);
+        renderOnboardingPage();
         await completeCommonFields();
         await userEvent.click(screen.getByRole('button', { name: /Zip archive/i }));
         const file = new File(['zip-bytes'], 'app.zip', { type: 'application/zip' });
