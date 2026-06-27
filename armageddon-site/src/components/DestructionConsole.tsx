@@ -743,16 +743,16 @@ export default function DestructionConsole({
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="lg:col-span-2 terminal flex flex-col h-[600px] border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm">
-                        <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
-                            <div className="flex items-center gap-3">
-                                <div className="flex gap-1" aria-hidden="true">
+                        <div className="terminal-header items-center justify-between gap-2 border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex gap-1 shrink-0" aria-hidden="true">
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-70"></span>
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-50"></span>
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-30"></span>
                                 </div>
-                                <span className="mono-small text-signal/60 tracking-widest">DESTRUCTION_CONSOLE</span>
+                                <span className="mono-small text-signal/60 tracking-widest truncate">DESTRUCTION_CONSOLE</span>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 sm:gap-4 shrink-0 flex-wrap justify-end">
                                 {user && (
                                     <div className="flex items-center gap-3">
                                         <span className="mono-small text-zinc-400 text-[10px] hidden sm:inline-block">
@@ -769,7 +769,7 @@ export default function DestructionConsole({
                                         {isRunning ? 'ONLINE' : 'STANDBY'}
                                     </span>
                                 </div>
-                                <div className="border-l border-white/10 pl-4">
+                                <div className="border-l border-white/10 pl-4 shrink-0">
                                     <AttestationBadge />
                                 </div>
                             </div>
