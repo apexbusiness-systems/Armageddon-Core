@@ -39,7 +39,7 @@ const maxMatch = /MAX_CERTIFICATION_LEVEL\s*=\s*(\d+)/.exec(levelsSrc);
 if (!maxMatch) {
     fail('Could not find MAX_CERTIFICATION_LEVEL in packages/shared/src/levels.ts');
 }
-const MAX = maxMatch ? Number(maxMatch[1]) : NaN;
+const MAX = maxMatch ? Number(maxMatch[1]) : Number.NaN;
 const canonicalCertified = Array.from({ length: MAX }, (_, i) => i + 1);
 
 // ── 2. Canonical DEFAULT_BATTERIES (from shared gate) ────────────────────────
@@ -51,12 +51,10 @@ if (!sharedBatteries.length) fail('Could not parse DEFAULT_BATTERIES from packag
 // ── 3. Edge mirror (intake-handler.ts) ───────────────────────────────────────
 const edgeSrc = read('armageddon-site/src/intake-handler.ts');
 const edgeAccessBlock = /TIER_LEVEL_ACCESS[^{]*\{([\s\S]*?)\}/.exec(edgeSrc);
-if (!edgeAccessBlock) {
-    fail('Could not find TIER_LEVEL_ACCESS in armageddon-site/src/intake-handler.ts');
-} else {
+if (edgeAccessBlock) {
     const block = edgeAccessBlock[1];
     const pick = (tier) => {
-        const m = new RegExp(`${tier}\\s*:\\s*\\[([0-9,\\s]+)\\]`).exec(block);
+        const m = new RegExp(String.raw`${tier}\s*:\s*\[([0-9,\s]+)\]`).exec(block);
         return m ? parseIntList(m[1]) : null;
     };
     const edgeCertified = pick('certified');
@@ -72,6 +70,8 @@ if (!edgeAccessBlock) {
     if (!edgeFree || !arrEq(edgeFree, [1, 2, 3])) {
         fail(`edge free_dry levels ${JSON.stringify(edgeFree)} ≠ canonical [1..3]`);
     }
+} else {
+    fail('Could not find TIER_LEVEL_ACCESS in armageddon-site/src/intake-handler.ts');
 }
 
 const edgeBatMatch = /DEFAULT_BATTERIES\s*=\s*\[([^\]]*)\]/.exec(edgeSrc);
