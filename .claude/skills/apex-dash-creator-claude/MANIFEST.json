@@ -1,0 +1,122 @@
+{
+  "name": "apex-dash-creator",
+  "version": "2.0.0",
+  "codename": "GOD_MODE",
+  "edition": "claude_native",
+  "description": "God-Mode Dashboard Intelligence Engine — 20x upgrade with omniscient UI/UX debug protocol, production chart debugging, render pathology engine, data pipeline debugger, interaction fault tracer, responsive collapse auditor, and full-stack visualization mastery.",
+  "author": "APEX Business Systems Ltd.",
+  "license": "Proprietary",
+  "archetype": "Hybrid (Domain + Guardian + Transformer)",
+  "mode": "claude_native",
+  "llm_agnostic": false,
+  "target_model": "claude",
+  "install_path": "/mnt/skills/user/apex-dash-creator/",
+  "output_path": "/mnt/user-data/outputs/",
+  "supersedes": "apex-dashboard-creator v1.0.0",
+  "tools_required": ["bash_tool", "create_file", "str_replace", "view", "artifacts"],
+  "claude_features": ["extended_thinking", "xml_tags", "artifacts", "tool_use"],
+  "constitutional_ai_aware": true,
+  "triggers": [
+    "create dashboard", "build dashboard", "design dashboard", "dashboard UI",
+    "dashboard UX", "data visualization", "KPI dashboard", "analytics screen",
+    "BI dashboard", "executive dashboard", "sales dashboard", "marketing dashboard",
+    "financial dashboard", "product dashboard", "operations dashboard",
+    "chart bug", "chart not rendering", "chart blank", "chart wrong data",
+    "dashboard slow", "dashboard performance", "dashboard debug",
+    "chart tooltip broken", "filter not working", "drill-down broken",
+    "dashboard layout broken", "chart overflow", "dashboard mobile broken",
+    "responsive dashboard", "dark mode dashboard", "chart library",
+    "dashboard React", "dashboard Recharts", "dashboard Tremor", "dashboard D3",
+    "dashboard Nivo", "dashboard Grafana", "dashboard Streamlit",
+    "dashboard Tableau", "dashboard Power BI", "dashboard Metabase",
+    "dashboard audit", "dashboard critique", "dashboard rebuild",
+    "dashboard wireframe", "dashboard template", "dashboard component",
+    "chart type", "visualization layout", "chart design",
+    "KPI card", "sparkline", "funnel chart", "cohort heatmap", "choropleth",
+    "dashboard accessibility", "WCAG dashboard", "dashboard a11y",
+    "dashboard animation", "chart render performance", "dashboard loading"
+  ],
+  "dag_role": "designer_debugger_executor",
+  "sections": {
+    "A": "Architecture Engine",
+    "B": "Audit and Rebuild",
+    "C": "Visualization Matrix",
+    "D": "Stack Oracle",
+    "E": "Design System Engine",
+    "F": "Dashboard Debug Protocol (GOD MODE)",
+    "G": "A11Y Fortress",
+    "H": "Performance Profiler"
+  },
+  "debug_domains": [
+    "F.1: Layout Engine (CSS/visual bugs)",
+    "F.2: Data Pipeline Debugger (state/data bugs)",
+    "F.3: Interaction Fault Tracer (click/filter/drill-down)",
+    "F.4: Render Pathology Engine (chart/library bugs)",
+    "F.5: Responsive Collapse Auditor (mobile/tablet)",
+    "F.6: Debug Output Format"
+  ],
+  "emits": [
+    "dashboard.architecture.complete",
+    "dashboard.code.generated",
+    "dashboard.audit.scored",
+    "dashboard.debug.root_cause_locked",
+    "dashboard.debug.fix.delivered",
+    "dashboard.perf.profiled",
+    "dashboard.a11y.checked",
+    "dashboard.component.spec"
+  ],
+  "listens": [
+    "skill.activated",
+    "dashboard.request.submitted",
+    "dashboard.bug.reported",
+    "screenshot.uploaded",
+    "data.schema.provided",
+    "goal.submitted",
+    "error.console.pasted"
+  ],
+  "files": {
+    "core": "SKILL.md",
+    "manifest": "MANIFEST.json",
+    "references": [
+      "references/dashboard-taxonomy.md",
+      "references/debug-playbook.md",
+      "references/design-system-tokens.md",
+      "references/viz-library-index.md",
+      "references/ux-laws-antipatterns.md",
+      "references/perf-optimization-guide.md"
+    ],
+    "templates": [
+      "templates/executive-kpi-dashboard.md",
+      "templates/marketing-funnel-dashboard.md",
+      "templates/ops-realtime-dashboard.md",
+      "templates/debug-bug-report.md"
+    ],
+    "scripts": [
+      "scripts/validate_skill.py",
+      "scripts/audit_dashboard.py"
+    ]
+  },
+  "rubric": {
+    "max_score": 100,
+    "pass_threshold": 85,
+    "dimensions": {
+      "information_hierarchy": 15,
+      "chart_appropriateness": 15,
+      "debug_completeness": 15,
+      "design_system_fidelity": 15,
+      "component_completeness": 10,
+      "accessibility": 15,
+      "performance": 10,
+      "responsiveness": 5
+    }
+  },
+  "success_criteria": {
+    "rubric_score": "≥ 85/100",
+    "dashboard_categories_covered": 12,
+    "chart_types_mapped": 28,
+    "debug_domains_covered": 6,
+    "a11y_standard": "WCAG 2.1 AA",
+    "render_budget_ms": 16,
+    "zero_drift": true
+  }
+}

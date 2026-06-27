@@ -1,0 +1,74 @@
+{
+  "name": "apex-data-architect",
+  "version": "1.0.0",
+  "archetype": "hybrid",
+  "description": "Alpha & Omega of all data intelligence — 50x Quantum Analytics Engineer + Data Architect",
+  "license": "Proprietary - APEX Business Systems Ltd.",
+  "dag": {
+    "node_type": "domain_expert",
+    "accepts": {
+      "mime_types": ["application/json", "text/plain", "text/sql", "application/sql"],
+      "event_types": ["data.question", "schema.design", "query.optimize", "pipeline.debug",
+                      "migration.plan", "data.quality", "compliance.audit", "contract.define",
+                      "architecture.review", "data.error", "data.forensics"]
+    },
+    "emits": {
+      "on_success": ["data.solution.delivered", "schema.designed", "query.optimized"],
+      "on_failure": ["data.error.unresolved"],
+      "on_partial": ["data.clarification.needed"]
+    },
+    "idempotent": true,
+    "timeout_seconds": 600,
+    "retry_policy": {
+      "max_attempts": 2,
+      "backoff": "linear"
+    }
+  },
+  "domains": [
+    "relational_databases", "nosql", "columnar", "graph", "time_series", "vector",
+    "streaming_pipelines", "batch_etl", "cdc", "data_modeling", "query_optimization",
+    "data_quality", "data_governance", "compliance", "ml_data", "feature_engineering",
+    "data_contracts", "api_schemas", "migrations", "architecture", "forensics"
+  ],
+  "platforms_covered": [
+    "PostgreSQL", "MySQL", "MariaDB", "SQLite", "CockroachDB", "Aurora", "AlloyDB",
+    "ClickHouse", "Redshift", "BigQuery", "Snowflake", "DuckDB", "Druid", "Pinot",
+    "MongoDB", "Firestore", "CouchDB", "DynamoDB", "Redis", "Cassandra", "ScyllaDB",
+    "Neo4j", "Neptune", "TimescaleDB", "InfluxDB", "QuestDB", "Prometheus",
+    "Pinecone", "Weaviate", "Qdrant", "Chroma", "pgvector", "Milvus",
+    "Delta Lake", "Apache Iceberg", "Apache Hudi", "Databricks",
+    "Kafka", "Pulsar", "Kinesis", "Flink", "Spark", "ksqlDB", "Redpanda",
+    "Airflow", "Prefect", "Dagster", "dbt", "Fivetran", "Airbyte",
+    "Elasticsearch", "OpenSearch", "Typesense"
+  ],
+  "dependencies": {
+    "skills": [],
+    "tools": ["bash_tool", "create_file", "str_replace", "view"],
+    "packages": []
+  },
+  "compatibility": {
+    "claude": {
+      "min_version": "3.5",
+      "mode": "native",
+      "tools_required": ["bash_tool"]
+    },
+    "universal": {
+      "mode": "prompt_only",
+      "llm_agnostic": true
+    }
+  },
+  "audit": {
+    "score": 9.8,
+    "last_audited": "2026-04-07",
+    "dimensions": {
+      "trigger_exhaustiveness": 9.9,
+      "contract_completeness": 9.8,
+      "cognitive_clarity": 9.7,
+      "example_density": 9.5,
+      "failure_coverage": 9.8,
+      "anti_hallucination": 9.9,
+      "zero_drift_design": 9.8,
+      "production_hardness": 9.9
+    }
+  }
+}

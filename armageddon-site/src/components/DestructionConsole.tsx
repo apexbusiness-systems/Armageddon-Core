@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useReducer, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
@@ -12,6 +12,14 @@ import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
+import RunTelemetryDeck, { type DeckConnection } from './RunTelemetryDeck';
+import {
+    telemetryReducer,
+    EMPTY_TELEMETRY,
+    deriveSectorMatrix,
+    secureSectors,
+    type SectorStatus,
+} from '@/lib/run-telemetry';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS & CONFIGURATION
@@ -83,15 +91,21 @@ function isTerminalStatus(s: string): s is 'passed' | 'failed' | 'cancelled' {
 }
 
 interface ArmageddonEvent {
+    id?: string;
     event_type: string;
     battery_id?: string;
     message?: string;
+    iteration?: number;
+    severity?: string;
+    created_at?: string;
 }
 
 // Real snake_case columns from armageddon_runs — there is no `results` column.
 interface ArmageddonRun {
     status: RunStatus;
     escape_rate?: number;
+    breaches?: number;
+    total_iterations?: number;
     batteries_executed?: string[];
     batteries_passed?: string[];
     batteries_failed?: string[];
@@ -290,9 +304,14 @@ export default function DestructionConsole({
     const [isComplete, setIsComplete] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
-    const [threatMap, setThreatMap] = useState<ThreatCell[]>(() =>
-        Array.from({ length: 64 }, (_, i) => ({ id: i, status: 'idle' }))
+    // Live telemetry is derived ONLY from the real Supabase event/run stream.
+    const [telemetry, dispatchTelemetry] = useReducer(telemetryReducer, EMPTY_TELEMETRY);
+    // The 64-cell matrix is now a truthful projection of real attack outcomes.
+    const threatMap = useMemo<ThreatCell[]>(
+        () => deriveSectorMatrix(telemetry).map((status: SectorStatus, id) => ({ id, status })),
+        [telemetry]
     );
+    const secureSectorCount = useMemo(() => secureSectors(telemetry), [telemetry]);
     const [currentBattery, setCurrentBattery] = useState<number>(0);
     const [runId, setRunId] = useState<string | null>(null);
     const [organizationId, setOrganizationId] = useState<string | null>(null);
@@ -307,6 +326,16 @@ export default function DestructionConsole({
 
     // Track subscriptions for cleanup
     const subscriptionRefs = useRef<RealtimeChannel[]>([]);
+
+    // Whether a live backend is wired into THIS build. Drives honest copy:
+    // a locked/empty surface must say "backend not connected", not imply a tier gate.
+    const backendConnected = isApiConfigured();
+
+    // Connection state for the live telemetry deck.
+    let deckConnection: DeckConnection = 'standby';
+    if (!backendConnected) deckConnection = 'disconnected';
+    else if (isRunning) deckConnection = 'live';
+    else if (isComplete) deckConnection = 'complete';
 
     // ────────────────────────────────────────────────────────────────────────
     // EFFECTS
@@ -389,7 +418,6 @@ export default function DestructionConsole({
             addLine(LABELS.SYS, `${passed}/${denom} BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, MSG_TYPE.SUCCESS);
             addLine(LABELS.SYS, 'VERDICT: EVIDENCE GENERATED — SUBMIT FOR REVIEW', MSG_TYPE.SUCCESS);
             onStatusChange?.('certified');
-            setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
         } else if (run.status === 'cancelled') {
             addLine(LABELS.SYS, 'VERDICT: RUN CANCELLED — NO CERTIFICATION ISSUED', MSG_TYPE.WARNING);
             onStatusChange?.('idle');
@@ -421,7 +449,8 @@ export default function DestructionConsole({
         setIsComplete(false);
         setTerminalLines([]);
         setCurrentBattery(0);
-        setThreatMap(prev => prev.map(c => ({ ...c, status: 'idle' })));
+        // Clear prior telemetry so the deck/matrix start from a real, empty state.
+        dispatchTelemetry({ type: 'reset' });
         onStatusChange?.('calibrating');
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
@@ -504,6 +533,10 @@ export default function DestructionConsole({
                         return;
                     }
 
+                    // Feed the live telemetry deck from the same real event (single
+                    // source — no extra channel). Idempotent: the reducer de-dupes by id.
+                    dispatchTelemetry({ type: 'event', event });
+
                     const typeMap: Record<string, TerminalLine['type']> = {
                         'BATTERY_STARTED': MSG_TYPE.COMMAND,
                         'BATTERY_COMPLETED': MSG_TYPE.SUCCESS,
@@ -532,6 +565,9 @@ export default function DestructionConsole({
                 { event: EVENTS.UPDATE, schema: TABLE.SCHEMA, table: TABLE.RUNS, filter: `id=eq.${runId}` },
                 (payload: { new: ArmageddonRun }) => {
                     const run = payload.new;
+                    // Live progress (escape rate, breaches, iteration cap) feeds the deck
+                    // on every update — not only at terminal state.
+                    dispatchTelemetry({ type: 'run', run });
                     if (isTerminalStatus(run.status)) {
                         supabase.removeChannel(eventsChannel);
                         supabase.removeChannel(runsChannel);
@@ -674,18 +710,34 @@ export default function DestructionConsole({
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
                                 {/* Meaningful copy sits on a solid high-contrast panel — never
-                                    behind the blur — and the CTA is a real, focusable link. */}
-                                <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
-                                    <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3">LOCKED</p>
-                                    <p className="mono-data text-signal text-sm">Custom Battery Selection</p>
-                                    <p className="mono-small text-signal/80 mt-1">Requires the Verified tier or higher.</p>
-                                    <a
-                                        href="/pricing?upgrade=verified"
-                                        className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
-                                    >
-                                        View pricing
-                                    </a>
-                                </div>
+                                    behind the blur — and the CTA is a real, focusable link.
+                                    Honest copy: distinguish "no backend on this deployment"
+                                    from a genuine tier gate, so the lock is never misread. */}
+                                {backendConnected ? (
+                                    <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
+                                        <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3">LOCKED</p>
+                                        <p className="mono-data text-signal text-sm">Custom Battery Selection</p>
+                                        <p className="mono-small text-signal/80 mt-1">Requires the Verified tier or higher.</p>
+                                        <a
+                                            href="/pricing?upgrade=verified"
+                                            className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        >
+                                            View pricing
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--destructive)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
+                                        <p className="mono-small tracking-[0.3em] text-[var(--destructive)] mb-3">BACKEND NOT CONNECTED</p>
+                                        <p className="mono-data text-signal text-sm">No live backend on this deployment</p>
+                                        <p className="mono-small text-signal/80 mt-1">Runs, tiers, and telemetry are unavailable here — this is a configuration state, not a tier limit.</p>
+                                        <a
+                                            href="/pricing"
+                                            className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        >
+                                            Request access
+                                        </a>
+                                    </div>
+                                )}
                             </div>
                         )}
                         <BatterySelector
@@ -792,7 +844,7 @@ export default function DestructionConsole({
                                     <span className="mono-small text-signal/60 tracking-widest">THREAT_MATRIX</span>
                                 </div>
                                 <div className="mono-small text-zinc-500">
-                                    SECURE_SECTORS: {threatMap.filter(t => t.status === 'safe').length}/64
+                                    SECURE_SECTORS: {secureSectorCount}/64
                                 </div>
                             </div>
                             <div className="p-6 flex-1 flex items-center justify-center bg-[url('/grid-pattern.png')] bg-repeat opacity-80">
@@ -801,6 +853,16 @@ export default function DestructionConsole({
                         </div>
                         <LeaderboardWidget status={status} />
                     </div>
+                </motion.div>
+
+                {/* Live run telemetry — full-width row, driven by the real event stream. */}
+                <motion.div
+                    className="mb-8"
+                    initial={false}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
+                >
+                    <RunTelemetryDeck telemetry={telemetry} connection={deckConnection} />
                 </motion.div>
             </div>
         </section>

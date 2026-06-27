@@ -92,7 +92,6 @@ function buildEventRow(
 export class SupabaseReporter {
     private readonly client: SupabaseClient;
     private readonly runId: string;
-    private readonly channel: ReturnType<SupabaseClient['channel']>;
 
     constructor(runId: string) {
         const supabaseUrl = process.env.SUPABASE_URL;
@@ -104,7 +103,6 @@ export class SupabaseReporter {
 
         this.client = createClient(supabaseUrl, supabaseKey);
         this.runId = runId;
-        this.channel = this.client.channel(`run_telemetry_${runId}`);
     }
 
     /**
@@ -117,14 +115,10 @@ export class SupabaseReporter {
     ): Promise<void> {
         const row = buildEventRow(this.runId, batteryId, eventType, payload, new Date().toISOString());
 
-        const [dbResult] = await Promise.all([
-            this.client.from('armageddon_events').insert(row),
-            this.channel.send({
-                type: 'broadcast',
-                event: 'armageddon_event',
-                payload: row,
-            })
-        ]);
+        // Single realtime transport: the durable insert IS the live signal. The
+        // frontend consumes RLS-protected postgres_changes on armageddon_events,
+        // so a separate channel broadcast would be redundant (and unauthenticated).
+        const dbResult = await this.client.from('armageddon_events').insert(row);
 
         // Persistence is proof-critical: surface insert failures instead of swallowing them.
         if (dbResult.error) {
@@ -147,14 +141,8 @@ export class SupabaseReporter {
         const createdAt = new Date().toISOString();
         const rows = events.map(e => buildEventRow(this.runId, e.batteryId, e.eventType, e.payload, createdAt));
 
-        const [dbResult] = await Promise.all([
-            this.client.from('armageddon_events').insert(rows),
-            this.channel.send({
-                type: 'broadcast',
-                event: 'armageddon_event_batch',
-                payload: { events: rows },
-            })
-        ]);
+        // Single realtime transport (see pushEvent): durable insert only.
+        const dbResult = await this.client.from('armageddon_events').insert(rows);
 
         // Persistence is proof-critical: surface batch insert failures.
         if (dbResult.error) {
