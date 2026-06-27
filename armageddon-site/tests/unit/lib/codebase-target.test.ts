@@ -1,37 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import {
     canStartRunForTarget,
-    createRepositoryTarget,
-    createZipArchiveTarget,
+    createEndpointTarget,
     parseCodebaseTarget,
     targetSummary,
-    validateRepositoryUrl,
+    validateTargetEndpointUrl,
 } from '@/lib/codebase-target';
 
-describe('codebase target helpers', () => {
-    it('validates empty and malformed repository URLs', () => {
-        expect(validateRepositoryUrl('')).toBe('Repository URL is required.');
-        expect(validateRepositoryUrl('not-a-repo')).toBe('Enter an HTTPS, SSH, or git repository URL.');
-        expect(validateRepositoryUrl('https://github.com/acme/app.git')).toBeNull();
-        expect(validateRepositoryUrl('git@github.com:acme/app.git')).toBeNull();
+describe('target endpoint helpers', () => {
+    it('validates empty and malformed target endpoint URLs', () => {
+        expect(validateTargetEndpointUrl('')).toBe('Target endpoint or app URL is required.');
+        expect(validateTargetEndpointUrl('not-a-url')).toBe('Enter an HTTPS target endpoint or deployed app URL.');
+        expect(validateTargetEndpointUrl('git@github.com:acme/app.git')).toBe('Enter an HTTPS target endpoint or deployed app URL.');
+        expect(validateTargetEndpointUrl('https://app.example.com')).toBeNull();
     });
 
-    it('creates durable repository target state', () => {
-        const target = createRepositoryTarget(' https://github.com/acme/app.git ', 'Checkout API');
-        expect(target.kind).toBe('repository');
+    it('creates durable endpoint target state', () => {
+        const target = createEndpointTarget(' https://app.example.com ', 'Checkout API');
+        expect(target.kind).toBe('endpoint');
         expect(target.status).toBe('local-only');
-        expect(target.repositoryUrl).toBe('https://github.com/acme/app.git');
+        expect(target.endpointUrl).toBe('https://app.example.com');
         expect(parseCodebaseTarget(JSON.stringify(target))).toEqual(target);
         expect(targetSummary(target)).toContain('Checkout API');
     });
 
-    it('blocks zip execution while preserving local metadata', () => {
-        const target = createZipArchiveTarget({ name: 'app.zip', size: 2048, type: 'application/zip' }, 'Zip app');
-        expect(target.status).toBe('backend-required');
-        expect(targetSummary(target)).toContain('local metadata only');
-        expect(canStartRunForTarget(target)).toEqual({
+    it('normalizes legacy repository-shaped local drafts to endpoint targets', () => {
+        const target = parseCodebaseTarget(JSON.stringify({ kind: 'repository', repositoryUrl: 'https://app.example.com', label: 'Legacy target' }));
+        expect(target?.kind).toBe('endpoint');
+        expect(target?.endpointUrl).toBe('https://app.example.com');
+    });
+
+    it('requires a configured target before runs can start', () => {
+        expect(canStartRunForTarget(null)).toEqual({
             ok: false,
-            reason: 'Zip archive analysis is blocked until real archive storage and ingestion are connected. Only local file metadata is saved.',
+            reason: 'Configure the deployed app URL, API endpoint, or LLM/agent endpoint before starting a run.',
         });
     });
 });

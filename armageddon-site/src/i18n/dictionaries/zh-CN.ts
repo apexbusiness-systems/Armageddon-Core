@@ -157,7 +157,7 @@ const zhCN: Dictionary = {
             contactEmail: '联系邮箱',
             tier: '已选层级',
             targetSystemName: '目标系统名称',
-            targetUrl: '目标 URL 或仓库 URL',
+            targetUrl: '目标端点或应用 URL',
             environment: '环境',
         },
         environmentOptions: {
@@ -172,7 +172,7 @@ const zhCN: Dictionary = {
             orgName: '组织名称为必填项。',
             contactEmail: '需要提供有效的联系邮箱。',
             targetSystemName: '目标系统名称为必填项。',
-            targetUrl: '目标 URL 或仓库 URL 为必填项。',
+            targetUrl: '目标端点或应用 URL 为必填项。',
             authorization: '您必须确认已获授权测试该目标。',
             acceptableUse: '您必须确认知晓可接受使用政策。',
         },

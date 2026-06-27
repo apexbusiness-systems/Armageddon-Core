@@ -157,7 +157,7 @@ const fr: Dictionary = {
             contactEmail: 'E-mail de contact',
             tier: 'Niveau selectionne',
             targetSystemName: 'Nom du systeme cible',
-            targetUrl: 'URL cible ou URL du depot',
+            targetUrl: "Endpoint cible ou URL d\'application",
             environment: 'Environnement',
         },
         environmentOptions: {
@@ -172,7 +172,7 @@ const fr: Dictionary = {
             orgName: "Le nom de l'organisation est requis.",
             contactEmail: 'Une adresse e-mail de contact valide est requise.',
             targetSystemName: 'Le nom du systeme cible est requis.',
-            targetUrl: "L'URL cible ou l'URL du depot est requise.",
+            targetUrl: "L'endpoint cible ou l'URL d'application est requis.",
             authorization: 'Vous devez confirmer que vous etes autorise a tester la cible.',
             acceptableUse: "Vous devez reconnaitre la politique d'utilisation acceptable.",
         },

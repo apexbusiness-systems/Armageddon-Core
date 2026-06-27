@@ -171,3 +171,16 @@ codebase onboarding regression tests added for first-run repository/zip intake.
 | `armageddon-site/tests/unit/app-onboarding-codebase-target.test.tsx` | Enforcement (CI) | Validates onboarding target validation, local repository target persistence, and zip metadata copy that does not claim upload or analysis. |
 | `armageddon-site/tests/unit/components/DestructionConsole-codebase-target.test.tsx` | Enforcement (CI) | Validates console target readiness summaries and blocked zip execution when archive ingestion is unavailable. |
 | `armageddon-site/tests/unit/lib/codebase-target.test.ts` | Enforcement (CI) | Validates shared codebase target parsing, validation, summaries, and run-readiness gating. |
+
+## Addendum — 2026-06-27 target readiness follow-up
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+run-readiness UI tests and review-only SQL draft added after reconciling the
+merged onboarding/i18n work.
+
+| File | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/tests/unit/components/TargetConfigPanel.test.tsx` | Enforcement (CI) | Validates target-configuration empty/configured states and onboarding CTA routing. |
+| `armageddon-site/tests/unit/components/RunReadinessChecklist.test.tsx` | Enforcement (CI) | Validates visible run-readiness blockers and all-ready state. |
+| `docs/ops/sql/2026-06-27-org-unblock-review.sql` | Review-only operational draft | Must be reviewed and parameterized by an operator before execution; Codex must not execute it. |
+| `armageddon-site/tests/unit/active-target-copy.test.ts` | Enforcement (CI) | Validates active target-configuration UI does not claim repository, zip upload, or code-analysis capabilities. |

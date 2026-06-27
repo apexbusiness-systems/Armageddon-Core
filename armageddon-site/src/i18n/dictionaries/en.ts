@@ -157,7 +157,7 @@ const en: Dictionary = {
             contactEmail: 'Contact Email',
             tier: 'Selected Tier',
             targetSystemName: 'Target System Name',
-            targetUrl: 'Target URL or Repository URL',
+            targetUrl: 'Target endpoint or app URL',
             environment: 'Environment',
         },
         environmentOptions: {
@@ -172,7 +172,7 @@ const en: Dictionary = {
             orgName: 'Organization name is required.',
             contactEmail: 'A valid contact email is required.',
             targetSystemName: 'Target system name is required.',
-            targetUrl: 'Target URL or repository URL is required.',
+            targetUrl: 'Target endpoint or app URL is required.',
             authorization: 'You must confirm you are authorized to test the target.',
             acceptableUse: 'You must acknowledge the acceptable use policy.',
         },

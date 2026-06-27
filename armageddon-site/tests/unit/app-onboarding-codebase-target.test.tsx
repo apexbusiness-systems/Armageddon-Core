@@ -38,40 +38,34 @@ function renderOnboardingPage() {
     return render(<I18nProvider><OnboardingPage /></I18nProvider>);
 }
 
-describe('OnboardingPage codebase target flow', () => {
-    it('blocks an empty repository URL with clear validation copy', async () => {
+describe('OnboardingPage target endpoint flow', () => {
+    it('blocks an empty target endpoint URL with clear validation copy', async () => {
         renderOnboardingPage();
         await completeCommonFields();
         await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
-        expect(await screen.findByText('Repository URL is required.')).toBeInTheDocument();
+        expect(await screen.findByText('Target endpoint or app URL is required.')).toBeInTheDocument();
         expect(push).not.toHaveBeenCalled();
     });
 
-    it('saves a repository target and honestly reports local-only state without a backend', async () => {
+    it('saves a target endpoint and honestly reports local-only state without a backend', async () => {
         renderOnboardingPage();
         await completeCommonFields();
-        fireEvent.change(screen.getByLabelText(/Repository URL/i), { target: { value: 'https://github.com/acme/app.git' } });
+        fireEvent.change(screen.getByLabelText(/Target endpoint or app URL/i), { target: { value: 'https://app.example.com' } });
         await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
 
         expect(await screen.findByText(/Live analysis is not connected/)).toBeInTheDocument();
         const target = JSON.parse(localStorage.getItem(CODEBASE_TARGET_KEY) ?? '{}') as CodebaseTarget;
-        expect(target.kind).toBe('repository');
+        expect(target.kind).toBe('endpoint');
         expect(target.status).toBe('local-only');
-        expect(localStorage.getItem(DRAFT_KEY)).toContain('https://github.com/acme/app.git');
+        expect(target.endpointUrl).toBe('https://app.example.com');
+        expect(localStorage.getItem(DRAFT_KEY)).toContain('https://app.example.com');
     });
 
-    it('saves zip metadata locally without claiming upload or analysis', async () => {
+    it('does not show unsupported repository or zip upload controls', async () => {
         renderOnboardingPage();
-        await completeCommonFields();
-        await userEvent.click(screen.getByRole('button', { name: /Zip archive/i }));
-        const file = new File(['zip-bytes'], 'app.zip', { type: 'application/zip' });
-        await userEvent.upload(screen.getByLabelText(/Zip archive metadata/i), file);
-        await waitFor(() => expect(screen.getByText(/Saved locally: app.zip/)).toBeInTheDocument());
-        await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
-
-        expect(await screen.findByText(/no upload, analysis, queue, run, or certificate has been started/i)).toBeInTheDocument();
-        const target = JSON.parse(localStorage.getItem(CODEBASE_TARGET_KEY) ?? '{}') as CodebaseTarget;
-        expect(target.kind).toBe('zip-archive');
-        expect(target.status).toBe('backend-required');
+        await screen.findByText('System under test');
+        expect(screen.queryByText(/Repo URL/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Zip archive/i)).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/Repository URL/i)).not.toBeInTheDocument();
     });
 });

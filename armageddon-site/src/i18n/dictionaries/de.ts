@@ -157,7 +157,7 @@ const de: Dictionary = {
             contactEmail: 'Kontakt-E-Mail',
             tier: 'Ausgewahlte Stufe',
             targetSystemName: 'Name des Zielsystems',
-            targetUrl: 'Ziel-URL oder Repository-URL',
+            targetUrl: 'Ziel-Endpunkt oder App-URL',
             environment: 'Umgebung',
         },
         environmentOptions: {
@@ -172,7 +172,7 @@ const de: Dictionary = {
             orgName: 'Organisationsname ist erforderlich.',
             contactEmail: 'Eine gultige Kontakt-E-Mail ist erforderlich.',
             targetSystemName: 'Name des Zielsystems ist erforderlich.',
-            targetUrl: 'Ziel-URL oder Repository-URL ist erforderlich.',
+            targetUrl: 'Ziel-Endpunkt oder App-URL ist erforderlich.',
             authorization: 'Sie mussen bestatigen, dass Sie berechtigt sind, das Ziel zu testen.',
             acceptableUse: 'Sie mussen die Richtlinie zur akzeptablen Nutzung anerkennen.',
         },

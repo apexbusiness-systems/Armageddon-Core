@@ -1,33 +1,18 @@
 import type { PlanId } from '@/lib/pricing';
 
-export type CodebaseTargetKind = 'repository' | 'zip-archive';
-export type CodebaseTargetStatus = 'ready' | 'local-only' | 'backend-required' | 'invalid';
+export type CodebaseTargetKind = 'endpoint';
+export type CodebaseTargetStatus = 'ready' | 'local-only' | 'invalid';
 export type TargetEnv = 'local' | 'staging' | 'production';
 
-export interface CodebaseTargetBase {
+export interface CodebaseTarget {
     readonly id: string;
     readonly kind: CodebaseTargetKind;
     readonly status: CodebaseTargetStatus;
     readonly label: string;
+    readonly endpointUrl: string;
     readonly createdAt: string;
     readonly updatedAt: string;
 }
-
-export interface RepositoryCodebaseTarget extends CodebaseTargetBase {
-    readonly kind: 'repository';
-    readonly repositoryUrl: string;
-    readonly backendCodebaseId?: string;
-    readonly backendIntakeId?: string;
-}
-
-export interface ZipArchiveCodebaseTarget extends CodebaseTargetBase {
-    readonly kind: 'zip-archive';
-    readonly fileName: string;
-    readonly fileSize: number;
-    readonly mimeType: string;
-}
-
-export type CodebaseTarget = RepositoryCodebaseTarget | ZipArchiveCodebaseTarget;
 
 export interface OnboardingDraft {
     readonly orgName: string;
@@ -44,50 +29,39 @@ export interface OnboardingDraft {
 export const DRAFT_KEY = 'armageddon:onboarding-draft';
 export const CODEBASE_TARGET_KEY = 'armageddon:codebase-target';
 
-const REPOSITORY_PATTERN = /^(https?:\/\/|git@|ssh:\/\/).+/;
+const HTTP_ENDPOINT_PATTERN = /^https?:\/\/.+/;
 
 function nowIso(): string {
     return new Date().toISOString();
 }
 
-function targetId(prefix: CodebaseTargetKind): string {
+function targetId(): string {
     const array = new Uint32Array(1);
     globalThis.crypto?.getRandomValues?.(array);
-    return `${prefix}-${Date.now().toString(36)}-${array[0]?.toString(36) ?? '0'}`;
+    return `endpoint-${Date.now().toString(36)}-${array[0]?.toString(36) ?? '0'}`;
 }
 
-export function validateRepositoryUrl(value: string): string | null {
+export function validateTargetEndpointUrl(value: string): string | null {
     const trimmed = value.trim();
-    if (trimmed === '') return 'Repository URL is required.';
-    if (!REPOSITORY_PATTERN.test(trimmed)) return 'Enter an HTTPS, SSH, or git repository URL.';
+    if (trimmed === '') return 'Target endpoint or app URL is required.';
+    if (!HTTP_ENDPOINT_PATTERN.test(trimmed)) return 'Enter an HTTPS target endpoint or deployed app URL.';
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return 'Enter an HTTPS target endpoint or deployed app URL.';
+    } catch {
+        return 'Enter a valid target endpoint or deployed app URL.';
+    }
     return null;
 }
 
-export function createRepositoryTarget(repositoryUrl: string, label: string, backendIds?: { readonly codebaseId?: string; readonly intakeId?: string }): RepositoryCodebaseTarget {
+export function createEndpointTarget(endpointUrl: string, label: string): CodebaseTarget {
     const timestamp = nowIso();
     return {
-        id: targetId('repository'),
-        kind: 'repository',
-        status: backendIds?.codebaseId || backendIds?.intakeId ? 'ready' : 'local-only',
-        label: label.trim() || 'Repository target',
-        repositoryUrl: repositoryUrl.trim(),
-        backendCodebaseId: backendIds?.codebaseId,
-        backendIntakeId: backendIds?.intakeId,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-    };
-}
-
-export function createZipArchiveTarget(file: Pick<File, 'name' | 'size' | 'type'>, label: string): ZipArchiveCodebaseTarget {
-    const timestamp = nowIso();
-    return {
-        id: targetId('zip-archive'),
-        kind: 'zip-archive',
-        status: 'backend-required',
-        label: label.trim() || file.name,
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type || 'application/zip',
+        id: targetId(),
+        kind: 'endpoint',
+        status: 'local-only',
+        label: label.trim() || 'System under test',
+        endpointUrl: endpointUrl.trim(),
         createdAt: timestamp,
         updatedAt: timestamp,
     };
@@ -96,13 +70,16 @@ export function createZipArchiveTarget(file: Pick<File, 'name' | 'size' | 'type'
 export function parseCodebaseTarget(raw: string | null): CodebaseTarget | null {
     if (!raw) return null;
     try {
-        const parsed = JSON.parse(raw) as Partial<CodebaseTarget>;
+        const parsed = JSON.parse(raw) as Omit<Partial<CodebaseTarget>, 'kind'> & { readonly repositoryUrl?: string; readonly kind?: string };
         if (!parsed || typeof parsed !== 'object') return null;
-        if (parsed.kind === 'repository' && typeof (parsed as Partial<RepositoryCodebaseTarget>).repositoryUrl === 'string') {
-            return parsed as RepositoryCodebaseTarget;
+        if (parsed.kind === 'endpoint' && typeof parsed.endpointUrl === 'string') {
+            return parsed as CodebaseTarget;
         }
-        if (parsed.kind === 'zip-archive' && typeof (parsed as Partial<ZipArchiveCodebaseTarget>).fileName === 'string') {
-            return parsed as ZipArchiveCodebaseTarget;
+        // Backward-compatible migration for client drafts saved by the previous
+        // repository-labelled UI. The runtime still consumes an endpoint URL, so
+        // normalize the old shape to the current target endpoint model.
+        if (parsed.kind === 'repository' && typeof parsed.repositoryUrl === 'string') {
+            return createEndpointTarget(parsed.repositoryUrl, typeof parsed.label === 'string' ? parsed.label : 'System under test');
         }
     } catch {
         return null;
@@ -119,15 +96,11 @@ export function saveCodebaseTarget(target: CodebaseTarget, storage: Pick<Storage
 }
 
 export function targetSummary(target: CodebaseTarget): string {
-    if (target.kind === 'repository') return `${target.label}: ${target.repositoryUrl}`;
-    return `${target.label}: ${target.fileName} (${Math.ceil(target.fileSize / 1024)} KB, local metadata only)`;
+    return `${target.label}: ${target.endpointUrl}`;
 }
 
 export function canStartRunForTarget(target: CodebaseTarget | null): { readonly ok: true } | { readonly ok: false; readonly reason: string } {
-    if (!target) return { ok: false, reason: 'Configure a repository or zip archive target in onboarding before starting a run.' };
-    if (target.kind === 'zip-archive') {
-        return { ok: false, reason: 'Zip archive analysis is blocked until real archive storage and ingestion are connected. Only local file metadata is saved.' };
-    }
-    if (target.status === 'invalid') return { ok: false, reason: 'The saved repository target is invalid. Return to onboarding and correct it.' };
+    if (!target) return { ok: false, reason: 'Configure the deployed app URL, API endpoint, or LLM/agent endpoint before starting a run.' };
+    if (target.status === 'invalid') return { ok: false, reason: 'The saved target endpoint is invalid. Return to onboarding and correct it.' };
     return { ok: true };
 }

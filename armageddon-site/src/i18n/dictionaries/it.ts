@@ -157,7 +157,7 @@ const it: Dictionary = {
             contactEmail: 'Email di contatto',
             tier: 'Livello selezionato',
             targetSystemName: 'Nome del sistema target',
-            targetUrl: 'URL target o URL del repository',
+            targetUrl: 'Endpoint o URL app target',
             environment: 'Ambiente',
         },
         environmentOptions: {
@@ -172,7 +172,7 @@ const it: Dictionary = {
             orgName: 'Il nome dell organizzazione e obbligatorio.',
             contactEmail: 'E richiesta un email di contatto valida.',
             targetSystemName: 'Il nome del sistema target e obbligatorio.',
-            targetUrl: 'L URL target o l URL del repository e obbligatorio.',
+            targetUrl: "L\'endpoint o l\'URL dell\'app target e obbligatorio.",
             authorization: 'Devi confermare di essere autorizzato a testare il target.',
             acceptableUse: 'Devi riconoscere la politica di uso accettabile.',
         },
