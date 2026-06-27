@@ -132,7 +132,7 @@ function foldOutcome(
     battery: string,
     iteration: number
 ): TelemetryState {
-    if (kind !== 'block' && kind !== 'breach' && kind !== 'drift') return next;
+    if (kind === 'marker') return next; // markers carry no scored outcome
 
     const v = vitalsFor(prev, battery);
     next.batteries = {

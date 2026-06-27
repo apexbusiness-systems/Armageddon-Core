@@ -169,7 +169,9 @@ const Seismograph = React.memo(function Seismograph({
     return (
         <div className="relative">
             <span className="sr-only">{label}</span>
-            <canvas ref={canvasRef} aria-hidden="true" className="w-full h-[160px] block" />
+            {/* Unlabeled canvas is ignored by assistive tech; the sr-only summary
+                above carries the meaning, and the metric readouts are accessible. */}
+            <canvas ref={canvasRef} className="w-full h-[160px] block" />
         </div>
     );
 });
