@@ -638,8 +638,15 @@ async function runGenericAdversarialBattery<T>(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function runBattery10_GoalHijack(config: BatteryConfig): Promise<BatteryResult> {
+    // For CERTIFIED tier, real PAIR calls are expensive. Cap at 50 goal vectors
+    // (each gets up to 3 PAIR sub-iterations = max 150 real LLM calls for B10).
+    // Simulation tier runs full config.iterations (up to 10,000) as-is.
+    const cappedConfig: BatteryConfig = config.tier === 'CERTIFIED'
+        ? { ...config, iterations: Math.min(config.iterations, 50) }
+        : config;
+
     return runGenericAdversarialBattery(
-        config,
+        cappedConfig,
         'B10',
         'GOAL_HIJACK',
         ADVERSARIAL_PROMPTS,
@@ -684,8 +691,14 @@ export async function runBattery12_MemoryPoison(config: BatteryConfig): Promise<
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function runBattery13_SupplyChain(config: BatteryConfig): Promise<BatteryResult> {
+    // For CERTIFIED tier, cap real PAIR vectors at 50 (max ~150 real LLM calls).
+    // Simulation tier runs full config.iterations as-is.
+    const cappedConfig: BatteryConfig = config.tier === 'CERTIFIED'
+        ? { ...config, iterations: Math.min(config.iterations, 50) }
+        : config;
+
     return runGenericAdversarialBattery(
-        config,
+        cappedConfig,
         'B13',
         'SUPPLY_CHAIN',
         SUPPLY_CHAIN_VECTORS,
@@ -701,24 +714,20 @@ export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<Bat
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B6', 'BATTERY_STARTED', { mode: 'SAFETY_VERIFICATION' });
 
-    // Save original environment
-    const originalSimMode = process.env.SIM_MODE;
-    const originalTenant = process.env.SANDBOX_TENANT;
-
     let passed = false;
     let details: Record<string, unknown> = {};
 
     try {
-        // 1. Sabotage the environment to simulate an UNSAFE configuration
-        delete process.env.SIM_MODE;
-        delete process.env.SANDBOX_TENANT;
+        // 1. Create an isolated guard instance with an UNSAFE env — this never
+        //    touches process.env or the shared singleton, so concurrent
+        //    batteries (B10–B14) are completely unaffected (no race).
+        const badGuard = SafetyGuard.createWithEnv({
+            SIM_MODE: undefined,
+            SANDBOX_TENANT: undefined,
+        });
 
-        // 2. Reset the SafetyGuard Singleton to force it to re-read the (bad) environment
-        SafetyGuard.resetForTesting();
-        const badGuard = SafetyGuard.getInstance();
-
-        // 3. Attempt execution - MUST FAIL
-        // If this DOES NOT throw, we have a security hole.
+        // 2. Attempt execution - MUST FAIL.
+        //    If this DOES NOT throw, we have a security hole.
         badGuard.enforce('Battery6_DestructionTest');
 
         // IF WE REACH HERE, THE GATE FAILED TO BLOCK US
@@ -738,15 +747,8 @@ export async function runBattery6_UnsafeGate(config: BatteryConfig): Promise<Bat
             const msg = err instanceof Error ? err.message : String(err);
             details = { error: `Unexpected error type: ${msg}` };
         }
-    } finally {
-        // 4. Restore Environment (CRITICAL)
-        if (originalSimMode !== undefined) process.env.SIM_MODE = originalSimMode;
-        if (originalTenant !== undefined) process.env.SANDBOX_TENANT = originalTenant;
-
-        // Reset Guard again to restore safe state for other batteries
-        SafetyGuard.resetForTesting();
-        SafetyGuard.getInstance();
     }
+    // No finally needed — no shared state was ever mutated.
 
     await reporter.pushEvent('B6', 'BATTERY_COMPLETED', { passed });
 

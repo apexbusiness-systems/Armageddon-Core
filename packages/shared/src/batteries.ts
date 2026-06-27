@@ -74,7 +74,7 @@ export const BATTERIES: Battery[] = [
         id: '10',
         name: 'GOAL HIJACK',
         description: 'Multi-turn adaptive jailbreaks',
-        attackVector: '$ attack --method=PAIR --iterations=10000 --tree-of-attacks',
+        attackVector: '$ attack --method=PAIR --engine=live-llm --certified-tier-only',
         godMode: true,
     },
     {

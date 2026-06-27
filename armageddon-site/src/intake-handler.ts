@@ -403,8 +403,17 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
 }
 
 type RunAccess =
-  | { ok: true; batteries: string[] }
+  | { ok: true; batteries: string[]; tier: string }
   | { ok: false; status: number; body: Record<string, unknown> };
+
+/**
+ * Returns the default adversarial target model for a given org tier.
+ * CERTIFIED tier gets claude-sonnet-4-6 (cost-efficient, current).
+ * All other tiers get sim-001 (simulation).
+ */
+function defaultTargetModel(tier: string | undefined): string {
+  return (tier === 'certified') ? 'claude-sonnet-4-6' : 'sim-001';
+}
 
 async function evaluateRunAccess(env: IntakeEnv, userId: string, input: RunInput): Promise<RunAccess> {
   const { organizationId, level, requestedBatteries } = input;
@@ -473,7 +482,7 @@ async function evaluateRunAccess(env: IntakeEnv, userId: string, input: RunInput
     };
   }
 
-  return { ok: true, batteries };
+  return { ok: true, batteries, tier };
 }
 
 /** Cryptographically-strong 32-bit unsigned seed (Web Crypto, available on the CF edge). */
@@ -487,6 +496,7 @@ async function createRunRecord(
   organizationId: string,
   level: number,
   batteries: string[],
+  tier: string,
 ): Promise<Response> {
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
@@ -501,7 +511,9 @@ async function createRunRecord(
     sandbox_tenant: 'armageddon-prod',
     workflow_id: workflowId,
     status: 'pending',
-    config: { batteries, iterations, tier: 'FREE', seed },
+    // Store the org's actual tier so api-server can dispatch CERTIFIED runs
+    // correctly; targetModel selects the real PAIR engine on CERTIFIED tier.
+    config: { batteries, iterations, tier, seed, targetModel: defaultTargetModel(tier) },
   });
 
   if (insertError) {
@@ -538,7 +550,7 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
   const access = await evaluateRunAccess(env, user.id, input);
   if (!access.ok) return jsonResponse(access.body, canonicalHost, access.status);
 
-  return createRunRecord(env, canonicalHost, input.organizationId, input.level, access.batteries);
+  return createRunRecord(env, canonicalHost, input.organizationId, input.level, access.batteries, access.tier);
 }
 
 // ── Intake form handler (unchanged) ──────────────────────────────────────────
