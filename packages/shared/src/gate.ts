@@ -1,11 +1,18 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARMAGEDDON LEVEL 7 — MONETIZATION GATE
- * Tier-based access control for certification levels
+ * ARMAGEDDON — MONETIZATION / CERTIFICATION GATE
+ * Tier-based access control for certification levels.
+ * Level/tier access derives from the single source of truth: ./levels.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import {
+    MIN_CERTIFICATION_LEVEL,
+    MAX_CERTIFICATION_LEVEL,
+    requiredTierForLevel,
+    tierCanRunLevel,
+} from './levels';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -35,11 +42,8 @@ export interface Organization {
 // TIER CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-const TIER_LEVEL_ACCESS: Record<OrganizationTier, number[]> = {
-    free_dry: [1, 2, 3],
-    verified: [1, 2, 3, 4, 5, 6],
-    certified: [1, 2, 3, 4, 5, 6, 7],
-};
+// TIER_LEVEL_ACCESS is the DERIVED, single-source table from ./levels
+// (re-exported via the package index). Do not re-declare it here.
 
 const TIER_NAMES: Record<OrganizationTier, string> = {
     free_dry: 'Free (Dry Run)',
@@ -123,12 +127,14 @@ export async function checkRunEligibility(
         requestedLevel,
     };
 
-    // Validate level
-    if (requestedLevel < 1 || requestedLevel > 7) {
+    // Validate level (range derives from the single source of truth)
+    if (!Number.isInteger(requestedLevel)
+        || requestedLevel < MIN_CERTIFICATION_LEVEL
+        || requestedLevel > MAX_CERTIFICATION_LEVEL) {
         return {
             ...DEFAULT_FAIL,
             reason: 'INVALID_LEVEL',
-            upsellMessage: 'Invalid certification level. Valid levels are 1-7.',
+            upsellMessage: `Invalid certification level. Valid levels are ${MIN_CERTIFICATION_LEVEL}-${MAX_CERTIFICATION_LEVEL}.`,
         };
     }
 
@@ -148,7 +154,6 @@ export async function checkRunEligibility(
     }
 
     const tier = org.current_tier as OrganizationTier;
-    const allowedLevels = TIER_LEVEL_ACCESS[tier];
     const tierFeatures = TIER_FEATURES[tier];
 
     // Check battery customization
@@ -185,8 +190,8 @@ export async function checkRunEligibility(
         }
     }
 
-    // Check level access
-    if (allowedLevels.includes(requestedLevel)) {
+    // Check level access (derived from the single source of truth)
+    if (tierCanRunLevel(tier, requestedLevel)) {
         return {
             eligible: true,
             tier,
@@ -212,9 +217,8 @@ export async function checkRunEligibility(
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRequiredTier(level: number): OrganizationTier {
-    if (level === 7) return 'certified';
-    if (level >= 4) return 'verified';
-    return 'free_dry';
+    // Derived from the single source of truth (./levels).
+    return requiredTierForLevel(level) ?? 'certified';
 }
 
 function generateUpsellMessage(
@@ -222,11 +226,13 @@ function generateUpsellMessage(
     currentTier: OrganizationTier,
     requiredTier: OrganizationTier
 ): string {
-    if (level === 7) {
-        return `🔒 Level 7 "God Mode" requires CERTIFIED tier. ` +
+    if (level >= 7) {
+        const tagline = level >= 8
+            ? `Level 8 "Kinetic Moat" requires CERTIFIED tier — air-gapped, live-fire PAIR testing with a tamper-evident attestation receipt.`
+            : `Level 7 "God Mode" requires CERTIFIED tier — 10,000+ iteration adversarial testing.`;
+        return `🔒 ${tagline} ` +
             `You are currently on ${TIER_NAMES[currentTier]}. ` +
-            `Upgrade to unlock 10,000+ iteration adversarial testing with ` +
-            `Batteries 10-13 (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain).`;
+            `Upgrade to unlock Batteries 10-14 (Goal Hijack, Tool Misuse, Memory Poison, Supply Chain, Indirect Injection).`;
     }
 
     if (level >= 4 && currentTier === 'free_dry') {

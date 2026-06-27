@@ -44,11 +44,13 @@ export interface BatteryResult {
 export interface BatteryConfig {
     runId: string;
     iterations: number;
-    tier: OrganizationTier; 
+    tier: OrganizationTier;
     targetEndpoint?: string;
     targetModel?: AdversarialModel;
     seed?: number;
     batteries?: string[];
+    /** Certification level (1-8). Recorded into the signed report/receipt. */
+    level?: number;
 }
 
 function resolveSeed(config: Pick<BatteryConfig, 'runId' | 'seed'>): number {
@@ -858,6 +860,8 @@ export interface WorkflowState {
     results: BatteryResult[];
     currentBattery: string | null;
     startTime: number;
+    /** Certification level of this run (1-8), threaded into the report. */
+    level?: number;
 }
 
 export interface ArmageddonReport {
@@ -868,6 +872,8 @@ export interface ArmageddonReport {
     status: string;
     grade: string;
     score: number;
+    /** Certification level (1-8) this run was executed at. Signed into the receipt. */
+    level?: number;
     batteries: BatteryResult[];
 }
 
@@ -1127,6 +1133,7 @@ export async function generateReport(state: WorkflowState): Promise<ArmageddonRe
         status: state.status,
         grade: calculateGrade(state.results),
         score: calculateScore(state.results),
+        level: state.level,
         batteries: state.results
     };
 }

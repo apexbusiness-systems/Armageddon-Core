@@ -44,7 +44,7 @@ export default function Leaderboard() {
                     <span className="w-2 h-2 bg-[var(--aerospace)] animate-pulse" />
                     <span>GLOBAL_RANKINGS</span>
                 </span>
-                <span className="mono-tiny text-signal/30">LEVEL_7_ACCESS</span>
+                <span className="mono-tiny text-signal/30">LEVEL_8_ACCESS</span>
             </div>
 
             {/* List */}
