@@ -1,7 +1,7 @@
 # Canonical UI Contract — Public Marketing Surfaces
 
 **Status**: Canonical<br>
-**Last reviewed**: 2026-06-24<br>
+**Last reviewed**: 2026-06-26<br>
 **Enforced by**: `armageddon-site/tests/unit/canonical-ui-freeze.test.ts` (runs in CI via `npm run test -w armageddon-site`)<br>
 **Review gate**: [`.github/CODEOWNERS`](../.github/CODEOWNERS)
 
@@ -26,8 +26,10 @@ to make CI pass — that is the exact failure mode this contract prevents.
   `/intake`, regardless of auth state. No other destination is permitted in the
   CTA handler.
 - The `EDGE BY · CLOUDFLARE / LOCAL MOAT` deployment badge block is removed.
-- The `CLOUDFLARE EDGE READY // LOCAL MOAT BACKED` deployment indicator is kept
-  and centered (`justify-center`).
+- The deployment indicator is kept and centered (`justify-center`). Its copy is
+  sourced from the i18n dictionary (`common.footer.deploymentIndicator`); the
+  canonical English copy is `Cloudflare edge ready // local moat backed` and
+  must keep the `//` separator in every locale.
 
 ### Pricing page — cards
 - Every card uses the `.pricing-card` contrast panel class (dark translucent

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import AuthIdentityBadge from './AuthIdentityBadge';
 import AuthModal, { type AuthMode } from './AuthModal';
+import { useT } from '@/i18n/useT';
 
 interface AuthHeaderProps {
     readonly user: User | null;
@@ -50,6 +51,7 @@ function cleanAuthParamsFromUrl(): void {
 }
 
 export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
+    const { dictionary } = useT();
     const isLoggedIn = !!user;
     const [hovered, setHovered] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
@@ -93,7 +95,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                     href="/pricing"
                     className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
                 >
-                    Pricing
+                    {dictionary.common.nav.pricing}
                 </Link>
                 {isLoggedIn ? (
                     <>
@@ -102,7 +104,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                         </AnimatePresence>
                         <motion.button
                             type="button"
-                            aria-label="Logout"
+                            aria-label={dictionary.common.nav.logoutAria}
                             onClick={onLogout}
                             className="relative px-7 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] backdrop-blur-md shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
                             whileHover={{ scale: 1.05 }}
@@ -110,28 +112,28 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                         >
                             <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse" />
-                                <span className="mono-small tracking-widest font-bold">LOGOUT</span>
+                                <span className="mono-small tracking-widest font-bold uppercase">{dictionary.common.nav.logout}</span>
                             </div>
                         </motion.button>
                     </>
                 ) : (
                     <>
-                        {/* SIGN UP — primary conversion CTA (aerospace fill) */}
+                        {/* SIGN UP: primary conversion CTA (aerospace fill) */}
                         <motion.button
                             type="button"
-                            aria-label="Sign up"
+                            aria-label={dictionary.common.nav.signupAria}
                             onClick={() => openModal('signup')}
                             className="relative px-6 py-2.5 bg-[var(--aerospace)] text-black font-bold backdrop-blur-md shadow-[0_0_24px_rgba(255,51,0,0.5)] transition-all duration-300 text-sm tracking-[0.3em] uppercase hover:bg-white"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >
-                            <span className="mono-small tracking-widest font-bold">SIGN UP</span>
+                            <span className="mono-small tracking-widest font-bold uppercase">{dictionary.common.nav.signup}</span>
                         </motion.button>
 
-                        {/* LOGIN — ghost/outline (safe green, consistent with prior design) */}
+                        {/* LOGIN: ghost/outline (safe green, consistent with prior design) */}
                         <motion.button
                             type="button"
-                            aria-label="Login"
+                            aria-label={dictionary.common.nav.loginAria}
                             onClick={() => openModal('signin')}
                             className="relative px-6 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] backdrop-blur-md shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
                             whileHover={{ scale: 1.05 }}
@@ -142,7 +144,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 rounded-full bg-[var(--aerospace)] animate-pulse" />
-                                <span className="mono-small tracking-widest font-bold">LOGIN</span>
+                                <span className="mono-small tracking-widest font-bold uppercase">{dictionary.common.nav.login}</span>
                             </div>
                         </motion.button>
                     </>
