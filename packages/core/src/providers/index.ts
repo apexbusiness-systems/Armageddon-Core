@@ -35,6 +35,9 @@ const MODEL_PROVIDER_MAP: Record<ModelIdentifier, ProviderName> = {
     'gpt-4o-mini': 'openai',
     'gpt-3.5-turbo': 'openai',
     // Anthropic
+    'claude-opus-4-6': 'anthropic',
+    'claude-sonnet-4-6': 'anthropic',
+    'claude-haiku-4-5': 'anthropic',
     'claude-3-opus-20240229': 'anthropic',
     'claude-3-sonnet-20240229': 'anthropic',
     'claude-3-haiku-20240307': 'anthropic',

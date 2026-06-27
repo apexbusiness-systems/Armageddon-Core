@@ -19,7 +19,7 @@ export default function BatteryGrid() {
                 <SectionIntro
                     eyebrow="ADVERSARIAL BATTERY MANIFEST"
                     title="THE 13 BATTERIES"
-                    description="Concurrent adversarial operations. Batteries 10 & 13 execute 10,000 iterations with escape threshold <0.01%. Sandboxed destruction only."
+                    description="Concurrent adversarial operations. Batteries 10 & 13 execute real PAIR adversarial attacks on CERTIFIED tier — live LLM attacker, target, and judge. Simulation tier runs 10,000 statistical iterations with <0.01% escape threshold. Sandboxed destruction only."
                 />
 
                 {/* Battery Grid */}
@@ -45,8 +45,8 @@ export default function BatteryGrid() {
                         <div className="stat-label">Total Batteries</div>
                     </div>
                     <div className="stat-block">
-                        <div className="stat-value">10K+</div>
-                        <div className="stat-label">God Mode Iterations</div>
+                        <div className="stat-value">PAIR</div>
+                        <div className="stat-label">Real Adversarial Engine</div>
                     </div>
                     <div className="stat-block">
                         <div className="stat-value">&lt;0.01%</div>

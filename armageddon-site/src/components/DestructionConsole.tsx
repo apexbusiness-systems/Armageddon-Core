@@ -669,7 +669,7 @@ export default function DestructionConsole({
                         </picture>
                     </div>
 
-                    <div className="mt-[calc(2rem+2cm)] mb-6 relative">
+                    <div className="mt-16 mb-6 relative">
                         <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">BATTERY CONFIGURATION</h3>
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
@@ -738,7 +738,8 @@ export default function DestructionConsole({
 
                 <motion.div
                     className="grid lg:grid-cols-3 gap-6 mb-8"
-                    initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }}
+                    initial={false}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="lg:col-span-2 terminal flex flex-col h-[600px] border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm">

@@ -12,6 +12,9 @@ import { assertJsonResponse, mapStopFinishReason } from './provider-utils';
  * Anthropic pricing per 1M tokens (as of 2026)
  */
 const ANTHROPIC_COSTS: Record<AnthropicModel, CostConfig> = {
+    'claude-opus-4-6': { inputPer1M: 15, outputPer1M: 75 },
+    'claude-sonnet-4-6': { inputPer1M: 3, outputPer1M: 15 },
+    'claude-haiku-4-5': { inputPer1M: 0.25, outputPer1M: 1.25 },
     'claude-3-opus-20240229': { inputPer1M: 15, outputPer1M: 75 },
     'claude-3-sonnet-20240229': { inputPer1M: 3, outputPer1M: 15 },
     'claude-3-haiku-20240307': { inputPer1M: 0.25, outputPer1M: 1.25 },
