@@ -6,22 +6,20 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import type { PlanId } from '@/lib/pricing';
 import { PLANS, PLAN_ORDER } from '@/lib/pricing';
-import { isApiConfigured } from '@/lib/runtime-api';
+import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import {
+    DRAFT_KEY,
+    createRepositoryTarget,
+    createZipArchiveTarget,
+    saveCodebaseTarget,
+    validateRepositoryUrl,
+    type CodebaseTarget,
+    type OnboardingDraft,
+    type TargetEnv,
+} from '@/lib/codebase-target';
 
-type TargetEnv = 'local' | 'staging' | 'production';
+type TargetMode = 'repository' | 'zip-archive';
 
-interface OnboardingDraft {
-    orgName: string;
-    contactEmail: string;
-    tier: PlanId;
-    targetSystemName: string;
-    targetUrl: string;
-    environment: TargetEnv;
-    authorizationConfirmed: boolean;
-    acceptableUseAck: boolean;
-}
-
-const DRAFT_KEY = 'armageddon:onboarding-draft';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isPlanId(value: string | null): value is PlanId {
@@ -37,6 +35,7 @@ const EMPTY_DRAFT: OnboardingDraft = {
     environment: 'staging',
     authorizationConfirmed: false,
     acceptableUseAck: false,
+    codebaseTarget: null,
 };
 
 export default function OnboardingPage() {
@@ -45,6 +44,8 @@ export default function OnboardingPage() {
     const [paymentPending, setPaymentPending] = useState(false);
     const [errors, setErrors] = useState<readonly string[]>([]);
     const [backendPending, setBackendPending] = useState(false);
+    const [targetMode, setTargetMode] = useState<TargetMode>('repository');
+    const [selectedZip, setSelectedZip] = useState<CodebaseTarget | null>(null);
 
     // Hydrate from saved draft + URL params (client-only → static-export safe).
     // Deferred to a microtask so the browser-state sync is not a synchronous
@@ -65,7 +66,12 @@ export default function OnboardingPage() {
             const tierParam = params.get('tier');
             const tier: PlanId = isPlanId(tierParam) ? tierParam : (restored.tier ?? 'self-serve');
             setPaymentPending(params.get('payment') === 'pending');
-            setDraft({ ...EMPTY_DRAFT, ...restored, tier });
+            const restoredDraft = { ...EMPTY_DRAFT, ...restored, tier };
+            setDraft(restoredDraft);
+            if (restoredDraft.codebaseTarget?.kind === 'zip-archive') {
+                setTargetMode('zip-archive');
+                setSelectedZip(restoredDraft.codebaseTarget);
+            }
         });
         return () => {
             cancelled = true;
@@ -91,20 +97,67 @@ export default function OnboardingPage() {
         if (d.orgName.trim() === '') found.push('Organization name is required.');
         if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
         if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
-        if (d.targetUrl.trim() === '') found.push('Target URL or repository URL is required.');
+        if (!d.codebaseTarget) {
+            found.push(targetMode === 'repository' ? 'Repository URL is required.' : 'Select a zip archive to continue.');
+        } else if (d.codebaseTarget.kind === 'repository') {
+            const repoError = validateRepositoryUrl(d.codebaseTarget.repositoryUrl);
+            if (repoError) found.push(repoError);
+        }
         if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
         if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');
         return found;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const persistTarget = (target: CodebaseTarget) => {
+        try {
+            saveCodebaseTarget(target);
+        } catch {
+            /* ignore */
+        }
+        update('codebaseTarget', target);
+    };
+
+    const prepareBackendIntake = async (target: CodebaseTarget): Promise<CodebaseTarget> => {
+        if (!isApiConfigured() || target.kind !== 'repository') return target;
+        try {
+            const res = await apiFetch('/api/codebases', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sourceType: 'repository',
+                    repositoryUrl: target.repositoryUrl,
+                    label: target.label,
+                    targetSystemName: draft.targetSystemName.trim(),
+                    environment: draft.environment,
+                }),
+            });
+            if (!res.ok) return target;
+            const data = (await res.json()) as { codebaseId?: string; intakeId?: string };
+            return createRepositoryTarget(target.repositoryUrl, target.label, { codebaseId: data.codebaseId, intakeId: data.intakeId });
+        } catch {
+            return target;
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const found = validate(draft);
         setErrors(found);
         if (found.length > 0) return;
 
+        let persistedDraft = draft;
+        if (draft.codebaseTarget) {
+            const target = await prepareBackendIntake(draft.codebaseTarget);
+            persistedDraft = { ...draft, codebaseTarget: target, targetUrl: target.kind === 'repository' ? target.repositoryUrl : '' };
+            try {
+                saveCodebaseTarget(target);
+            } catch {
+                /* ignore */
+            }
+        }
+
         try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(persistedDraft));
         } catch {
             /* ignore */
         }
@@ -137,8 +190,7 @@ export default function OnboardingPage() {
                 <div className="max-w-md w-full border border-white/10 bg-black/80 p-8 rounded-sm text-center">
                     <h1 className="text-xl font-mono text-signal mb-3 tracking-widest uppercase">Draft saved</h1>
                     <p className="text-signal/80 text-sm mb-6">
-                        Live runs aren&apos;t connected on this deployment yet. Your onboarding details are saved
-                        locally. Choose a plan or request a scoped run to continue.
+                        Live analysis is not connected on this deployment. Your selected target is saved locally; no upload, analysis, queue, run, or certificate has been started.
                     </p>
                     <div className="flex flex-col gap-3">
                         <Link href="/pricing" className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
@@ -201,10 +253,36 @@ export default function OnboardingPage() {
                             onChange={(e) => update('targetSystemName', e.target.value)} className={inputClass} placeholder="Checkout API" />
                     </Field>
 
-                    <Field id="targetUrl" label="Target URL or Repository URL">
-                        <input id="targetUrl" type="text" required value={draft.targetUrl}
-                            onChange={(e) => update('targetUrl', e.target.value)} className={inputClass} placeholder="https://… or git@…" />
-                    </Field>
+                    <div className="space-y-3">
+                        <span className="block text-sm font-mono text-zinc-400 uppercase tracking-wide">Codebase Target</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="button" onClick={() => setTargetMode('repository')} className={targetMode === 'repository' ? activeToggleClass : toggleClass}>Repo URL</button>
+                            <button type="button" onClick={() => setTargetMode('zip-archive')} className={targetMode === 'zip-archive' ? activeToggleClass : toggleClass}>Zip archive</button>
+                        </div>
+                        {targetMode === 'repository' ? (
+                            <Field id="targetUrl" label="Repository URL">
+                                <input id="targetUrl" type="text" required value={draft.codebaseTarget?.kind === 'repository' ? draft.codebaseTarget.repositoryUrl : draft.targetUrl}
+                                    onChange={(e) => {
+                                        const target = createRepositoryTarget(e.target.value, draft.targetSystemName || 'Repository target');
+                                        update('targetUrl', e.target.value);
+                                        update('codebaseTarget', target);
+                                    }} className={inputClass} placeholder="https://github.com/acme/app.git or git@github.com:acme/app.git" />
+                            </Field>
+                        ) : (
+                            <Field id="zipArchive" label="Zip archive metadata">
+                                <input id="zipArchive" type="file" accept=".zip,application/zip,application/x-zip-compressed"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const target = createZipArchiveTarget(file, draft.targetSystemName || file.name);
+                                        setSelectedZip(target);
+                                        persistTarget(target);
+                                    }} className={inputClass} />
+                                <p className="mono-small text-amber-300 mt-2">Zip storage is not implemented. Only local filename and size metadata are saved; analysis remains blocked until ingestion exists.</p>
+                                {selectedZip?.kind === 'zip-archive' && <p className="mono-small text-signal/80 mt-2">Saved locally: {selectedZip.fileName} ({Math.ceil(selectedZip.fileSize / 1024)} KB)</p>}
+                            </Field>
+                        )}
+                    </div>
 
                     <Field id="environment" label="Environment">
                         <select id="environment" value={draft.environment}
@@ -245,6 +323,8 @@ const inputClass =
     'w-full bg-black/50 border border-white/20 p-3 font-mono text-white focus:border-signal outline-none rounded-sm transition-colors';
 const selectClass =
     'w-full bg-black border border-white/20 p-3 font-mono text-white focus:border-signal outline-none rounded-sm appearance-none';
+const toggleClass = 'border border-white/20 p-3 font-mono text-signal/70 rounded-sm uppercase tracking-wide';
+const activeToggleClass = 'border border-[var(--aerospace)] bg-[var(--aerospace)]/10 p-3 font-mono text-[var(--aerospace)] rounded-sm uppercase tracking-wide';
 
 function Field({ id, label, children }: { readonly id: string; readonly label: string; readonly children: React.ReactNode }) {
     return (

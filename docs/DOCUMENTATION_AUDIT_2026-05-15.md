@@ -160,3 +160,14 @@ security regression tests added for the 2026-06-26 OmniPort remediation package.
 | `armageddon-site/tests/unit/omniport-ssrf.test.ts` | Enforcement (CI) | Validates OmniPort SSRF rejection for localhost/private/reserved IP targets and private DNS resolutions while allowing public HTTPS. |
 | `armageddon-site/tests/unit/api-run-temporal-cleanup.test.ts` | Enforcement (CI) | Validates `/api/run` marks inserted rows failed when Temporal connection or workflow start fails. |
 | `armageddon-site/tests/unit/api-omniport-execute-temporal-cleanup.test.ts` | Enforcement (CI) | Validates OmniPort execute marks inserted rows failed when Temporal connection fails. |
+
+## Addendum — 2026-06-27
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+codebase onboarding regression tests added for first-run repository/zip intake.
+
+| Test file | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/tests/unit/app-onboarding-codebase-target.test.tsx` | Enforcement (CI) | Validates onboarding target validation, local repository target persistence, and zip metadata copy that does not claim upload or analysis. |
+| `armageddon-site/tests/unit/components/DestructionConsole-codebase-target.test.tsx` | Enforcement (CI) | Validates console target readiness summaries and blocked zip execution when archive ingestion is unavailable. |
+| `armageddon-site/tests/unit/lib/codebase-target.test.ts` | Enforcement (CI) | Validates shared codebase target parsing, validation, summaries, and run-readiness gating. |

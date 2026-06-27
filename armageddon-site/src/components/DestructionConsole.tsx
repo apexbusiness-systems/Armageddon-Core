@@ -8,6 +8,7 @@ import { endSupabaseSession } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { canStartRunForTarget, readSavedCodebaseTarget, targetSummary, type CodebaseTarget } from '@/lib/codebase-target';
 import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
@@ -316,6 +317,7 @@ export default function DestructionConsole({
     const [runId, setRunId] = useState<string | null>(null);
     const [organizationId, setOrganizationId] = useState<string | null>(null);
     const [terminalStatus, setTerminalStatus] = useState<RunStatus | null>(null);
+    const [codebaseTarget, setCodebaseTarget] = useState<CodebaseTarget | null>(null);
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const user = useAuth();
@@ -378,6 +380,21 @@ export default function DestructionConsole({
     }, []);
 
     useEffect(() => {
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (cancelled) return;
+            try {
+                setCodebaseTarget(readSavedCodebaseTarget());
+            } catch {
+                setCodebaseTarget(null);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
         if (terminalRef.current) {
             terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
         }
@@ -433,6 +450,18 @@ export default function DestructionConsole({
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
 
+        const savedTarget = readSavedCodebaseTarget();
+        setCodebaseTarget(savedTarget);
+        const readiness = canStartRunForTarget(savedTarget);
+        if (!readiness.ok) {
+            setIsComplete(false);
+            setTerminalLines([]);
+            addLine(LABELS.SYS, `TARGET BLOCKED: ${readiness.reason}`, MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, 'No run, analysis, verdict, or certificate has been started.', MSG_TYPE.SYSTEM);
+            onStatusChange?.('idle');
+            return;
+        }
+
         // Honest degradation: the public static deployment has no live-fire
         // backend. Never fabricate a run, verdict, or certificate.
         if (!isApiConfigured()) {
@@ -475,23 +504,13 @@ export default function DestructionConsole({
         setOrganizationId(orgId);
         let runId: string;
 
-        let targetUrl: string | undefined;
-        try {
-            const rawDraft = localStorage.getItem('armageddon:onboarding-draft');
-            if (rawDraft) {
-                const draft = JSON.parse(rawDraft);
-                targetUrl = draft.targetUrl;
-            }
-        } catch {
-            // Ignore parse errors
-        }
-
-        if (!targetUrl || targetUrl.trim() === '') {
-            addLine('CRIT', 'FATAL ERROR: Target URL is missing. Please configure target in onboarding first.', MSG_TYPE.ERROR);
+        if (!savedTarget || savedTarget.kind !== 'repository') {
+            addLine('CRIT', 'FATAL ERROR: Repository target is missing. Please configure target in onboarding first.', MSG_TYPE.ERROR);
             setIsRunning(false);
             onStatusChange?.('idle');
             return;
         }
+        const targetUrl = savedTarget.repositoryUrl;
 
         try {
             const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries, org.accessToken, targetUrl);
@@ -746,6 +765,18 @@ export default function DestructionConsole({
                             isRunning={isRunning}
                             toggleBattery={toggleBattery}
                         />
+                    </div>
+
+                    <div className="mt-8 border border-white/10 bg-black/40 p-4 rounded-sm text-left" aria-label="Codebase target readiness">
+                        <p className="mono-small text-signal/60 tracking-widest uppercase">Target readiness</p>
+                        {codebaseTarget ? (
+                            <>
+                                <p className="mono-data text-signal mt-2">{targetSummary(codebaseTarget)}</p>
+                                <p className="mono-small text-signal/70 mt-1">{codebaseTarget.kind === 'repository' ? 'Repository target saved. Live run still requires backend, auth, organization membership, and workflow availability.' : 'Zip target saved locally only. Execution is blocked until real archive storage and ingestion are implemented.'}</p>
+                            </>
+                        ) : (
+                            <p className="mono-data text-amber-300 mt-2">No codebase target saved. Complete onboarding before initiating a sequence.</p>
+                        )}
                     </div>
 
                     <div className="mt-8">
