@@ -16,6 +16,29 @@ npm run build:cloudflare -w armageddon-site
 
 This sets `CLOUDFLARE_STATIC_EXPORT=true`, causing `armageddon-site/next.config.mjs` to emit a static `out/` build without changing normal local Next.js behavior.
 
+### Required build-time environment (inlined into the static bundle)
+
+`NEXT_PUBLIC_*` values are inlined by Next.js **at build time** — setting them as
+Cloudflare Worker/Pages runtime vars or secrets has **no effect on an
+already-built bundle**. The following must be present in the environment when
+`next build` runs (the `deploy-cloudflare.yml` workflow sets them on the build
+step):
+
+| Variable | Value | Why |
+| --- | --- | --- |
+| `NEXT_PUBLIC_ARMAGEDDON_API_BASE` | `https://armageddontest.icu` | Same-origin backend the Worker serves (`/api/run`, `/api/gatekeeper`, `/api/attestation/pubkey`, …). **If missing, `isApiConfigured()` is `false` and the console silently locks every backed action** — custom batteries show "requires verified tier", runs cannot start, and the attestation badge reads `KEY_UNAVAILABLE`, regardless of any Worker secret (including `ADMIN_EMAIL`). |
+| `NEXT_PUBLIC_SITE_URL` | `https://armageddontest.icu` | Canonical site URL. |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from secrets | Browser-side Supabase auth. |
+
+> The value in `wrangler.jsonc` `vars` is a **Worker runtime** value only; it does
+> not reach the client build. `validate:production-env` warns (non-fatally) when
+> `NEXT_PUBLIC_ARMAGEDDON_API_BASE` is absent.
+
+The gatekeeper admin-override and tier checks additionally require the **Worker**
+to have `ADMIN_EMAIL` (exact, case-sensitive match of the account email),
+`SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` set as dashboard secrets — but
+these only take effect once the frontend can actually reach the backend (above).
+
 ## Deploy
 
 Run from the repository root after the static build succeeds:
