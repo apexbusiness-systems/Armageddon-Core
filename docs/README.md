@@ -32,6 +32,7 @@ npm ci
 npm run lint
 npm run typecheck
 npm run test
+npm run test:e2e:local
 npm run build
 npm run docs:check
 ```
@@ -42,6 +43,7 @@ Workspace-specific commands:
 npm run worker -w armageddon-core
 npm run dev -w armageddon-site
 npm run build:cloudflare -w armageddon-site
+npm run certify:staging-e2e
 ```
 
 ## Repository map
