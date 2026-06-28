@@ -75,11 +75,11 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
-                {/* LCP preload hints — must be in <head> for the preload scanner to
-                    discover them before body parsing. AVIF for modern browsers, WebP
-                    for Safari <16. Each browser fetches only the format it supports. */}
+                {/* LCP preload hint — keep this single-format so modern browsers do
+                    not spend the critical path fetching both AVIF and WebP before
+                    painting the hero wordmark. The <picture> fallback still serves
+                    WebP/PNG to older browsers during normal discovery. */}
                 <link rel="preload" as="image" href="/wordmark.avif" type="image/avif" fetchPriority="high" />
-                <link rel="preload" as="image" href="/wordmark.webp" type="image/webp" fetchPriority="high" />
             </head>
             <body className={`${bebasNeue.variable} ${spaceMono.variable} ${syne.variable} bg-[var(--void)] text-[var(--signal)] antialiased`}>
                 <AppProviders>
