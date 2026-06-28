@@ -157,7 +157,7 @@ const fr: Dictionary = {
             contactEmail: 'E-mail de contact',
             tier: 'Niveau selectionne',
             targetSystemName: 'Nom du systeme cible',
-            targetUrl: "Endpoint cible ou URL d\'application",
+            targetUrl: "Endpoint cible ou URL d'application",
             environment: 'Environnement',
         },
         environmentOptions: {

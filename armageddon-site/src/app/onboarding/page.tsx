@@ -91,11 +91,11 @@ export default function OnboardingPage() {
         if (d.orgName.trim() === '') found.push('Organization name is required.');
         if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
         if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
-        if (!d.codebaseTarget) {
-            found.push('Target endpoint or app URL is required.');
-        } else {
+        if (d.codebaseTarget) {
             const targetError = validateTargetEndpointUrl(d.codebaseTarget.endpointUrl);
             if (targetError) found.push(targetError);
+        } else {
+            found.push('Target endpoint or app URL is required.');
         }
         if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
         if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');

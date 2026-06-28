@@ -172,7 +172,7 @@ const it: Dictionary = {
             orgName: 'Il nome dell organizzazione e obbligatorio.',
             contactEmail: 'E richiesta un email di contatto valida.',
             targetSystemName: 'Il nome del sistema target e obbligatorio.',
-            targetUrl: "L\'endpoint o l\'URL dell\'app target e obbligatorio.",
+            targetUrl: "L'endpoint o l'URL dell'app target e obbligatorio.",
             authorization: 'Devi confermare di essere autorizzato a testare il target.',
             acceptableUse: 'Devi riconoscere la politica di uso accettabile.',
         },
