@@ -44,10 +44,14 @@ function targetId(): string {
 export function validateTargetEndpointUrl(value: string): string | null {
     const trimmed = value.trim();
     if (trimmed === '') return 'Target endpoint or app URL is required.';
-    if (!HTTP_ENDPOINT_PATTERN.test(trimmed)) return 'Enter an HTTPS target endpoint or deployed app URL.';
+    // http and https are both permitted: the core safety policy
+    // (packages/core/src/core/safety.ts validateTarget) explicitly allows both,
+    // and local/staging targets (e.g. http://localhost) are a supported,
+    // required testing case. The message must not claim HTTPS-only.
+    if (!HTTP_ENDPOINT_PATTERN.test(trimmed)) return 'Enter an http(s) target endpoint or deployed app URL.';
     try {
         const url = new URL(trimmed);
-        if (url.protocol !== 'https:' && url.protocol !== 'http:') return 'Enter an HTTPS target endpoint or deployed app URL.';
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return 'Enter an http(s) target endpoint or deployed app URL.';
     } catch {
         return 'Enter a valid target endpoint or deployed app URL.';
     }

@@ -10,9 +10,20 @@ import {
 describe('target endpoint helpers', () => {
     it('validates empty and malformed target endpoint URLs', () => {
         expect(validateTargetEndpointUrl('')).toBe('Target endpoint or app URL is required.');
-        expect(validateTargetEndpointUrl('not-a-url')).toBe('Enter an HTTPS target endpoint or deployed app URL.');
-        expect(validateTargetEndpointUrl('git@github.com:acme/app.git')).toBe('Enter an HTTPS target endpoint or deployed app URL.');
+        expect(validateTargetEndpointUrl('not-a-url')).toBe('Enter an http(s) target endpoint or deployed app URL.');
+        expect(validateTargetEndpointUrl('git@github.com:acme/app.git')).toBe('Enter an http(s) target endpoint or deployed app URL.');
         expect(validateTargetEndpointUrl('https://app.example.com')).toBeNull();
+    });
+
+    it('accepts both http and https (aligned with core safety policy) and rejects other protocols', () => {
+        // Core policy (packages/core/src/core/safety.ts validateTarget) allows
+        // http and https; local/http targets are a required testing case, so the
+        // validator must not reject them.
+        expect(validateTargetEndpointUrl('http://localhost:3000')).toBeNull();
+        expect(validateTargetEndpointUrl('http://127.0.0.1:8080/health')).toBeNull();
+        // Non-http(s) protocols are unsafe targets and must be rejected.
+        expect(validateTargetEndpointUrl('ftp://files.example.com')).toBe('Enter an http(s) target endpoint or deployed app URL.');
+        expect(validateTargetEndpointUrl('javascript:alert(1)')).toBe('Enter an http(s) target endpoint or deployed app URL.');
     });
 
     it('creates durable endpoint target state', () => {
