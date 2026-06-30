@@ -111,6 +111,13 @@ export interface OnboardingDictionary {
         readonly staging: string;
         readonly production: string;
     };
+    readonly help: {
+        readonly targetSystemName: string;
+        readonly targetUrl: string;
+        readonly targetExamples: string;
+        readonly repositoryWarning: string;
+        readonly authorization: string;
+    };
     readonly authorizationLabel: string;
     readonly acceptableUseLabel: string;
     readonly submit: string;

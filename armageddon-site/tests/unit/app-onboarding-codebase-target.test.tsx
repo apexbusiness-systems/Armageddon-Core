@@ -39,6 +39,16 @@ function renderOnboardingPage() {
 }
 
 describe('OnboardingPage target endpoint flow', () => {
+    it('shows practical target and authorization helper copy', async () => {
+        renderOnboardingPage();
+        const targetNameHelp = await screen.findByText(/Give this target a name you will recognize later/);
+        expect(targetNameHelp).toBeTruthy();
+        expect(screen.getByText(/Use the public or staging URL/)).toBeInTheDocument();
+        expect(screen.getByText(/https:\/\/apexomnihub\.icu\/omnidash/)).toBeInTheDocument();
+        expect(screen.getByText(/Do not enter a GitHub source-control link/)).toBeInTheDocument();
+        expect(screen.getByText(/Only run tests against systems you own/)).toBeInTheDocument();
+    });
+
     it('blocks an empty target endpoint URL with clear validation copy', async () => {
         renderOnboardingPage();
         await completeCommonFields();
@@ -53,7 +63,7 @@ describe('OnboardingPage target endpoint flow', () => {
         fireEvent.change(screen.getByLabelText(/Target endpoint or app URL/i), { target: { value: 'https://app.example.com' } });
         await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
 
-        expect(await screen.findByText(/Live analysis is not connected/)).toBeInTheDocument();
+        expect(await screen.findByText(/Live runs aren't connected/)).toBeInTheDocument();
         const target = JSON.parse(localStorage.getItem(CODEBASE_TARGET_KEY) ?? '{}') as CodebaseTarget;
         expect(target.kind).toBe('endpoint');
         expect(target.status).toBe('local-only');

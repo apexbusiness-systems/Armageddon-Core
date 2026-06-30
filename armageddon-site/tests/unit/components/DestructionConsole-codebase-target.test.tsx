@@ -52,8 +52,8 @@ describe('DestructionConsole target readiness', () => {
             expect(screen.getByText(/RUN BLOCKED: Configure the deployed app URL/)).toBeInTheDocument();
         });
         expect(screen.getAllByText(/Target configured/).length).toBeGreaterThan(0);
-        expect(screen.getAllByText(/Organization membership active/).length).toBeGreaterThan(0);
-        expect(screen.getAllByText(/Backend connected/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Workspace membership active/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Live backend connected/).length).toBeGreaterThan(0);
         expect(screen.getByText(/No run, analysis, verdict, or certificate has been started/)).toBeInTheDocument();
     });
 });

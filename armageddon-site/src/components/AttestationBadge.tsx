@@ -48,7 +48,7 @@ export default function AttestationBadge() {
     const [state, setState] = useState<State>(() =>
         isApiConfigured()
             ? { status: 'loading' }
-            : { status: 'error', detail: 'Attestation backend not connected on this deployment.' }
+            : { status: 'error', detail: 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured.' }
     );
 
     useEffect(() => {
@@ -61,7 +61,7 @@ export default function AttestationBadge() {
                     setState({
                         status: 'ephemeral',
                         spec: body.spec,
-                        detail: 'No signing seed configured. Per-process key only.',
+                        detail: 'Evidence signing key unavailable. Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured.',
                     });
                     return;
                 }
@@ -121,19 +121,19 @@ export default function AttestationBadge() {
             break;
         case 'ephemeral':
             icon = <ShieldAlert className="w-3.5 h-3.5" />;
-            label = 'EPHEMERAL_KEY';
+            label = 'Evidence signing key unavailable';
             code = 'EPH';
-            aria = 'Attestation: ephemeral per-process key only';
+            aria = 'Attestation: evidence signing key unavailable; ephemeral per-process key only';
             toneClass = 'border-amber-500/40 text-amber-400 bg-amber-500/5';
-            detail = state.detail ?? '';
+            detail = state.detail ?? 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured. Secret values are never displayed.';
             break;
         case 'error':
             icon = <ShieldAlert className="w-3.5 h-3.5" />;
-            label = 'KEY_UNAVAILABLE';
+            label = 'Evidence signing key unavailable';
             code = 'OFF';
-            aria = 'Attestation: key unavailable';
+            aria = 'Attestation: evidence signing key unavailable';
             toneClass = 'border-red-500/40 text-red-400 bg-red-500/5';
-            detail = state.detail ?? '';
+            detail = state.detail ?? 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured. Secret values are never displayed.';
             break;
     }
 

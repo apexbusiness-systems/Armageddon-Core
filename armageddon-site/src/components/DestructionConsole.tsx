@@ -478,41 +478,86 @@ export default function DestructionConsole({
 
     const readinessItems = useMemo<ReadinessItem[]>(() => [
         {
+            id: 'signed-in',
+            label: 'Signed in',
+            ready: user !== null,
+            detail: user ? 'User session is active.' : 'Sign in to start a test run.',
+            required: true,
+            whatItMeans: user ? 'Armageddon can associate runs with your account.' : 'No active user session is available in this browser.',
+            whyItMatters: 'Runs and evidence must be tied to an authenticated operator.',
+            nextStep: user ? 'Continue setup.' : 'Sign in before starting a run.',
+            ctaLabel: user ? undefined : 'Sign in',
+            ctaHref: user ? undefined : '/onboarding',
+        },
+        {
             id: 'target',
             label: t.readiness.items.target.label,
             ready: codebaseTarget !== null,
-            detail: codebaseTarget ? t.readiness.items.target.detailReady : t.readiness.items.target.detailNotReady,
+            detail: codebaseTarget ? t.readiness.items.target.detailReady : 'Choose the app, API, or agent endpoint Armageddon should test.',
             required: true,
+            whatItMeans: codebaseTarget ? 'A target endpoint is saved for this browser.' : 'Armageddon does not yet know what system to test.',
+            whyItMatters: 'Every run needs an explicit, authorized target endpoint.',
+            nextStep: codebaseTarget ? 'Confirm authorization and workspace readiness.' : 'Set the target endpoint in onboarding.',
+            ctaLabel: codebaseTarget ? undefined : 'Set target',
+            ctaHref: codebaseTarget ? undefined : '/onboarding#target-config',
         },
         {
             id: 'authorization',
             label: t.readiness.items.authorization.label,
             ready: onboardingDraft?.authorizationConfirmed === true,
-            detail: onboardingDraft?.authorizationConfirmed ? t.readiness.items.authorization.detailReady : t.readiness.items.authorization.detailNotReady,
+            detail: onboardingDraft?.authorizationConfirmed ? t.readiness.items.authorization.detailReady : 'Confirm you are authorized to test this target.',
             required: true,
+            whatItMeans: 'The operator must explicitly confirm authorized-use scope.',
+            whyItMatters: 'Armageddon must only be run against systems you own or are authorized to assess.',
+            nextStep: onboardingDraft?.authorizationConfirmed ? 'Authorization is confirmed.' : 'Review and confirm authorization in onboarding.',
+            ctaLabel: onboardingDraft?.authorizationConfirmed ? undefined : 'Review authorization',
+            ctaHref: onboardingDraft?.authorizationConfirmed ? undefined : '/onboarding#target-config',
         },
         {
             id: 'organization',
             label: t.readiness.items.organization.label,
             ready: orgMembershipReady,
-            detail: orgMembershipReady ? t.readiness.items.organization.detailReady : t.readiness.items.organization.detailNotReady,
+            detail: orgMembershipReady ? t.readiness.items.organization.detailReady : 'Your account is signed in, but it has not been added to a workspace yet.',
             required: true,
+            whatItMeans: orgMembershipReady ? 'Runs will be tied to an active workspace.' : 'A workspace is required so runs, evidence, permissions, and billing are tied to the correct organization.',
+            whyItMatters: 'Workspace membership prevents orphaned evidence and unauthorized billing or permission scope.',
+            nextStep: orgMembershipReady ? 'Continue setup.' : 'Ask an admin to add your login email to an organization, then refresh this page.',
+            technicalDetail: orgMembershipReady ? undefined : 'The backend returned 404 from /api/me/organizations because no organization_members row exists for this user. No organization_members row was found for this Supabase user.',
         },
         {
             id: 'backend',
             label: t.readiness.items.backend.label,
             ready: backendConnected,
-            detail: backendConnected ? t.readiness.items.backend.detailReady : t.readiness.items.backend.detailNotReady,
+            detail: backendConnected ? t.readiness.items.backend.detailReady : 'The live Armageddon backend is not connected in this build.',
             required: true,
+            whatItMeans: backendConnected ? 'Backed run APIs are reachable from this build.' : 'This deployment can save local setup, but it cannot start real runs until NEXT_PUBLIC_ARMAGEDDON_API_BASE is configured at build time.',
+            whyItMatters: 'Run initiation, gatekeeper checks, telemetry, and evidence persistence require the live backend.',
+            nextStep: backendConnected ? 'Continue setup.' : 'Rebuild with NEXT_PUBLIC_ARMAGEDDON_API_BASE set to the Armageddon backend origin.',
         },
         {
             id: 'battery-access',
             label: t.readiness.items.batteryAccess.label,
             ready: batteryAccessVerified,
-            detail: batteryAccessVerified ? t.readiness.items.batteryAccess.detailReady : t.readiness.items.batteryAccess.detailNotReady,
+            detail: batteryAccessVerified ? t.readiness.items.batteryAccess.detailReady : 'Your current account or plan cannot start this test set yet.',
             required: true,
+            whatItMeans: batteryAccessVerified ? 'Gatekeeper confirmed this account can start the selected test set.' : 'The selected tests require account or plan access that is not verified yet.',
+            whyItMatters: 'Access checks prevent starting tests outside the workspace plan or review scope.',
+            nextStep: batteryAccessVerified ? 'Continue setup.' : 'View pricing or contact an admin to enable access.',
+            ctaLabel: batteryAccessVerified ? undefined : 'View pricing',
+            ctaHref: batteryAccessVerified ? undefined : '/pricing',
         },
-    ], [backendConnected, batteryAccessVerified, codebaseTarget, onboardingDraft, orgMembershipReady, t]);
+            {
+            id: 'evidence-signing',
+            label: 'Evidence signing key unavailable',
+            ready: attestationPubKey !== null,
+            detail: attestationPubKey ? 'Signed verification artifacts are available.' : 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured.',
+            required: false,
+            whatItMeans: attestationPubKey ? 'The public attestation key is available for evidence verification.' : 'Certification artifacts cannot be considered complete until this is fixed.',
+            whyItMatters: 'Signed evidence lets reviewers verify that artifacts came from the Armageddon pipeline.',
+            nextStep: attestationPubKey ? 'Continue setup.' : 'Ask an operator to configure ARMAGEDDON_ATTESTATION_SEED for signed evidence.',
+            technicalDetail: attestationPubKey ? undefined : 'ARMAGEDDON_ATTESTATION_SEED is missing or /api/attestation/pubkey is unavailable.',
+        },
+    ], [attestationPubKey, backendConnected, batteryAccessVerified, codebaseTarget, onboardingDraft, orgMembershipReady, t, user]);
 
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
@@ -563,7 +608,7 @@ export default function DestructionConsole({
         if (!org.ok) {
             const messages: Record<typeof org.reason, string> = {
                 'unauthenticated': 'Sign in to start a certification run.',
-                'no-org': 'Your account has no organization membership. Visit /pricing or contact your admin.',
+                'no-org': 'Your account is signed in, but it has not been added to a workspace yet. Ask an admin to add your login email to an organization, then refresh this page. Admin detail: No organization_members row was found for this Supabase user.',
                 'org-error': 'Could not resolve your organization. Please retry.',
             };
             addLine(LABELS.SYS, messages[org.reason], MSG_TYPE.WARNING);
