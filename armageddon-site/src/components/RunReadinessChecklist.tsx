@@ -8,21 +8,29 @@ export interface ReadinessItem {
 
 interface RunReadinessChecklistProps {
     readonly items: readonly ReadinessItem[];
+    readonly title?: string;
+    readonly allReadyLabel?: string;
+    readonly blockedPrefix?: string;
 }
 
 export function remainingReadinessBlockers(items: readonly ReadinessItem[]): readonly string[] {
     return items.filter((item) => item.required && !item.ready).map((item) => item.label);
 }
 
-export default function RunReadinessChecklist({ items }: RunReadinessChecklistProps) {
+export default function RunReadinessChecklist({
+    items,
+    title = 'Run Readiness Checklist',
+    allReadyLabel = 'All required checks are ready.',
+    blockedPrefix = 'Blocked: ',
+}: RunReadinessChecklistProps) {
     const blockers = remainingReadinessBlockers(items);
     return (
         <section className="mt-4 border border-white/10 bg-black/40 p-4 rounded-sm text-left" aria-label="Run readiness checklist">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <p className="mono-small text-signal/60 tracking-widest uppercase">Run Readiness Checklist</p>
+                    <p className="mono-small text-signal/60 tracking-widest uppercase">{title}</p>
                     <p className={blockers.length === 0 ? 'mono-small text-[var(--safe)] mt-1' : 'mono-small text-amber-300 mt-1'}>
-                        {blockers.length === 0 ? 'All required checks are ready.' : `Blocked: ${blockers.join(', ')}.`}
+                        {blockers.length === 0 ? allReadyLabel : `${blockedPrefix}${blockers.join(', ')}.`}
                     </p>
                 </div>
             </div>

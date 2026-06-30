@@ -42,9 +42,11 @@ describe('target endpoint helpers', () => {
     });
 
     it('requires a configured target before runs can start', () => {
-        expect(canStartRunForTarget(null)).toEqual({
-            ok: false,
-            reason: 'Configure the deployed app URL, API endpoint, or LLM/agent endpoint before starting a run.',
-        });
+        expect(canStartRunForTarget(null)).toEqual({ ok: false, code: 'missing' });
+    });
+
+    it('flags an invalid saved target', () => {
+        const target = { ...createEndpointTarget('https://app.example.com', 'Checkout API'), status: 'invalid' as const };
+        expect(canStartRunForTarget(target)).toEqual({ ok: false, code: 'invalid' });
     });
 });

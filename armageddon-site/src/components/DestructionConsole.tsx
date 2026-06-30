@@ -479,40 +479,40 @@ export default function DestructionConsole({
     const readinessItems = useMemo<ReadinessItem[]>(() => [
         {
             id: 'target',
-            label: 'Target configured',
+            label: t.readiness.items.target.label,
             ready: codebaseTarget !== null,
-            detail: codebaseTarget ? 'System under test is saved locally.' : 'Set the deployed app URL, API endpoint, or LLM/agent endpoint.',
+            detail: codebaseTarget ? t.readiness.items.target.detailReady : t.readiness.items.target.detailNotReady,
             required: true,
         },
         {
             id: 'authorization',
-            label: 'Authorized use confirmed',
+            label: t.readiness.items.authorization.label,
             ready: onboardingDraft?.authorizationConfirmed === true,
-            detail: onboardingDraft?.authorizationConfirmed ? 'Operator confirmed authorization in onboarding.' : 'Confirm authorized-use scope in onboarding.',
+            detail: onboardingDraft?.authorizationConfirmed ? t.readiness.items.authorization.detailReady : t.readiness.items.authorization.detailNotReady,
             required: true,
         },
         {
             id: 'organization',
-            label: 'Organization membership active',
+            label: t.readiness.items.organization.label,
             ready: orgMembershipReady,
-            detail: orgMembershipReady ? 'Authenticated organization membership resolved.' : 'Sign in with an account that belongs to an organization.',
+            detail: orgMembershipReady ? t.readiness.items.organization.detailReady : t.readiness.items.organization.detailNotReady,
             required: true,
         },
         {
             id: 'backend',
-            label: 'Backend connected',
+            label: t.readiness.items.backend.label,
             ready: backendConnected,
-            detail: backendConnected ? 'External Armageddon backend origin is configured.' : 'NEXT_PUBLIC_ARMAGEDDON_API_BASE is not configured for this deployment.',
+            detail: backendConnected ? t.readiness.items.backend.detailReady : t.readiness.items.backend.detailNotReady,
             required: true,
         },
         {
             id: 'battery-access',
-            label: 'Battery access verified',
+            label: t.readiness.items.batteryAccess.label,
             ready: batteryAccessVerified,
-            detail: batteryAccessVerified ? 'Gatekeeper eligibility check completed.' : 'Gatekeeper eligibility has not been verified.',
+            detail: batteryAccessVerified ? t.readiness.items.batteryAccess.detailReady : t.readiness.items.batteryAccess.detailNotReady,
             required: true,
         },
-    ], [backendConnected, batteryAccessVerified, codebaseTarget, onboardingDraft, orgMembershipReady]);
+    ], [backendConnected, batteryAccessVerified, codebaseTarget, onboardingDraft, orgMembershipReady, t]);
 
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
@@ -524,9 +524,11 @@ export default function DestructionConsole({
         if (!targetReadiness.ok || blockers.length > 0) {
             setIsComplete(false);
             setTerminalLines([]);
-            const reason = targetReadiness.ok ? `Complete readiness items first: ${blockers.join(', ')}.` : targetReadiness.reason;
-            addLine(LABELS.SYS, `RUN BLOCKED: ${reason}`, MSG_TYPE.WARNING);
-            addLine(LABELS.SYS, 'No run, analysis, verdict, or certificate has been started.', MSG_TYPE.SYSTEM);
+            const reason = targetReadiness.ok
+                ? `${t.readiness.completeItemsFirstPrefix}${blockers.join(', ')}.`
+                : targetReadiness.code === 'missing' ? t.readiness.targetMissingReason : t.readiness.targetInvalidReason;
+            addLine(LABELS.SYS, `${t.readiness.runBlockedPrefix}${reason}`, MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, t.readiness.noRunStarted, MSG_TYPE.SYSTEM);
             onStatusChange?.('idle');
             return;
         }
@@ -574,7 +576,7 @@ export default function DestructionConsole({
         let runId: string;
 
         if (!savedTarget) {
-            addLine('CRIT', 'FATAL ERROR: Target endpoint is missing. Please configure target in onboarding first.', MSG_TYPE.ERROR);
+            addLine('CRIT', t.readiness.targetMissingFatal, MSG_TYPE.ERROR);
             setIsRunning(false);
             onStatusChange?.('idle');
             return;
@@ -593,7 +595,7 @@ export default function DestructionConsole({
             }
             runId = data.runId;
             setRunId(runId);
-            addLine(LABELS.SYS, `Workflow started against ${targetUrl}: ${runId}`, MSG_TYPE.SYSTEM);
+            addLine(LABELS.SYS, t.readiness.workflowStartedAgainst.replace('{url}', targetUrl).replace('{runId}', runId), MSG_TYPE.SYSTEM);
             addLine(LABELS.SYS, 'Subscribing to real-time event stream...', MSG_TYPE.SYSTEM);
         } catch (e) {
             console.error("API call failed", e);
@@ -671,7 +673,7 @@ export default function DestructionConsole({
         runsChannel.subscribe();
         subscriptionRefs.current.push(runsChannel);
 
-    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion]);
+    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion, t]);
 
     const handleLogout = useCallback(async () => {
         const sb = getRequiredSupabase('Supabase not initialized');
@@ -793,8 +795,8 @@ export default function DestructionConsole({
                         </picture>
                     </div>
 
-                    <TargetConfigPanel target={codebaseTarget} draft={onboardingDraft} />
-                    <RunReadinessChecklist items={readinessItems} />
+                    <TargetConfigPanel target={codebaseTarget} draft={onboardingDraft} labels={t.targetConfig} />
+                    <RunReadinessChecklist items={readinessItems} title={t.readiness.title} allReadyLabel={t.readiness.allReady} blockedPrefix={t.readiness.blockedPrefix} />
 
                     <div className="mt-16 mb-6 relative">
                         <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider uppercase">{t.batteryConfigLabel}</h3>
