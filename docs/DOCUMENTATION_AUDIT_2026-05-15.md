@@ -184,3 +184,19 @@ merged onboarding/i18n work.
 | `armageddon-site/tests/unit/components/RunReadinessChecklist.test.tsx` | Enforcement (CI) | Validates visible run-readiness blockers and all-ready state. |
 | `docs/ops/sql/2026-06-27-org-unblock-review.sql` | Review-only operational draft | Must be reviewed and parameterized by an operator before execution; Codex must not execute it. |
 | `armageddon-site/tests/unit/active-target-copy.test.ts` | Enforcement (CI) | Validates active target-configuration UI does not claim repository, zip upload, or code-analysis capabilities. |
+
+## Addendum — 2026-06-30 target/readiness i18n coverage
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+localization of the onboarding/console target-configuration and run-readiness
+UI (`TargetConfigPanel`, `RunReadinessChecklist`, and the console's readiness
+checklist/blocking copy in `DestructionConsole`) across all 7 supported
+locales, plus the resulting `canStartRunForTarget` reason-code refactor.
+
+| Change | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/src/i18n/types.ts` `HomeDictionary.console.targetConfig` / `.readiness` | Schema source of truth | Update alongside all 7 dictionaries; enforced by `tests/unit/i18n-dictionaries.test.ts` parity check. |
+| `armageddon-site/src/i18n/dictionaries/{en,fr,de,it,es,zh-CN,pt}.ts` | Canonical translated copy | Keep key parity; do not introduce the forbidden repository/zip/code-analysis phrases enforced by `active-target-copy.test.ts`. |
+| `armageddon-site/src/lib/codebase-target.ts` `canStartRunForTarget` | Returns `code: 'missing' \| 'invalid'` instead of an English `reason` string | Callers must map the code to a locale string; do not reintroduce hardcoded English in this pure lib function. |
+| `armageddon-site/src/components/TargetConfigPanel.tsx`, `armageddon-site/src/components/RunReadinessChecklist.tsx` | Accept optional translated `labels`/`title`/`allReadyLabel`/`blockedPrefix` props, defaulting to the existing English copy | Preserves existing un-wrapped component tests; `DestructionConsole` passes the active locale's strings. |
+| `armageddon-site/tests/unit/lib/codebase-target.test.ts` | Enforcement (CI) | Updated for the `canStartRunForTarget` code-based contract. |

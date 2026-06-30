@@ -211,6 +211,38 @@ export interface HomeDictionary {
         readonly statusStandby: string;
         readonly threatMatrixLabel: string;
         readonly secureSectorsLabel: string;
+        readonly targetConfig: {
+            readonly stepLabel: string;
+            readonly noTargetTitle: string;
+            readonly noTargetDesc: string;
+            readonly setTarget: string;
+            readonly targetNameLabel: string;
+            readonly targetUrlLabel: string;
+            readonly environmentLabel: string;
+            readonly authorizationStatusLabel: string;
+            readonly authorizedConfirmed: string;
+            readonly authorizationRequired: string;
+            readonly editTarget: string;
+        };
+        readonly readiness: {
+            readonly title: string;
+            readonly allReady: string;
+            readonly blockedPrefix: string;
+            readonly targetMissingReason: string;
+            readonly targetInvalidReason: string;
+            readonly completeItemsFirstPrefix: string;
+            readonly runBlockedPrefix: string;
+            readonly noRunStarted: string;
+            readonly targetMissingFatal: string;
+            readonly workflowStartedAgainst: string;
+            readonly items: {
+                readonly target: { readonly label: string; readonly detailReady: string; readonly detailNotReady: string };
+                readonly authorization: { readonly label: string; readonly detailReady: string; readonly detailNotReady: string };
+                readonly organization: { readonly label: string; readonly detailReady: string; readonly detailNotReady: string };
+                readonly backend: { readonly label: string; readonly detailReady: string; readonly detailNotReady: string };
+                readonly batteryAccess: { readonly label: string; readonly detailReady: string; readonly detailNotReady: string };
+            };
+        };
     };
 }
 

@@ -99,8 +99,10 @@ export function targetSummary(target: CodebaseTarget): string {
     return `${target.label}: ${target.endpointUrl}`;
 }
 
-export function canStartRunForTarget(target: CodebaseTarget | null): { readonly ok: true } | { readonly ok: false; readonly reason: string } {
-    if (!target) return { ok: false, reason: 'Configure the deployed app URL, API endpoint, or LLM/agent endpoint before starting a run.' };
-    if (target.status === 'invalid') return { ok: false, reason: 'The saved target endpoint is invalid. Return to onboarding and correct it.' };
+export type TargetReadinessCode = 'missing' | 'invalid';
+
+export function canStartRunForTarget(target: CodebaseTarget | null): { readonly ok: true } | { readonly ok: false; readonly code: TargetReadinessCode } {
+    if (!target) return { ok: false, code: 'missing' };
+    if (target.status === 'invalid') return { ok: false, code: 'invalid' };
     return { ok: true };
 }
