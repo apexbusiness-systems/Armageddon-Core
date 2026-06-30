@@ -40,7 +40,7 @@
 
 - **Feature:** Attestation Status Badge (UI)
   - **Location:** `armageddon-site/src/components/AttestationBadge.tsx`
-  - **Scope:** Surfaces `OFFLINE_VERIFY` / `EPHEMERAL_KEY` / `KEY_UNAVAILABLE` in the Destruction Console header. Powers the cryptographic-evidence narrative in the exported JSON bundle.
+  - **Scope:** Surfaces `OFFLINE_VERIFY` / `Evidence signing key unavailable` in the Destruction Console header. Powers the cryptographic-evidence narrative in the exported JSON bundle.
   - **Status:** Implemented and validated via jsdom unit tests.
 
 ## Certification Execution Defaults

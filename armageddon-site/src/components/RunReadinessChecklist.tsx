@@ -4,6 +4,12 @@ export interface ReadinessItem {
     readonly ready: boolean;
     readonly detail: string;
     readonly required: boolean;
+    readonly whatItMeans?: string;
+    readonly whyItMatters?: string;
+    readonly nextStep?: string;
+    readonly ctaLabel?: string;
+    readonly ctaHref?: string;
+    readonly technicalDetail?: string;
 }
 
 interface RunReadinessChecklistProps {
@@ -20,7 +26,7 @@ export function remainingReadinessBlockers(items: readonly ReadinessItem[]): rea
 export default function RunReadinessChecklist({
     items,
     title = 'Run Readiness Checklist',
-    allReadyLabel = 'All required checks are ready.',
+    allReadyLabel = 'Ready to start',
     blockedPrefix = 'Blocked: ',
 }: RunReadinessChecklistProps) {
     const blockers = remainingReadinessBlockers(items);
@@ -32,6 +38,9 @@ export default function RunReadinessChecklist({
                     <p className={blockers.length === 0 ? 'mono-small text-[var(--safe)] mt-1' : 'mono-small text-amber-300 mt-1'}>
                         {blockers.length === 0 ? allReadyLabel : `${blockedPrefix}${blockers.join(', ')}.`}
                     </p>
+                    <p className="mono-small text-signal/60 mt-1">
+                        {blockers.length === 0 ? 'All required setup checks are complete.' : blockers.some((b) => b.toLowerCase().includes('backend')) ? 'Backend unavailable' : 'Setup incomplete'}
+                    </p>
                 </div>
             </div>
             <ul className="mt-4 space-y-2">
@@ -40,9 +49,16 @@ export default function RunReadinessChecklist({
                         <span className={item.ready ? 'text-[var(--safe)]' : 'text-amber-300'} aria-hidden="true">
                             {item.ready ? '✓' : '!' }
                         </span>
-                        <span>
+                        <span className="flex-1">
                             <span className="mono-data text-signal block">{item.label}</span>
                             <span className="mono-small text-signal/70 block">{item.detail}</span>
+                            {item.whatItMeans && <span className="mono-small text-signal/60 block mt-1">What it means: {item.whatItMeans}</span>}
+                            {item.whyItMatters && <span className="mono-small text-signal/60 block">Why it matters: {item.whyItMatters}</span>}
+                            {item.nextStep && <span className="mono-small text-signal/80 block">Next step: {item.nextStep}</span>}
+                            {item.ctaLabel && item.ctaHref && (
+                                <a href={item.ctaHref} className="mono-small text-[var(--aerospace)] underline underline-offset-4 inline-block mt-1">{item.ctaLabel}</a>
+                            )}
+                            {item.technicalDetail && <span className="mono-small text-signal/40 block mt-1">Admin detail: {item.technicalDetail}</span>}
                         </span>
                     </li>
                 ))}

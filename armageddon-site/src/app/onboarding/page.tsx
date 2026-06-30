@@ -88,17 +88,17 @@ export default function OnboardingPage() {
 
     const validate = (d: OnboardingDraft): readonly string[] => {
         const found: string[] = [];
-        if (d.orgName.trim() === '') found.push('Organization name is required.');
-        if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
-        if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
+        if (d.orgName.trim() === '') found.push(t.errors.orgName);
+        if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push(t.errors.contactEmail);
+        if (d.targetSystemName.trim() === '') found.push(t.errors.targetSystemName);
         if (d.codebaseTarget) {
             const targetError = validateTargetEndpointUrl(d.codebaseTarget.endpointUrl);
             if (targetError) found.push(targetError);
         } else {
-            found.push('Target endpoint or app URL is required.');
+            found.push(t.errors.targetUrl);
         }
-        if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
-        if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');
+        if (!d.authorizationConfirmed) found.push(t.errors.authorization);
+        if (!d.acceptableUseAck) found.push(t.errors.acceptableUse);
         return found;
     };
 
@@ -175,7 +175,7 @@ export default function OnboardingPage() {
                 <div className="max-w-md w-full border border-white/10 bg-black/80 p-8 rounded-sm text-center">
                     <h1 className="text-xl font-mono text-signal mb-3 tracking-widest uppercase">{t.backendPending.title}</h1>
                     <p className="text-signal/80 text-sm mb-6">
-                        Live analysis is not connected on this deployment. Your selected target is saved locally; no upload, analysis, queue, run, or certificate has been started.
+                        {t.backendPending.body}
                     </p>
                     <div className="flex flex-col gap-3">
                         <Link href="/pricing" className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
@@ -236,12 +236,15 @@ export default function OnboardingPage() {
                     <Field id="targetSystemName" label={t.fields.targetSystemName}>
                         <input id="targetSystemName" type="text" required value={draft.targetSystemName}
                             onChange={(e) => update('targetSystemName', e.target.value)} className={inputClass} placeholder="Checkout API" />
+                        <p className="mono-small text-signal/60 mt-2">{t.help.targetSystemName}</p>
                     </Field>
 
                     <div className="space-y-3" id="target-config">
                         <span className="block text-sm font-mono text-zinc-400 uppercase tracking-wide">System under test</span>
-                        <p className="mono-small text-signal/70">Connect the deployed app URL, API endpoint, or LLM/agent endpoint that ARMAGEDDON should test.</p>
-                        <Field id="targetUrl" label="Target endpoint or app URL">
+                        <p className="mono-small text-signal/70">{t.help.targetUrl}</p>
+                        <p className="mono-small text-signal/60">{t.help.targetExamples}</p>
+                        <p className="mono-small text-amber-300">{t.help.repositoryWarning}</p>
+                        <Field id="targetUrl" label={t.fields.targetUrl}>
                             <input id="targetUrl" type="url" required value={draft.codebaseTarget?.endpointUrl ?? draft.targetUrl}
                                 onChange={(e) => {
                                     const target = createEndpointTarget(e.target.value, draft.targetSystemName || 'System under test');
@@ -265,6 +268,7 @@ export default function OnboardingPage() {
                             onChange={(e) => update('authorizationConfirmed', e.target.checked)} className="mt-1" />
                         <span className="mono-small text-signal/80">
                             {t.authorizationLabel}
+                            <span className="block text-signal/60 mt-1">{t.help.authorization}</span>
                         </span>
                     </label>
 

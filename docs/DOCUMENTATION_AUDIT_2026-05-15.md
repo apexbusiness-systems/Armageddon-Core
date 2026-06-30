@@ -185,7 +185,11 @@ merged onboarding/i18n work.
 | File | Status | Maintenance rule |
 | --- | --- | --- |
 | `armageddon-site/tests/unit/components/TargetConfigPanel.test.tsx` | Enforcement (CI) | Validates target-configuration empty/configured states and onboarding CTA routing. |
-| `armageddon-site/tests/unit/components/RunReadinessChecklist.test.tsx` | Enforcement (CI) | Validates visible run-readiness blockers and all-ready state. |
+| `armageddon-site/tests/unit/components/RunReadinessChecklist.test.tsx` | Enforcement (CI) | Validates visible run-readiness blockers, guided remediation, and all-ready state. |
+
+| `armageddon-site/tests/unit/app-root-auth-routing.test.tsx` | Enforcement (CI) | Added 2026-06-30 to verify authenticated root visits route to `/console` while logged-out visitors keep public marketing. |
+| `armageddon-site/tests/unit/app-console-workspace.test.tsx` | Enforcement (CI) | Added 2026-06-30 to verify `/console` remains an operational workspace without public marketing sections. |
+
 | `docs/ops/sql/2026-06-27-org-unblock-review.sql` | Review-only operational draft | Must be reviewed and parameterized by an operator before execution; Codex must not execute it. |
 | `armageddon-site/tests/unit/active-target-copy.test.ts` | Enforcement (CI) | Validates active target-configuration UI does not claim repository, zip upload, or code-analysis capabilities. |
 

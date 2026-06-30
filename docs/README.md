@@ -87,3 +87,10 @@ npm run certify:staging-e2e
 - Keep deployment docs explicit about target: Cloudflare static edge vs local Moat vs historical provider references.
 - Mark unknown remote/CI/runtime state as `UNVERIFIED` instead of assuming success.
 - Do not edit the frozen public marketing surfaces outside [`docs/CANONICAL_UI_CONTRACT.md`](./CANONICAL_UI_CONTRACT.md); changes must update the matching assertion in `armageddon-site/tests/unit/canonical-ui-freeze.test.ts` and the contract together.
+
+
+## 2026-06-30 app-workspace UX guardrails
+
+- Authenticated visits to `/` must route client-side to `/console`; public visitors keep the frozen landing/marketing page.
+- `/console` is an operator workspace only: target summary, guided run setup, test configuration, initiate action, terminal output, and telemetry/evidence surfaces. It must not render public marketing sections such as `The 13 Batteries`, certification sales content, or footer conversion CTAs.
+- Guardrail tests added on 2026-06-30 cover root auth routing, console workspace separation, guided readiness remediation, onboarding helper copy, and evidence-signing unavailable copy.

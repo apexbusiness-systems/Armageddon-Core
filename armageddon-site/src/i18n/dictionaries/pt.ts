@@ -165,6 +165,13 @@ const pt: Dictionary = {
             staging: 'Staging',
             production: 'Producao',
         },
+        help: {
+            targetSystemName: 'Give this target a name you will recognize later, such as “APEX OmniHub OmniDash” or “Staging Checkout API.”',
+            targetUrl: 'Use the public or staging URL of the app, API, or agent you want tested.',
+            targetExamples: 'Examples: https://app.example.com, https://api.example.com/v1/chat, https://apexomnihub.icu/omnidash',
+            repositoryWarning: 'Do not enter a GitHub source-control link here unless repository ingestion is explicitly enabled.',
+            authorization: 'Only run tests against systems you own or are explicitly authorized to assess.',
+        },
         authorizationLabel: 'Confirmo que estou autorizado a executar testes adversariais contra este alvo.',
         acceptableUseLabel: 'Reconheco a politica de uso aceitavel e que o Armageddon produz evidencias, nao uma garantia.',
         submit: 'Continuar',
