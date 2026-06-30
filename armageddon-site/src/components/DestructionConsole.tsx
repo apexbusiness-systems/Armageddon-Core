@@ -8,11 +8,14 @@ import { endSupabaseSession } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { DRAFT_KEY, canStartRunForTarget, readSavedCodebaseTarget, type CodebaseTarget, type OnboardingDraft } from '@/lib/codebase-target';
 import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 import RunTelemetryDeck, { type DeckConnection } from './RunTelemetryDeck';
+import TargetConfigPanel from './TargetConfigPanel';
+import RunReadinessChecklist, { remainingReadinessBlockers, type ReadinessItem } from './RunReadinessChecklist';
 import {
     telemetryReducer,
     EMPTY_TELEMETRY,
@@ -317,6 +320,10 @@ export default function DestructionConsole({
     const [runId, setRunId] = useState<string | null>(null);
     const [organizationId, setOrganizationId] = useState<string | null>(null);
     const [terminalStatus, setTerminalStatus] = useState<RunStatus | null>(null);
+    const [codebaseTarget, setCodebaseTarget] = useState<CodebaseTarget | null>(null);
+    const [onboardingDraft, setOnboardingDraft] = useState<OnboardingDraft | null>(null);
+    const [orgMembershipReady, setOrgMembershipReady] = useState(false);
+    const [batteryAccessVerified, setBatteryAccessVerified] = useState(false);
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const user = useAuth();
@@ -364,8 +371,10 @@ export default function DestructionConsole({
                 const data = (await res.json()) as GatekeeperResponse;
                 if (data.tier) {
                     setCanCustomize(data.tier !== 'free_dry');
+                    setBatteryAccessVerified(Boolean(data.eligible));
                 }
             } catch (e) {
+                setBatteryAccessVerified(false);
                 console.error('Failed to fetch tier', e);
             }
         };
@@ -377,6 +386,40 @@ export default function DestructionConsole({
         return () => {
             subscriptionRefs.current.forEach(channel => channel.unsubscribe());
             subscriptionRefs.current = [];
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (cancelled) return;
+            try {
+                setCodebaseTarget(readSavedCodebaseTarget());
+                const rawDraft = localStorage.getItem(DRAFT_KEY);
+                setOnboardingDraft(rawDraft ? (JSON.parse(rawDraft) as OnboardingDraft) : null);
+            } catch {
+                setCodebaseTarget(null);
+                setOnboardingDraft(null);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        const checkOrgMembership = async () => {
+            if (!isApiConfigured()) {
+                setOrgMembershipReady(false);
+                return;
+            }
+            const org = await resolveActiveOrg();
+            if (!cancelled) setOrgMembershipReady(org.ok);
+        };
+        void checkOrgMembership();
+        return () => {
+            cancelled = true;
         };
     }, []);
 
@@ -433,8 +476,60 @@ export default function DestructionConsole({
         setIsComplete(true);
     }, [addLine, onStatusChange, selectedBatteries]);
 
+    const readinessItems = useMemo<ReadinessItem[]>(() => [
+        {
+            id: 'target',
+            label: 'Target configured',
+            ready: codebaseTarget !== null,
+            detail: codebaseTarget ? 'System under test is saved locally.' : 'Set the deployed app URL, API endpoint, or LLM/agent endpoint.',
+            required: true,
+        },
+        {
+            id: 'authorization',
+            label: 'Authorized use confirmed',
+            ready: onboardingDraft?.authorizationConfirmed === true,
+            detail: onboardingDraft?.authorizationConfirmed ? 'Operator confirmed authorization in onboarding.' : 'Confirm authorized-use scope in onboarding.',
+            required: true,
+        },
+        {
+            id: 'organization',
+            label: 'Organization membership active',
+            ready: orgMembershipReady,
+            detail: orgMembershipReady ? 'Authenticated organization membership resolved.' : 'Sign in with an account that belongs to an organization.',
+            required: true,
+        },
+        {
+            id: 'backend',
+            label: 'Backend connected',
+            ready: backendConnected,
+            detail: backendConnected ? 'External Armageddon backend origin is configured.' : 'NEXT_PUBLIC_ARMAGEDDON_API_BASE is not configured for this deployment.',
+            required: true,
+        },
+        {
+            id: 'battery-access',
+            label: 'Battery access verified',
+            ready: batteryAccessVerified,
+            detail: batteryAccessVerified ? 'Gatekeeper eligibility check completed.' : 'Gatekeeper eligibility has not been verified.',
+            required: true,
+        },
+    ], [backendConnected, batteryAccessVerified, codebaseTarget, onboardingDraft, orgMembershipReady]);
+
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
+
+        const savedTarget = readSavedCodebaseTarget();
+        setCodebaseTarget(savedTarget);
+        const targetReadiness = canStartRunForTarget(savedTarget);
+        const blockers = remainingReadinessBlockers(readinessItems);
+        if (!targetReadiness.ok || blockers.length > 0) {
+            setIsComplete(false);
+            setTerminalLines([]);
+            const reason = targetReadiness.ok ? `Complete readiness items first: ${blockers.join(', ')}.` : targetReadiness.reason;
+            addLine(LABELS.SYS, `RUN BLOCKED: ${reason}`, MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, 'No run, analysis, verdict, or certificate has been started.', MSG_TYPE.SYSTEM);
+            onStatusChange?.('idle');
+            return;
+        }
 
         // Honest degradation: the public static deployment has no live-fire
         // backend. Never fabricate a run, verdict, or certificate.
@@ -478,23 +573,13 @@ export default function DestructionConsole({
         setOrganizationId(orgId);
         let runId: string;
 
-        let targetUrl: string | undefined;
-        try {
-            const rawDraft = localStorage.getItem('armageddon:onboarding-draft');
-            if (rawDraft) {
-                const draft = JSON.parse(rawDraft);
-                targetUrl = draft.targetUrl;
-            }
-        } catch {
-            // Ignore parse errors
-        }
-
-        if (!targetUrl || targetUrl.trim() === '') {
-            addLine('CRIT', 'FATAL ERROR: Target URL is missing. Please configure target in onboarding first.', MSG_TYPE.ERROR);
+        if (!savedTarget) {
+            addLine('CRIT', 'FATAL ERROR: Target endpoint is missing. Please configure target in onboarding first.', MSG_TYPE.ERROR);
             setIsRunning(false);
             onStatusChange?.('idle');
             return;
         }
+        const targetUrl = savedTarget.endpointUrl;
 
         try {
             const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries, org.accessToken, targetUrl);
@@ -586,7 +671,7 @@ export default function DestructionConsole({
         runsChannel.subscribe();
         subscriptionRefs.current.push(runsChannel);
 
-    }, [isRunning, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion]);
+    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion]);
 
     const handleLogout = useCallback(async () => {
         const sb = getRequiredSupabase('Supabase not initialized');
@@ -707,6 +792,9 @@ export default function DestructionConsole({
                             />
                         </picture>
                     </div>
+
+                    <TargetConfigPanel target={codebaseTarget} draft={onboardingDraft} />
+                    <RunReadinessChecklist items={readinessItems} />
 
                     <div className="mt-16 mb-6 relative">
                         <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider uppercase">{t.batteryConfigLabel}</h3>

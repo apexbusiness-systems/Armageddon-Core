@@ -6,23 +6,18 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import type { PlanId } from '@/lib/pricing';
 import { PLANS, PLAN_ORDER } from '@/lib/pricing';
-import { isApiConfigured } from '@/lib/runtime-api';
+import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import { useT } from '@/i18n/useT';
+import {
+    DRAFT_KEY,
+    createEndpointTarget,
+    saveCodebaseTarget,
+    validateTargetEndpointUrl,
+    type CodebaseTarget,
+    type OnboardingDraft,
+    type TargetEnv,
+} from '@/lib/codebase-target';
 
-type TargetEnv = 'local' | 'staging' | 'production';
-
-interface OnboardingDraft {
-    orgName: string;
-    contactEmail: string;
-    tier: PlanId;
-    targetSystemName: string;
-    targetUrl: string;
-    environment: TargetEnv;
-    authorizationConfirmed: boolean;
-    acceptableUseAck: boolean;
-}
-
-const DRAFT_KEY = 'armageddon:onboarding-draft';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isPlanId(value: string | null): value is PlanId {
@@ -38,6 +33,7 @@ const EMPTY_DRAFT: OnboardingDraft = {
     environment: 'staging',
     authorizationConfirmed: false,
     acceptableUseAck: false,
+    codebaseTarget: null,
 };
 
 export default function OnboardingPage() {
@@ -68,7 +64,8 @@ export default function OnboardingPage() {
             const tierParam = params.get('tier');
             const tier: PlanId = isPlanId(tierParam) ? tierParam : (restored.tier ?? 'self-serve');
             setPaymentPending(params.get('payment') === 'pending');
-            setDraft({ ...EMPTY_DRAFT, ...restored, tier });
+            const restoredDraft = { ...EMPTY_DRAFT, ...restored, tier };
+            setDraft(restoredDraft);
         });
         return () => {
             cancelled = true;
@@ -91,23 +88,61 @@ export default function OnboardingPage() {
 
     const validate = (d: OnboardingDraft): readonly string[] => {
         const found: string[] = [];
-        if (d.orgName.trim() === '') found.push(t.errors.orgName);
-        if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push(t.errors.contactEmail);
-        if (d.targetSystemName.trim() === '') found.push(t.errors.targetSystemName);
-        if (d.targetUrl.trim() === '') found.push(t.errors.targetUrl);
-        if (!d.authorizationConfirmed) found.push(t.errors.authorization);
-        if (!d.acceptableUseAck) found.push(t.errors.acceptableUse);
+        if (d.orgName.trim() === '') found.push('Organization name is required.');
+        if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
+        if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
+        if (d.codebaseTarget) {
+            const targetError = validateTargetEndpointUrl(d.codebaseTarget.endpointUrl);
+            if (targetError) found.push(targetError);
+        } else {
+            found.push('Target endpoint or app URL is required.');
+        }
+        if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
+        if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');
         return found;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const prepareBackendIntake = async (target: CodebaseTarget): Promise<CodebaseTarget> => {
+        if (!isApiConfigured()) return target;
+        try {
+            const res = await apiFetch('/api/codebases', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sourceType: 'endpoint',
+                    targetEndpoint: target.endpointUrl,
+                    label: target.label,
+                    targetSystemName: draft.targetSystemName.trim(),
+                    environment: draft.environment,
+                }),
+            });
+            if (!res.ok) return target;
+            const data = (await res.json()) as { codebaseId?: string; intakeId?: string };
+            return { ...target, status: data.codebaseId || data.intakeId ? 'ready' : target.status, updatedAt: new Date().toISOString() };
+        } catch {
+            return target;
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const found = validate(draft);
         setErrors(found);
         if (found.length > 0) return;
 
+        let persistedDraft = draft;
+        if (draft.codebaseTarget) {
+            const target = await prepareBackendIntake(draft.codebaseTarget);
+            persistedDraft = { ...draft, codebaseTarget: target, targetUrl: target.endpointUrl };
+            try {
+                saveCodebaseTarget(target);
+            } catch {
+                /* ignore */
+            }
+        }
+
         try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(persistedDraft));
         } catch {
             /* ignore */
         }
@@ -140,7 +175,7 @@ export default function OnboardingPage() {
                 <div className="max-w-md w-full border border-white/10 bg-black/80 p-8 rounded-sm text-center">
                     <h1 className="text-xl font-mono text-signal mb-3 tracking-widest uppercase">{t.backendPending.title}</h1>
                     <p className="text-signal/80 text-sm mb-6">
-                        {t.backendPending.body}
+                        Live analysis is not connected on this deployment. Your selected target is saved locally; no upload, analysis, queue, run, or certificate has been started.
                     </p>
                     <div className="flex flex-col gap-3">
                         <Link href="/pricing" className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
@@ -203,10 +238,18 @@ export default function OnboardingPage() {
                             onChange={(e) => update('targetSystemName', e.target.value)} className={inputClass} placeholder="Checkout API" />
                     </Field>
 
-                    <Field id="targetUrl" label={t.fields.targetUrl}>
-                        <input id="targetUrl" type="text" required value={draft.targetUrl}
-                            onChange={(e) => update('targetUrl', e.target.value)} className={inputClass} placeholder="https://… or git@…" />
-                    </Field>
+                    <div className="space-y-3" id="target-config">
+                        <span className="block text-sm font-mono text-zinc-400 uppercase tracking-wide">System under test</span>
+                        <p className="mono-small text-signal/70">Connect the deployed app URL, API endpoint, or LLM/agent endpoint that ARMAGEDDON should test.</p>
+                        <Field id="targetUrl" label="Target endpoint or app URL">
+                            <input id="targetUrl" type="url" required value={draft.codebaseTarget?.endpointUrl ?? draft.targetUrl}
+                                onChange={(e) => {
+                                    const target = createEndpointTarget(e.target.value, draft.targetSystemName || 'System under test');
+                                    update('targetUrl', e.target.value);
+                                    update('codebaseTarget', target);
+                                }} className={inputClass} placeholder="https://app.example.com or https://api.example.com/v1/chat" />
+                        </Field>
+                    </div>
 
                     <Field id="environment" label={t.fields.environment}>
                         <select id="environment" value={draft.environment}

@@ -161,17 +161,26 @@ security regression tests added for the 2026-06-26 OmniPort remediation package.
 | `armageddon-site/tests/unit/api-run-temporal-cleanup.test.ts` | Enforcement (CI) | Validates `/api/run` marks inserted rows failed when Temporal connection or workflow start fails. |
 | `armageddon-site/tests/unit/api-omniport-execute-temporal-cleanup.test.ts` | Enforcement (CI) | Validates OmniPort execute marks inserted rows failed when Temporal connection fails. |
 
-## Addendum — 2026-06-26 (site localization)
+## Addendum — 2026-06-27
 
 The 2026-05-15 audit remains a historical baseline. This addendum records the
-local i18n system added to `armageddon-site` (English, French, German,
-Italian, Spanish, Simplified Chinese, Portuguese) and the regression guardrail
-that keeps every locale dictionary in key parity with English. No runtime
-third-party translation calls are made; all dictionaries are static, typed,
-and bundled at build time.
+codebase onboarding regression tests added for first-run repository/zip intake.
 
-| Document / guardrail | Status | Maintenance rule |
+| Test file | Status | Maintenance rule |
 | --- | --- | --- |
-| `armageddon-site/src/i18n/types.ts` | Canonical schema | English (`dictionaries/en.ts`) is the schema source of truth. Add new keys here first, then to all six other locale files, before wiring a component. |
-| `armageddon-site/src/i18n/dictionaries/{en,fr,de,it,es,zh-CN,pt}.ts` | Canonical content | Legal/privacy body copy stays English-only (controlling version); only chrome and UI labels are translated. Non-Latin-script-free locales (fr/de/it/es/pt) are written without diacritics, matching existing file convention. |
-| `armageddon-site/tests/unit/i18n-dictionaries.test.ts` | Enforcement (CI) | Validates exact key parity across all locales, validates `SUPPORTED_LOCALES`, and rejects empty-string leaf values (except the intentionally blank `cadenceLabel` on the free tier). Never delete an assertion to make CI pass. |
+| `armageddon-site/tests/unit/app-onboarding-codebase-target.test.tsx` | Enforcement (CI) | Validates onboarding target validation, local repository target persistence, and zip metadata copy that does not claim upload or analysis. |
+| `armageddon-site/tests/unit/components/DestructionConsole-codebase-target.test.tsx` | Enforcement (CI) | Validates console target readiness summaries and blocked zip execution when archive ingestion is unavailable. |
+| `armageddon-site/tests/unit/lib/codebase-target.test.ts` | Enforcement (CI) | Validates shared codebase target parsing, validation, summaries, and run-readiness gating. |
+
+## Addendum — 2026-06-27 target readiness follow-up
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+run-readiness UI tests and review-only SQL draft added after reconciling the
+merged onboarding/i18n work.
+
+| File | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/tests/unit/components/TargetConfigPanel.test.tsx` | Enforcement (CI) | Validates target-configuration empty/configured states and onboarding CTA routing. |
+| `armageddon-site/tests/unit/components/RunReadinessChecklist.test.tsx` | Enforcement (CI) | Validates visible run-readiness blockers and all-ready state. |
+| `docs/ops/sql/2026-06-27-org-unblock-review.sql` | Review-only operational draft | Must be reviewed and parameterized by an operator before execution; Codex must not execute it. |
+| `armageddon-site/tests/unit/active-target-copy.test.ts` | Enforcement (CI) | Validates active target-configuration UI does not claim repository, zip upload, or code-analysis capabilities. |

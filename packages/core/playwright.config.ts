@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -14,6 +14,12 @@ export default defineConfig({
     baseURL,
     bypassCSP: true,
     trace: 'retain-on-failure',
+  },
+  webServer: {
+    command: 'npm run dev -w armageddon-site -- --hostname 127.0.0.1 --port 3100',
+    url: `${baseURL}/onboarding`,
+    reuseExistingServer: true,
+    timeout: 120_000,
   },
   projects: [
     {

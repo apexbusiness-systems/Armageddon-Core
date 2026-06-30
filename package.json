@@ -23,7 +23,9 @@
     "typecheck:site": "npm --prefix armageddon-site run typecheck",
     "build:shared": "npm --prefix packages/shared run build",
     "build:core": "npm --prefix packages/core run build",
-    "build:site": "npm --prefix armageddon-site run build"
+    "build:site": "npm --prefix armageddon-site run build",
+    "test:e2e:local": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npx playwright test -c packages/core/playwright.config.ts",
+    "certify:staging-e2e": "npm --prefix armageddon-site run certify:staging-e2e"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
