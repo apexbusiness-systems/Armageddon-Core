@@ -23,6 +23,13 @@ export function remainingReadinessBlockers(items: readonly ReadinessItem[]): rea
     return items.filter((item) => item.required && !item.ready).map((item) => item.label);
 }
 
+function readinessSummary(blockers: readonly string[]): string {
+    if (blockers.length === 0) return 'All required setup checks are complete.';
+    const hasBackendBlocker = blockers.some((blocker) => blocker.toLowerCase().includes('backend'));
+    if (hasBackendBlocker) return 'Backend unavailable';
+    return 'Setup incomplete';
+}
+
 export default function RunReadinessChecklist({
     items,
     title = 'Run Readiness Checklist',
@@ -39,7 +46,7 @@ export default function RunReadinessChecklist({
                         {blockers.length === 0 ? allReadyLabel : `${blockedPrefix}${blockers.join(', ')}.`}
                     </p>
                     <p className="mono-small text-signal/60 mt-1">
-                        {blockers.length === 0 ? 'All required setup checks are complete.' : blockers.some((b) => b.toLowerCase().includes('backend')) ? 'Backend unavailable' : 'Setup incomplete'}
+                        {readinessSummary(blockers)}
                     </p>
                 </div>
             </div>
