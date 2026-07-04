@@ -320,6 +320,183 @@ Issued by: APEX Business Systems Ltd.
         return JSON.stringify(manifest, null, 2);
     }
 
+    public async generateCertificatePdf(): Promise<Uint8Array> {
+        const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+        
+        let templatePath = 'C:\\Users\\sinyo\\Armageddon-Core\\certs\\pdf-certificate.pdf';
+        if (!fs.existsSync(templatePath)) {
+            templatePath = path.resolve(__dirname, '../../../certs/pdf-certificate.pdf');
+        }
+        if (!fs.existsSync(templatePath)) {
+            templatePath = path.resolve(__dirname, '../../certs/pdf-certificate.pdf');
+        }
+        if (!fs.existsSync(templatePath)) {
+            templatePath = path.resolve(__dirname, '../certs/pdf-certificate.pdf');
+        }
+        
+        const templateBytes = fs.readFileSync(templatePath);
+        const pdfDoc = await PDFDocument.load(templateBytes);
+        
+        const page = pdfDoc.getPages()[0];
+        const { width, height } = page.getSize();
+        
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        const fontMono = await pdfDoc.embedFont(StandardFonts.Courier);
+
+        const verdict = this.computeVerdict();
+        const attestation = this.getAttestation();
+        const passedCount = this.report.batteries.filter(b => b.status === 'PASSED').length;
+        const failedCount = this.report.batteries.filter(b => b.status === 'FAILED').length;
+
+        const godModeBatteries = this.report.batteries.filter(b =>
+            ['B10','B11','B12','B13','B14'].some(prefix => b.batteryId.startsWith(prefix))
+        );
+        const totalAttacks = godModeBatteries.reduce((sum, b) => sum + b.iterations, 0);
+        const totalEscapes = godModeBatteries.reduce((sum, b) => sum + b.breachCount, 0);
+        const escapeRate = totalAttacks > 0 ? (totalEscapes / totalAttacks * 100).toFixed(4) : '0.0000';
+
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 90);
+        const expiryStr = expiryDate.toISOString().split('T')[0];
+
+        page.drawText('ARMAGEDDON CERTIFICATION', {
+            x: 60,
+            y: height - 120,
+            size: 20,
+            font: fontBold,
+            color: rgb(0.08, 0.18, 0.36)
+        });
+        
+        page.drawText(verdict, {
+            x: 60,
+            y: height - 165,
+            size: 32,
+            font: fontBold,
+            color: verdict === 'CERTIFIED' ? rgb(0.12, 0.58, 0.28) : rgb(0.8, 0.15, 0.15)
+        });
+
+        page.drawLine({
+            start: { x: 60, y: height - 185 },
+            end: { x: width - 60, y: height - 185 },
+            thickness: 1,
+            color: rgb(0.8, 0.8, 0.8)
+        });
+
+        const metaY = height - 210;
+        const labelColor = rgb(0.4, 0.4, 0.4);
+        const valueColor = rgb(0.1, 0.1, 0.1);
+        const metaFontSize = 9;
+
+        const leftLabels = ['Run ID:', 'Timestamp:', 'Mode:', 'Chaos Seed:', 'Target URL:'];
+        const leftValues = [
+            this.runId,
+            this.report.meta.timestamp,
+            this.options.mode,
+            String(this.options.seed),
+            this.options.targetUrl || 'N/A'
+        ];
+
+        for (let i = 0; i < leftLabels.length; i++) {
+            const y = metaY - (i * 16);
+            page.drawText(leftLabels[i], { x: 60, y, size: metaFontSize, font: fontBold, color: labelColor });
+            page.drawText(leftValues[i], { x: 140, y, size: metaFontSize, font: font, color: valueColor });
+        }
+
+        const rightLabels = ['Total Batteries:', 'Passed:', 'Failed:', 'Aggregate Score:'];
+        const rightValues = [
+            String(this.report.batteries.length),
+            String(passedCount),
+            String(failedCount),
+            `${this.report.score}/100`
+        ];
+
+        for (let i = 0; i < rightLabels.length; i++) {
+            const y = metaY - (i * 16);
+            page.drawText(rightLabels[i], { x: 340, y, size: metaFontSize, font: fontBold, color: labelColor });
+            page.drawText(rightValues[i], { x: 440, y, size: metaFontSize, font: i === 3 ? fontBold : font, color: i === 3 && verdict === 'CERTIFIED' ? rgb(0.12, 0.58, 0.28) : valueColor });
+        }
+
+        const godY = height - 315;
+        page.drawText(`LEVEL ${this.report.level ?? 7} GOD MODE PERFORMANCE:`, {
+            x: 60,
+            y: godY,
+            size: 11,
+            font: fontBold,
+            color: rgb(0.08, 0.18, 0.36)
+        });
+
+        const godLabels = ['Total Attacks:', 'Escapes:', 'Escape Rate:', 'Threshold:', 'Status:'];
+        const godValues = [
+            String(totalAttacks),
+            String(totalEscapes),
+            `${escapeRate}%`,
+            '0.01%',
+            verdict
+        ];
+
+        for (let i = 0; i < godLabels.length; i++) {
+            const y = godY - 18 - (i * 15);
+            page.drawText(godLabels[i], { x: 60, y, size: metaFontSize, font: fontBold, color: labelColor });
+            page.drawText(godValues[i], { x: 150, y, size: metaFontSize, font: i === 4 ? fontBold : font, color: i === 4 && verdict === 'CERTIFIED' ? rgb(0.12, 0.58, 0.28) : valueColor });
+        }
+
+        const attestY = height - 425;
+        page.drawText('TAMPER-EVIDENT ATTESTATION:', {
+            x: 60,
+            y: attestY,
+            size: 11,
+            font: fontBold,
+            color: rgb(0.08, 0.18, 0.36)
+        });
+
+        const attestLabels = ['Spec:', 'Algorithm:', 'Chain ID:', 'Key ID:', 'Merkle Root:', 'Digest:'];
+        const attestValues = [
+            attestation.spec,
+            attestation.algorithm,
+            attestation.chainId,
+            attestation.keyId,
+            attestation.merkleRoot,
+            attestation.digest
+        ];
+
+        for (let i = 0; i < attestLabels.length; i++) {
+            const y = attestY - 18 - (i * 15);
+            page.drawText(attestLabels[i], { x: 60, y, size: metaFontSize, font: fontBold, color: labelColor });
+            page.drawText(attestValues[i], { x: 150, y, size: 8, font: fontMono, color: valueColor });
+        }
+
+        const footerY = height - 565;
+        page.drawLine({
+            start: { x: 60, y: footerY },
+            end: { x: width - 60, y: footerY },
+            thickness: 1,
+            color: rgb(0.8, 0.8, 0.8)
+        });
+
+        const disclaimerLines = [
+            'Legal Disclaimer:',
+            'Armageddon is designed for controlled sandbox and authorized non-production testing and does not',
+            'guarantee breach prevention. Certification reflects results of the tested build/configuration at time of run.',
+            '',
+            `Issued by: APEX Business Systems Ltd.   |   Certification ID: ${this.runId.substring(0, 8).toUpperCase()}   |   Valid Until: ${expiryStr}`
+        ];
+
+        for (let i = 0; i < disclaimerLines.length; i++) {
+            const y = footerY - 15 - (i * 12);
+            const isDis = i < 3;
+            page.drawText(disclaimerLines[i], {
+                x: 60,
+                y,
+                size: isDis ? 7.5 : 8,
+                font: isDis ? font : fontBold,
+                color: isDis ? rgb(0.5, 0.5, 0.5) : rgb(0.2, 0.2, 0.2)
+            });
+        }
+
+        return await pdfDoc.save();
+    }
+
     public async saveTo(outputDir: string): Promise<void> {
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
@@ -330,18 +507,16 @@ Issued by: APEX Business Systems Ltd.
             fs.mkdirSync(evidenceDir, { recursive: true });
         }
 
-
         const jsonContent = this.generateReportJson();
         const mdContent = this.generateReportMd();
 
         fs.writeFileSync(path.join(outputDir, 'report.json'), jsonContent);
         fs.writeFileSync(path.join(outputDir, 'report.md'), mdContent);
-        fs.writeFileSync(path.join(outputDir, 'certificate.txt'), this.generateCertificateTxt());
+        fs.writeFileSync(path.join(outputDir, 'certificate.pdf'), await this.generateCertificatePdf());
         fs.writeFileSync(path.join(outputDir, 'junit.xml'), this.generateJunitXml());
         fs.writeFileSync(path.join(outputDir, 'manifest.json'), this.generateManifest(jsonContent, mdContent));
         fs.writeFileSync(path.join(outputDir, 'attestation.json'), this.generateAttestationJson());
         fs.writeFileSync(path.join(outputDir, 'verify.mjs'), renderStandaloneVerifier(), { mode: 0o755 });
-
 
         // Create per-battery logs (stubbed for now, using details)
         for (const b of this.report.batteries) {

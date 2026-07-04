@@ -26,6 +26,7 @@
     "@temporalio/workflow": "^1.16.2",
     "commander": "^4.1.1",
     "dotenv": "^17.4.2",
+    "pdf-lib": "^1.17.1",
     "uuid": "^14.0.1",
     "zod": "^3.25.76"
   },

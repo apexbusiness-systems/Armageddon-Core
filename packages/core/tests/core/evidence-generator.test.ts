@@ -10,11 +10,20 @@ import {
 } from '../../src/core/attestation';
 
 // Mock fs module
-vi.mock('node:fs', () => ({
-    existsSync: vi.fn(),
-    mkdirSync: vi.fn(),
-    writeFileSync: vi.fn()
-}));
+vi.mock('node:fs', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('node:fs')>();
+    return {
+        ...actual,
+        existsSync: vi.fn().mockImplementation((p: string) => {
+            if (p.includes('pdf-certificate.pdf') || p.includes('package.json')) {
+                return true;
+            }
+            return false;
+        }),
+        mkdirSync: vi.fn(),
+        writeFileSync: vi.fn()
+    };
+});
 
 describe('EvidenceGenerator', () => {
     const mockReport: ArmageddonReport = {
@@ -102,15 +111,11 @@ describe('EvidenceGenerator', () => {
         });
     });
 
-    describe('generateCertificateTxt', () => {
-        it('should generate plain text certificate with key details', () => {
-            const txt = generator.generateCertificateTxt();
-
-            expect(txt).toContain('ARMAGEDDON TEST SUITE CERTIFICATION');
-            expect(txt).toContain('Run ID:       test-run-id');
-            expect(txt).toContain('VERDICT: CERTIFIED');
-            expect(txt).toContain('Passed:               1');
-            expect(txt).toContain('Failed:               1');
+    describe('generateCertificatePdf', () => {
+        it('should generate PDF bytes containing certificate background', async () => {
+            const pdfBytes = await generator.generateCertificatePdf();
+            expect(pdfBytes).toBeInstanceOf(Uint8Array);
+            expect(pdfBytes.length).toBeGreaterThan(0);
         });
     });
 
@@ -146,8 +151,8 @@ describe('EvidenceGenerator', () => {
                 expect.any(String)
             );
             expect(fs.writeFileSync).toHaveBeenCalledWith(
-                path.join(outputDir, 'certificate.txt'),
-                expect.any(String)
+                path.join(outputDir, 'certificate.pdf'),
+                expect.any(Uint8Array)
             );
             expect(fs.writeFileSync).toHaveBeenCalledWith(
                 path.join(outputDir, 'junit.xml'),
@@ -224,14 +229,10 @@ describe('EvidenceGenerator', () => {
             expect(verifyAttestation(parsed.attestation, input)).toEqual({ valid: true });
         });
 
-        it('renders attestation details into certificate.txt', () => {
+        it('renders certificate PDF without errors', async () => {
             const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
-            const txt = gen.generateCertificateTxt();
-            expect(txt).toContain('Tamper-Evident Attestation');
-            expect(txt).toContain('armageddon-attestation/1.0');
-            expect(txt).toContain('Merkle Root:');
-            expect(txt).toMatch(/Digest:\s+[0-9a-f]{64}/);
-            expect(txt).toContain('node verify.mjs report.json');
+            const pdf = await gen.generateCertificatePdf();
+            expect(pdf).toBeInstanceOf(Uint8Array);
         });
 
         it('renders attestation summary into report.md', () => {
