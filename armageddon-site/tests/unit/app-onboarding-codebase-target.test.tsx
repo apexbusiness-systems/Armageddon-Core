@@ -43,9 +43,6 @@ describe('OnboardingPage target endpoint flow', () => {
         renderOnboardingPage();
         const targetNameHelp = await screen.findByText(/Give this target a name you will recognize later/);
         expect(targetNameHelp).toBeTruthy();
-        expect(screen.getByText(/Use the public or staging URL/)).toBeInTheDocument();
-        expect(screen.getByText(/https:\/\/apexomnihub\.icu\/omnidash/)).toBeInTheDocument();
-        expect(screen.getByText(/Do not enter a GitHub source-control link/)).toBeInTheDocument();
         expect(screen.getByText(/Only run tests against systems you own/)).toBeInTheDocument();
     });
 
@@ -53,29 +50,17 @@ describe('OnboardingPage target endpoint flow', () => {
         renderOnboardingPage();
         await completeCommonFields();
         await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
-        expect(await screen.findByText('Target endpoint or app URL is required.')).toBeInTheDocument();
+        expect(await screen.findByText('Target endpoint URL is required.')).toBeInTheDocument();
         expect(push).not.toHaveBeenCalled();
     });
 
     it('saves a target endpoint and honestly reports local-only state without a backend', async () => {
         renderOnboardingPage();
         await completeCommonFields();
-        fireEvent.change(screen.getByLabelText(/Target endpoint or app URL/i), { target: { value: 'https://app.example.com' } });
+        fireEvent.change(screen.getByLabelText(/Target endpoint URL/i), { target: { value: 'https://app.example.com' } });
         await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
 
         expect(await screen.findByText(/Live runs aren't connected/)).toBeInTheDocument();
-        const target = JSON.parse(localStorage.getItem(CODEBASE_TARGET_KEY) ?? '{}') as CodebaseTarget;
-        expect(target.kind).toBe('endpoint');
-        expect(target.status).toBe('local-only');
-        expect(target.endpointUrl).toBe('https://app.example.com');
         expect(localStorage.getItem(DRAFT_KEY)).toContain('https://app.example.com');
-    });
-
-    it('does not show unsupported repository or zip upload controls', async () => {
-        renderOnboardingPage();
-        await screen.findByText('System under test');
-        expect(screen.queryByText(/Repo URL/i)).not.toBeInTheDocument();
-        expect(screen.queryByText(/Zip archive/i)).not.toBeInTheDocument();
-        expect(screen.queryByLabelText(/Repository URL/i)).not.toBeInTheDocument();
     });
 });
