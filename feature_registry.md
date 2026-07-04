@@ -1,8 +1,8 @@
 # Feature Registry — ARMAGEDDON Test Suite
 
-**Docs version**: 2026.06.26<br>
-**Last updated**: 2026-06-26<br>
-**Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts` and site pages in `armageddon-site/src/app/`.
+**Docs version**: 2026.07.04<br>
+**Last updated**: 2026-07-04<br>
+**Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts`, the standalone API runtime in `packages/core/src/api-server.ts`, and site pages in `armageddon-site/src/app/`.
 
 ## Domain: Support & Privacy (NEW — PR #143)
 
@@ -34,9 +34,9 @@
   - **Status:** Implemented and validated end-to-end. Compliance alignment: EU AI Act Article 12 (Aug 2026), CAP-SRP v1.0, RFC 6962, NIST AI RMF.
 
 - **Feature:** Attestation Public-Key Endpoint
-  - **Location:** `armageddon-site/src/app/api/attestation/pubkey/route.ts`, `armageddon-site/src/lib/attestation-pubkey.ts`
+  - **Location:** `armageddon-site/src/app/api/attestation/pubkey/route.ts`, `armageddon-site/src/lib/attestation-pubkey.ts` (static-export-only reference implementation); `packages/core/src/api-server.ts` → `handleAttestationPubkey` (the implementation actually reachable in production, if that process is deployed).
   - **Scope:** `GET /api/attestation/pubkey` (Node runtime, 24h immutable cache) publishes the Ed25519 verification key derived from `ARMAGEDDON_ATTESTATION_SEED`. Fails closed with HTTP 503 when no seed is configured.
-  - **Status:** Implemented and live-tested.
+  - **Status:** **Corrected 2026-07-04.** Previously stated "Implemented and live-tested" — that was inaccurate. Live-verified via `curl` against `https://armageddontest.icu/api/attestation/pubkey`: returns HTTP 200 with the SPA HTML shell (identical to a nonexistent path), not JSON, not a 503. `intake-handler.ts` never routes this path. The Next.js route is unreachable in the static-export deployment; `packages/core/src/api-server.ts`'s implementation only works if that process is deployed and publicly reachable, which is UNVERIFIED (see `PRODUCTION_STATUS.md`).
 
 - **Feature:** Attestation Status Badge (UI)
   - **Location:** `armageddon-site/src/components/AttestationBadge.tsx`

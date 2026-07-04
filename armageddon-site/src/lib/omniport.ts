@@ -11,6 +11,10 @@ import {
     validateSSRF,
     isOmniPortEnabled,
     verifyOmniPortBearerToken,
+} from '@armageddon/shared/omniport';
+
+export { validateSSRF, isOmniPortEnabled };
+export {
     verifyWebhookSignature,
     signTelemetryPayload,
     verifyWaiverToken,
@@ -18,17 +22,6 @@ import {
     resolveOmniPortTaskQueue,
     type WaiverTokenPayload,
 } from '@armageddon/shared/omniport';
-
-export {
-    validateSSRF,
-    isOmniPortEnabled,
-    verifyWebhookSignature,
-    signTelemetryPayload,
-    verifyWaiverToken,
-    deriveRunSeed,
-    resolveOmniPortTaskQueue,
-    type WaiverTokenPayload,
-};
 
 // ─── Zod schemas for route I/O boundaries ─────────────────────────────────
 // Request/response shapes are Next.js-route-specific validation and stay

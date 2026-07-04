@@ -171,7 +171,7 @@ function isWaiverTokenPayload(value: unknown): value is WaiverTokenPayload {
 
 function base64urlToBuffer(str: string): Buffer {
     // Convert base64url → base64 → Buffer
-    const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice((str.length + 3) % 4 || 4);
+    const padded = str.replaceAll('-', '+').replaceAll('_', '/') + '=='.slice((str.length + 3) % 4 || 4);
     return Buffer.from(padded, 'base64');
 }
 

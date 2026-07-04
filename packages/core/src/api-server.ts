@@ -581,7 +581,7 @@ interface ValidatedOmniPortExecute {
 function validateOmniPortExecuteBody(body: OmniPortExecuteBody): { ok: true; value: ValidatedOmniPortExecute } | { ok: false; error: string } {
     if (typeof body.organizationId !== 'string' || !body.organizationId) return { ok: false, error: 'organizationId is required' };
     if (typeof body.level !== 'number' || body.level < 1 || body.level > 7) return { ok: false, error: 'level must be 1-7' };
-    if (typeof body.iterations !== 'number' || !(body.iterations > 0)) return { ok: false, error: 'iterations must be a positive number' };
+    if (typeof body.iterations !== 'number' || body.iterations <= 0) return { ok: false, error: 'iterations must be a positive number' };
     if (typeof body.targetUrl !== 'string' || !body.targetUrl) return { ok: false, error: 'targetUrl is required' };
     const batteries = Array.isArray(body.batteries) && body.batteries.every((b) => typeof b === 'string')
         ? body.batteries as string[]
@@ -703,7 +703,7 @@ function validateOmniPortLiveFireBody(body: OmniPortLiveFireBody): { ok: true; v
     if (typeof body.organizationId !== 'string' || !body.organizationId) return { ok: false, error: 'organizationId is required' };
     if (typeof body.waiverToken !== 'string' || !body.waiverToken) return { ok: false, error: 'waiverToken is required' };
     if (typeof body.level !== 'number' || body.level < 1 || body.level > 7) return { ok: false, error: 'level must be 1-7' };
-    if (typeof body.iterations !== 'number' || !(body.iterations > 0)) return { ok: false, error: 'iterations must be a positive number' };
+    if (typeof body.iterations !== 'number' || body.iterations <= 0) return { ok: false, error: 'iterations must be a positive number' };
     if (typeof body.targetUrl !== 'string' || !body.targetUrl) return { ok: false, error: 'targetUrl is required' };
     const batteries = Array.isArray(body.batteries) && body.batteries.every((b) => typeof b === 'string')
         ? body.batteries as string[]
