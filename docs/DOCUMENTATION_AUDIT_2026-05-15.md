@@ -208,3 +208,11 @@ locales, plus the resulting `canStartRunForTarget` reason-code refactor.
 | `armageddon-site/src/lib/codebase-target.ts` `canStartRunForTarget` | Returns `code: 'missing' \| 'invalid'` instead of an English `reason` string | Callers must map the code to a locale string; do not reintroduce hardcoded English in this pure lib function. |
 | `armageddon-site/src/components/TargetConfigPanel.tsx`, `armageddon-site/src/components/RunReadinessChecklist.tsx` | Accept optional translated `labels`/`title`/`allReadyLabel`/`blockedPrefix` props, defaulting to the existing English copy | Preserves existing un-wrapped component tests; `DestructionConsole` passes the active locale's strings. |
 | `armageddon-site/tests/unit/lib/codebase-target.test.ts` | Enforcement (CI) | Updated for the `canStartRunForTarget` code-based contract. |
+## Addendum — 2026-07-04 release-closure evidence
+
+The 2026-05-15 audit remains a historical baseline. This addendum records release-closure audit evidence captured by executable repository commands.
+
+| File | Status | Maintenance rule |
+| --- | --- | --- |
+| `docs/audits/BUILD_VERIFICATION_2026-07-04.log` | Generated audit evidence | Verbatim `npm run build` output captured on 2026-07-04 with exit code 0; regenerate only by rerunning the command and recording the new dated evidence file. |
+| `docs/audits/KV_BINDING_VERIFICATION_REQUIRED_2026-07-04.md` | Blocking audit action | Created 2026-07-04 after `npx wrangler kv namespace list` could not run without `CLOUDFLARE_API_TOKEN`; operators must inject Cloudflare credentials through the shell environment (never pasted into logs or docs), then use the listed Wrangler and Cloudflare Dashboard/API checks before rerunning Work Package 2. |

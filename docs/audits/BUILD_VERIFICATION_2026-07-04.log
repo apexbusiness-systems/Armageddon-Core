@@ -1,0 +1,89 @@
+# Build Verification — 2026-07-04
+Date/time UTC: 2026-07-04T09:27:17Z
+Machine/CI context: local Codex sandbox, unrestricted egress confirmed to fonts.googleapis.com and fonts.gstatic.com via curl on 2026-07-04.
+Command: npm run build
+--- npm run build output begins ---
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> build
+> npm run build:shared && npm run build:core && npm run build:site
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> build:shared
+> npm --prefix packages/shared run build
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @armageddon/shared@1.0.0 build
+> tsc
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> build:core
+> npm --prefix packages/core run build
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> armageddon-core@1.0.0 build
+> tsc
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> build:site
+> npm --prefix armageddon-site run build
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> armageddon-site@1.0.0 build
+> next build
+
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+▲ Next.js 16.2.9 (Turbopack)
+
+  Creating an optimized production build ...
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ Compiled successfully in 7.9s
+  Running TypeScript ...
+  Finished TypeScript in 13.1s ...
+  Collecting page data using 16 workers ...
+  Generating static pages using 16 workers (0/20) ...
+  Generating static pages using 16 workers (5/20) 
+  Generating static pages using 16 workers (10/20) 
+  Generating static pages using 16 workers (15/20) 
+✓ Generating static pages using 16 workers (20/20) in 1008ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/attestation/pubkey
+├ ƒ /api/gatekeeper
+├ ƒ /api/me/organizations
+├ ƒ /api/omniport/control
+├ ƒ /api/omniport/execute
+├ ƒ /api/omniport/health
+├ ƒ /api/omniport/live-fire
+├ ƒ /api/omniport/telemetry
+├ ƒ /api/omniport/waiver
+├ ƒ /api/run
+├ ○ /auth/callback
+├ ○ /console
+├ ○ /manifest.webmanifest
+├ ○ /onboarding
+├ ○ /pricing
+├ ○ /privacy
+└ ○ /support
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+--- npm run build output ends ---
+Exit code: 0
