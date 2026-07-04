@@ -19,17 +19,6 @@ export interface EvidenceOptions {
     targetUrl?: string;
 }
 
-const LEGAL_DISCLAIMER = `
-Legal Disclaimer:
-Armageddon is designed for controlled sandbox and
-authorized non-production testing and does not
-guarantee breach prevention. Certification reflects
-results of the tested build/configuration at time
-of run.
-
-Issued by: APEX Business Systems Ltd.
-`;
-
 const LEGAL_HEADER_MD = `> **Legal Notice:** This certification is valid only for the specific build, configuration, and environment tested at the time of this run. It does not constitute SOC 2, ISO, or compliance certification, nor does it guarantee breach prevention.`;
 
 export class EvidenceGenerator {
@@ -208,55 +197,8 @@ export class EvidenceGenerator {
             totalAttacks,
             totalEscapes,
             escapeRate,
-            expiryDate,
             expiryStr
         };
-    }
-
-    public generateCertificateTxt(): string {
-        const { verdict, attestation, passedCount, failedCount, totalAttacks, totalEscapes, escapeRate, expiryDate } = this.computeCertificateStats();
-
-        return `============================================
-  ARMAGEDDON TEST SUITE CERTIFICATION
-  ${verdict}
-============================================
-
-Run ID:       ${this.runId}
-Timestamp:    ${this.report.meta.timestamp}
-Mode:         ${this.options.mode}
-Chaos Seed:   ${this.options.seed}
-
-RESULTS:
-  Total Batteries:      ${this.report.batteries.length}
-  Passed:               ${passedCount}
-  Failed:               ${failedCount}
-  Aggregate Score:      ${this.report.score}/100
-
-Level ${this.report.level ?? 7} God Mode:
-  Total Attacks:        ${totalAttacks}
-  Escapes:              ${totalEscapes}
-  Escape Rate:          ${escapeRate}%
-  Threshold:            0.01%
-  Status:               ${verdict}
-
-VERDICT: ${verdict}
-
-Tamper-Evident Attestation:
-  Spec:               ${attestation.spec}
-  Algorithm:          ${attestation.algorithm}
-  Chain ID:           ${attestation.chainId}
-  Key ID:             ${attestation.keyId}
-  Merkle Root:        ${attestation.merkleRoot}
-  Digest:             ${attestation.digest}
-  Verify offline:     node verify.mjs report.json
-
-${LEGAL_DISCLAIMER}
-
-Certification ID: ${this.runId.substring(0, 8).toUpperCase()}
-Valid Until:      ${expiryDate.toISOString().split('T')[0]}
-
-Issued by: APEX Business Systems Ltd.
-============================================`;
     }
 
     public generateJunitXml(): string {
@@ -357,119 +299,136 @@ Issued by: APEX Business Systems Ltd.
         return await PDFDocument.load(templateBytes);
     }
 
-    private renderPdfTable(
-        page: any,
-        startY: number,
-        rowHeight: number,
-        rows: Array<{ xLabel: number; label: string; xVal: number; val: string; valFont?: any; valColor?: any; valSize?: number }>,
-        style: { fontBold: any; labelColor: any; defaultFont: any; defaultColor: any }
-    ): void {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const y = startY - (i * rowHeight);
-            page.drawText(row.label, { x: row.xLabel, y, size: 9, font: style.fontBold, color: style.labelColor });
-            page.drawText(row.val, {
-                x: row.xVal,
-                y,
-                size: row.valSize ?? 9,
-                font: row.valFont ?? style.defaultFont,
-                color: row.valColor ?? style.defaultColor
-            });
+    /**
+     * pdf-lib's SVG path Y axis is flipped relative to the page (see
+     * drawSvgPath's `scale(1, -1)`), so a normal "point up" star defined with
+     * math angles starting at -90deg renders right-side up once pdf-lib
+     * un-flips it. Verified visually before wiring this in.
+     */
+    private static starPath(outerR: number, innerR: number): string {
+        const pts: string[] = [];
+        for (let i = 0; i < 10; i++) {
+            const angle = (-90 + i * 36) * (Math.PI / 180);
+            const r = i % 2 === 0 ? outerR : innerR;
+            pts.push(`${i === 0 ? 'M' : 'L'} ${(r * Math.cos(angle)).toFixed(2)},${(r * Math.sin(angle)).toFixed(2)}`);
         }
-    }
-
-    private renderPdfFooter(
-        page: any,
-        footerY: number,
-        width: number,
-        expiryStr: string,
-        style: { font: any; fontBold: any; rgb: any }
-    ): void {
-        page.drawLine({
-            start: { x: 60, y: footerY },
-            end: { x: width - 60, y: footerY },
-            thickness: 1,
-            color: style.rgb(0.8, 0.8, 0.8)
-        });
-
-        const disclaimerLines = [
-            { text: 'Legal Disclaimer:', isDis: true },
-            { text: 'Armageddon is designed for controlled sandbox and authorized non-production testing and does not', isDis: true },
-            { text: 'guarantee breach prevention. Certification reflects results of the tested build/configuration at time of run.', isDis: true },
-            { text: '', isDis: true },
-            { text: `Issued by: APEX Business Systems Ltd.   |   Certification ID: ${this.runId.substring(0, 8).toUpperCase()}   |   Valid Until: ${expiryStr}`, isDis: false }
-        ];
-
-        for (let i = 0; i < disclaimerLines.length; i++) {
-            const line = disclaimerLines[i];
-            const y = footerY - 15 - (i * 12);
-            page.drawText(line.text, {
-                x: 60,
-                y,
-                size: line.isDis ? 7.5 : 8,
-                font: line.isDis ? style.font : style.fontBold,
-                color: line.isDis ? style.rgb(0.5, 0.5, 0.5) : style.rgb(0.2, 0.2, 0.2)
-            });
-        }
+        return `${pts.join(' ')} Z`;
     }
 
     public async generateCertificatePdf(): Promise<Uint8Array> {
         const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
         const pdfDoc = await this.loadPdfDocFromTemplate(PDFDocument);
-        
+
         const page = pdfDoc.getPages()[0];
-        const { width, height } = page.getSize();
-        
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const fontMono = await pdfDoc.embedFont(StandardFonts.Courier);
 
         const { verdict, attestation, passedCount, failedCount, totalAttacks, totalEscapes, escapeRate, expiryStr } = this.computeCertificateStats();
         const isCert = verdict === 'CERTIFIED';
         const verdictColor = isCert ? rgb(0.12, 0.58, 0.28) : rgb(0.8, 0.15, 0.15);
-        const labelColor = rgb(0.4, 0.4, 0.4);
-        const valueColor = rgb(0.1, 0.1, 0.1);
-        const tableStyle = { fontBold, labelColor, defaultFont: font, defaultColor: valueColor };
+        const ink = rgb(0.12, 0.12, 0.13);
+        const cream = rgb(0.925, 0.890, 0.827); // sampled from the template's card background
+        const level = this.report.level ?? 7;
+        const issuedOn = this.report.meta.timestamp.split('T')[0];
+        const TABLE_SIZE = 7;
+        const ID_SIZE = 6.5; // narrower fields (run id / timestamp) need a smaller size to avoid truncation
 
-        page.drawText('ARMAGEDDON CERTIFICATION', { x: 60, y: height - 120, size: 20, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
-        page.drawText(verdict, { x: 60, y: height - 165, size: 32, font: fontBold, color: verdictColor });
-        page.drawLine({ start: { x: 60, y: height - 185 }, end: { x: width - 60, y: height - 185 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
+        // `certs/pdf-certificate.pdf` is a flattened single-page design with demo
+        // values baked into its background artwork (coordinates measured against
+        // the shipped template). Every dynamic field is masked with a patch
+        // matching the card's cream background, then redrawn with real run data
+        // at the same slot. The circular seal graphic (top-left) is decorative,
+        // textured art with curved baked-in text ("LEVEL 8", escape rate, etc.)
+        // and is intentionally left untouched: there is no clean way to patch a
+        // gradient/textured badge, and the same figures are already rendered
+        // accurately in the flat data panels below it.
+        const mask = (x0: number, y0: number, x1: number, y1: number) =>
+            page.drawRectangle({ x: x0, y: y0, width: x1 - x0, height: y1 - y0, color: cream });
 
-        const metaRows = [
-            { xLabel: 60, label: 'Run ID:', xVal: 140, val: this.runId },
-            { xLabel: 60, label: 'Timestamp:', xVal: 140, val: this.report.meta.timestamp },
-            { xLabel: 60, label: 'Mode:', xVal: 140, val: this.options.mode },
-            { xLabel: 60, label: 'Chaos Seed:', xVal: 140, val: String(this.options.seed) },
-            { xLabel: 60, label: 'Target URL:', xVal: 140, val: this.options.targetUrl || 'N/A' },
-            { xLabel: 340, label: 'Total Batteries:', xVal: 440, val: String(this.report.batteries.length) },
-            { xLabel: 340, label: 'Passed:', xVal: 440, val: String(passedCount) },
-            { xLabel: 340, label: 'Failed:', xVal: 440, val: String(failedCount) },
-            { xLabel: 340, label: 'Aggregate Score:', xVal: 440, val: `${this.report.score}/100`, valFont: fontBold, valColor: isCert ? rgb(0.12, 0.58, 0.28) : valueColor }
-        ];
-        this.renderPdfTable(page, height - 210, 16, metaRows, tableStyle);
+        const fit = (text: string, size: number, maxWidth: number): string => {
+            if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+            let out = text;
+            while (out.length > 1 && font.widthOfTextAtSize(`${out}…`, size) > maxWidth) {
+                out = out.slice(0, -1);
+            }
+            return `${out}…`;
+        };
 
-        page.drawText(`LEVEL ${this.report.level ?? 7} GOD MODE PERFORMANCE:`, { x: 60, y: height - 315, size: 11, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
-        const godRows = [
-            { xLabel: 60, label: 'Total Attacks:', xVal: 150, val: String(totalAttacks) },
-            { xLabel: 60, label: 'Escapes:', xVal: 150, val: String(totalEscapes) },
-            { xLabel: 60, label: 'Escape Rate:', xVal: 150, val: `${escapeRate}%` },
-            { xLabel: 60, label: 'Threshold:', xVal: 150, val: '0.01%' },
-            { xLabel: 60, label: 'Status:', xVal: 150, val: verdict, valFont: fontBold, valColor: isCert ? rgb(0.12, 0.58, 0.28) : valueColor }
-        ];
-        this.renderPdfTable(page, height - 333, 15, godRows, tableStyle);
+        const field = (x: number, y: number, maxX: number, text: string, size = TABLE_SIZE) => {
+            mask(x - 6, y - 1.5, maxX, y + size * 0.85);
+            page.drawText(fit(text, size, maxX - x - 2), { x, y, size, font, color: ink });
+        };
 
-        page.drawText('TAMPER-EVIDENT ATTESTATION:', { x: 60, y: height - 425, size: 11, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
-        const attestRows = [
-            { xLabel: 60, label: 'Spec:', xVal: 150, val: attestation.spec, valFont: fontMono, valSize: 8 },
-            { xLabel: 60, label: 'Algorithm:', xVal: 150, val: attestation.algorithm, valFont: fontMono, valSize: 8 },
-            { xLabel: 60, label: 'Chain ID:', xVal: 150, val: attestation.chainId, valFont: fontMono, valSize: 8 },
-            { xLabel: 60, label: 'Key ID:', xVal: 150, val: attestation.keyId, valFont: fontMono, valSize: 8 },
-            { xLabel: 60, label: 'Merkle Root:', xVal: 150, val: attestation.merkleRoot, valFont: fontMono, valSize: 8 },
-            { xLabel: 60, label: 'Digest:', xVal: 150, val: attestation.digest, valFont: fontMono, valSize: 8 }
-        ];
-        this.renderPdfTable(page, height - 443, 15, attestRows, tableStyle);
+        const fieldRight = (xRight: number, y: number, minX: number, text: string, size = TABLE_SIZE) => {
+            mask(minX, y - 1.5, xRight + 3, y + size * 0.85);
+            const t = fit(text, size, xRight - minX);
+            const w = font.widthOfTextAtSize(t, size);
+            page.drawText(t, { x: xRight - w, y, size, font, color: ink });
+        };
 
-        this.renderPdfFooter(page, height - 565, width, expiryStr, { font, fontBold, rgb });
+        // Headline verdict: "CERTIFIED" is already baked into the art, so only
+        // patch it when the run actually failed.
+        if (!isCert) {
+            mask(110, 680, 474, 723);
+            const size = 46;
+            const w = fontBold.widthOfTextAtSize(verdict, size);
+            page.drawText(verdict, { x: 110 + (364 - w) / 2, y: 688, size, font: fontBold, color: verdictColor });
+        }
+
+        // Aggregate score + star rating
+        mask(354, 552, 489, 634);
+        const scoreStr = String(this.report.score);
+        const scoreSize = 40;
+        page.drawText(scoreStr, { x: 362, y: 588, size: scoreSize, font: fontBold, color: rgb(0.75, 0.25, 0.12) });
+        const scoreW = fontBold.widthOfTextAtSize(scoreStr, scoreSize);
+        page.drawText('/100', { x: 362 + scoreW + 6, y: 594, size: 24, font: fontBold, color: rgb(0.15, 0.15, 0.18) });
+        const filledStars = Math.max(0, Math.min(5, Math.floor(this.report.score / 20)));
+        const starPath = EvidenceGenerator.starPath(8, 3.2);
+        for (let i = 0; i < 5; i++) {
+            page.drawSvgPath(starPath, {
+                x: 362 + i * 31.2,
+                y: 562,
+                color: i < filledStars ? rgb(0.75, 0.25, 0.12) : rgb(0.55, 0.55, 0.55),
+            });
+        }
+
+        // Execution Record / Results / Level N God Mode row (baselines measured
+        // from the template: 736/767/797/827/855px @ 150dpi -> pt via *0.48)
+        const R1 = 488.64, R2 = 473.76, R3 = 459.36, R4 = 444.96, R5 = 431.52;
+
+        field(127.2, R1, 220.8, this.runId, ID_SIZE);
+        field(127.2, R2, 220.8, this.report.meta.timestamp, ID_SIZE);
+        field(127.2, R3, 220.8, this.options.mode);
+        field(127.2, R4, 220.8, String(this.options.seed));
+        field(127.2, R5, 220.8, this.options.targetUrl || 'N/A');
+
+        fieldRight(354, R1, 310, String(this.report.batteries.length));
+        fieldRight(354, R2, 310, String(passedCount));
+        fieldRight(354, R3, 310, String(failedCount));
+        fieldRight(354, R4, 310, `${this.report.score}/100`);
+
+        mask(400, 509.7, 520, 520.1);
+        page.drawText(`LEVEL ${level} GOD MODE`, { x: 406, y: 511.2, size: 10.5, font: fontBold, color: ink });
+        field(480, R1, 534, String(totalAttacks));
+        field(480, R2, 534, String(totalEscapes));
+        field(480, R3, 534, `${escapeRate}%`);
+        field(480, R4, 534, '0.01%');
+        field(480, R5, 534, verdict);
+
+        // Run + Attestation (tighter line pitch than the row above: baselines
+        // measured at 966/988/1010/1039/1061/1084/1106px @ 150dpi)
+        field(388, 378.24, 536, attestation.algorithm, ID_SIZE);
+        field(388, 367.68, 536, attestation.keyId, ID_SIZE);
+        field(388, 357.12, 536, expiryStr, ID_SIZE);
+        field(388, 343.2, 536, this.runId, ID_SIZE);
+        field(388, 332.64, 536, this.report.meta.timestamp, ID_SIZE);
+        field(388, 321.6, 536, this.options.mode, ID_SIZE);
+        field(388, 311.04, 536, String(this.options.seed), ID_SIZE);
+
+        // Issued By (baselines measured at 1523/1538px @ 150dpi; value column
+        // starts at px 773, noticeably tighter to the label than other boxes)
+        field(368, 110.88, 536, this.runId.substring(0, 8).toUpperCase(), ID_SIZE);
+        field(368, 103.68, 536, issuedOn, ID_SIZE);
 
         return await pdfDoc.save();
     }
