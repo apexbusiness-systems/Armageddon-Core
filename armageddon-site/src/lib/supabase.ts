@@ -8,6 +8,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { cleanEnvValue } from '@armageddon/shared';
 
 // Singleton instance
 let supabaseClient: SupabaseClient | null = null;
@@ -23,9 +24,11 @@ export function getSupabase(): SupabaseClient | null {
     // Return existing instance if already initialized
     if (supabaseClient) return supabaseClient;
 
-    // Check for required environment variables
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Check for required environment variables (literal access keeps the
+    // NEXT_PUBLIC_* values inlinable in the client bundle; cleanEnvValue
+    // strips stray quotes/whitespace from dashboard-pasted values)
+    const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
+    const anonKey = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
     if (!url || !anonKey) {
         console.warn('Supabase environment variables not configured');
@@ -101,8 +104,8 @@ export function getSupabaseServiceRole(): SupabaseClient {
     }
 
     // Get credentials
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL) ?? cleanEnvValue(process.env.SUPABASE_URL);
+    const key = cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
     if (!url || !key) {
         throw new Error(
@@ -151,8 +154,8 @@ export function getSupabaseAnon(): SupabaseClient {
     }
 
     // Get credentials
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
+    const key = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
     if (!url || !key) {
         throw new Error(
