@@ -15,10 +15,7 @@ vi.mock('node:fs', async (importOriginal) => {
     return {
         ...actual,
         existsSync: vi.fn().mockImplementation((p: string) => {
-            if (p.includes('pdf-certificate.pdf') || p.includes('package.json')) {
-                return true;
-            }
-            return false;
+            return actual.existsSync(p);
         }),
         mkdirSync: vi.fn(),
         writeFileSync: vi.fn()

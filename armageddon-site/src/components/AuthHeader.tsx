@@ -57,6 +57,23 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
     const [modalOpen, setModalOpen] = useState(false);
     const [mode, setMode] = useState<AuthMode>('signin');
     const [initialError, setInitialError] = useState<string | null>(null);
+    const [clearanceLevel, setClearanceLevel] = useState<number>(8);
+
+    useEffect(() => {
+        if (!user) return;
+        let cancelled = false;
+        fetch('/api/gatekeeper', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+            .then(res => res.json())
+            .then(data => {
+                if (cancelled) return;
+                const tier = data?.tier ?? 'free_dry';
+                setClearanceLevel(tier === 'certified' ? 8 : tier === 'verified' ? 6 : 3);
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [user]);
 
     // On mount: if Supabase bounced back with an OAuth error, open the modal and
     // explain it. Deferred to a microtask so the state change happens after
@@ -100,7 +117,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                 {isLoggedIn ? (
                     <>
                         <AnimatePresence>
-                            {hovered && <AuthIdentityBadge user={user} direction="right" align="right" />}
+                            {hovered && <AuthIdentityBadge user={user} direction="right" align="right" clearanceLevel={clearanceLevel} />}
                         </AnimatePresence>
                         <motion.button
                             type="button"

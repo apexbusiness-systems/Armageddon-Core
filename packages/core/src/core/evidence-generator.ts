@@ -183,13 +183,12 @@ export class EvidenceGenerator {
         return md;
     }
 
-    public generateCertificateTxt(): string {
+    private computeCertificateStats() {
         const verdict = this.computeVerdict();
         const attestation = this.getAttestation();
         const passedCount = this.report.batteries.filter(b => b.status === 'PASSED').length;
         const failedCount = this.report.batteries.filter(b => b.status === 'FAILED').length;
 
-        // Calculate God Mode stats (B10-B13)
         const godModeBatteries = this.report.batteries.filter(b =>
             ['B10','B11','B12','B13','B14'].some(prefix => b.batteryId.startsWith(prefix))
         );
@@ -197,9 +196,25 @@ export class EvidenceGenerator {
         const totalEscapes = godModeBatteries.reduce((sum, b) => sum + b.breachCount, 0);
         const escapeRate = totalAttacks > 0 ? (totalEscapes / totalAttacks * 100).toFixed(4) : '0.0000';
 
-        // Expiry date (90 days)
         const expiryDate = new Date();
         expiryDate.setDate(expiryDate.getDate() + 90);
+        const expiryStr = expiryDate.toISOString().split('T')[0];
+
+        return {
+            verdict,
+            attestation,
+            passedCount,
+            failedCount,
+            totalAttacks,
+            totalEscapes,
+            escapeRate,
+            expiryDate,
+            expiryStr
+        };
+    }
+
+    public generateCertificateTxt(): string {
+        const { verdict, attestation, passedCount, failedCount, totalAttacks, totalEscapes, escapeRate, expiryDate } = this.computeCertificateStats();
 
         return `============================================
   ARMAGEDDON TEST SUITE CERTIFICATION
@@ -327,10 +342,14 @@ Issued by: APEX Business Systems Ltd.
         // Walk up until we find the certs/ directory — handles both ts-node (src/) and
         // compiled (dist/) execution contexts.
         const candidatePaths = [
+            path.resolve(__dirname, '../../../../certs/pdf-certificate.pdf'),
             path.resolve(__dirname, '../../../certs/pdf-certificate.pdf'),
             path.resolve(__dirname, '../../certs/pdf-certificate.pdf'),
             path.resolve(__dirname, '../certs/pdf-certificate.pdf'),
             path.resolve(__dirname, 'certs/pdf-certificate.pdf'),
+            path.resolve(process.cwd(), 'certs/pdf-certificate.pdf'),
+            path.resolve(process.cwd(), '../certs/pdf-certificate.pdf'),
+            path.resolve(process.cwd(), '../../certs/pdf-certificate.pdf'),
         ];
         const templatePath = candidatePaths.find(p => fs.existsSync(p));
         if (!templatePath) {
@@ -350,21 +369,7 @@ Issued by: APEX Business Systems Ltd.
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
         const fontMono = await pdfDoc.embedFont(StandardFonts.Courier);
 
-        const verdict = this.computeVerdict();
-        const attestation = this.getAttestation();
-        const passedCount = this.report.batteries.filter(b => b.status === 'PASSED').length;
-        const failedCount = this.report.batteries.filter(b => b.status === 'FAILED').length;
-
-        const godModeBatteries = this.report.batteries.filter(b =>
-            ['B10','B11','B12','B13','B14'].some(prefix => b.batteryId.startsWith(prefix))
-        );
-        const totalAttacks = godModeBatteries.reduce((sum, b) => sum + b.iterations, 0);
-        const totalEscapes = godModeBatteries.reduce((sum, b) => sum + b.breachCount, 0);
-        const escapeRate = totalAttacks > 0 ? (totalEscapes / totalAttacks * 100).toFixed(4) : '0.0000';
-
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + 90);
-        const expiryStr = expiryDate.toISOString().split('T')[0];
+        const { verdict, attestation, passedCount, failedCount, totalAttacks, totalEscapes, escapeRate, expiryStr } = this.computeCertificateStats();
 
         page.drawText('ARMAGEDDON CERTIFICATION', {
             x: 60,
