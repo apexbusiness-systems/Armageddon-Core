@@ -20,7 +20,6 @@ concurrency:
 env:
   CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  CF_API_TOKEN_ATS: ${{ secrets.CLOUDFLARE_API_TOKEN_ATS }}
   CF_AGENT_TOKEN: ${{ secrets.CLOUDFLARE_AGENT_TOKEN }}
   ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
   WORKER_NAME: armageddon-core
@@ -58,6 +57,11 @@ jobs:
         working-directory: armageddon-site
         env:
           NEXT_PUBLIC_SITE_URL: https://armageddontest.icu
+          # Same-origin backend: the Worker serves /api/* and the static assets
+          # from this host. Must be present at BUILD time so Next inlines it into
+          # the static export; otherwise isApiConfigured() is false and the
+          # console locks every backed action (runs, gatekeeper, attestation).
+          NEXT_PUBLIC_ARMAGEDDON_API_BASE: https://armageddontest.icu
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.SUPABASE_TOKEN }}
         run: npm run validate:production-env
@@ -73,6 +77,11 @@ jobs:
         env:
           CLOUDFLARE_STATIC_EXPORT: "true"
           NEXT_PUBLIC_SITE_URL: https://armageddontest.icu
+          # Build-time backend origin baked into the static export. Without this,
+          # the deployed bundle ships with no backend wired up — the console shows
+          # "LOCKED / requires verified tier", runs cannot start, and the
+          # attestation badge reads KEY_UNAVAILABLE, regardless of Worker secrets.
+          NEXT_PUBLIC_ARMAGEDDON_API_BASE: https://armageddontest.icu
           NEXT_TELEMETRY_DISABLED: "1"
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.SUPABASE_TOKEN }}
@@ -82,7 +91,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
           CLOUDFLARE_ID: ${{ secrets.CLOUDFLARE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
-          CLOUDFLARE_API_TOKEN_ATS: ${{ env.CF_API_TOKEN_ATS }}
           CLOUDFLARE_AGENT_TOKEN: ${{ env.CF_AGENT_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ env.ZONE_ID }}
           CLOUDFLARE_WORKER_NAME: ${{ env.WORKER_NAME }}

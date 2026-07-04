@@ -1,7 +1,7 @@
 # Feature Registry — ARMAGEDDON Test Suite
 
-**Docs version**: 2026.06.25<br>
-**Last updated**: 2026-06-25<br>
+**Docs version**: 2026.06.26<br>
+**Last updated**: 2026-06-26<br>
 **Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts` and site pages in `armageddon-site/src/app/`.
 
 ## Domain: Support & Privacy (NEW — PR #143)
@@ -18,6 +18,14 @@
   - **Scope:** Static `/privacy` page. PIPEDA-compliant (Canadian jurisdiction, Edmonton AB). GDPR acknowledgment for EEA users. Documents third-party disclosures (GitHub, Cloudflare, Stripe, Anthropic, Supabase), data retention, and user rights.
   - **Status:** Implemented.
 
+## Domain: Localization (NEW)
+
+- **Feature:** Local i18n System
+  - **Location:** `armageddon-site/src/i18n/` (types, locales, dictionaries, `I18nProvider`, `useT` hook); `armageddon-site/src/components/LanguageSelector.tsx`; `armageddon-site/src/components/AppProviders.tsx`
+  - **Scope:** Typed, statically-bundled dictionaries for English, French, German, Italian, Spanish, Simplified Chinese (`zh-CN`), and Portuguese. Covers nav/footer/PWA/audio chrome, `/pricing`, `/onboarding`, `/support`, `/privacy` (chrome + section titles only; legal body stays English with a convenience-translation notice), and the home page (`BatteryGrid`, `CertificationSeal`, and the static UI chrome of `DestructionConsole` — the live terminal/simulation narrative stays English, consistent with evidence JSON keys staying English). No runtime third-party translation calls; all dictionaries ship at build time.
+  - **Guardrail:** `armageddon-site/tests/unit/i18n-dictionaries.test.ts` enforces exact key parity across all seven locales and rejects empty-string leaf values.
+  - **Status:** Implemented.
+
 ## Domain: Cryptographic Attestation (NEW)
 
 - **Feature:** Tamper-Evident Certification Receipts
@@ -32,7 +40,7 @@
 
 - **Feature:** Attestation Status Badge (UI)
   - **Location:** `armageddon-site/src/components/AttestationBadge.tsx`
-  - **Scope:** Surfaces `OFFLINE_VERIFY` / `EPHEMERAL_KEY` / `KEY_UNAVAILABLE` in the Destruction Console header. Powers the cryptographic-evidence narrative in the exported JSON bundle.
+  - **Scope:** Surfaces `OFFLINE_VERIFY` / `Evidence signing key unavailable` in the Destruction Console header. Powers the cryptographic-evidence narrative in the exported JSON bundle.
   - **Status:** Implemented and validated via jsdom unit tests.
 
 ## Certification Execution Defaults

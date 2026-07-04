@@ -16,6 +16,29 @@ npm run build:cloudflare -w armageddon-site
 
 This sets `CLOUDFLARE_STATIC_EXPORT=true`, causing `armageddon-site/next.config.mjs` to emit a static `out/` build without changing normal local Next.js behavior.
 
+### Required build-time environment (inlined into the static bundle)
+
+`NEXT_PUBLIC_*` values are inlined by Next.js **at build time** — setting them as
+Cloudflare Worker/Pages runtime vars or secrets has **no effect on an
+already-built bundle**. The following must be present in the environment when
+`next build` runs (the `deploy-cloudflare.yml` workflow sets them on the build
+step):
+
+| Variable | Value | Why |
+| --- | --- | --- |
+| `NEXT_PUBLIC_ARMAGEDDON_API_BASE` | `https://armageddontest.icu` | Same-origin backend the Worker serves (`/api/run`, `/api/gatekeeper`, `/api/attestation/pubkey`, …). **If missing, `isApiConfigured()` is `false` and the console silently locks every backed action** — custom batteries show "requires verified tier", runs cannot start, and the attestation badge reads `Evidence signing key unavailable`, regardless of any Worker secret (including `ADMIN_EMAIL`). |
+| `NEXT_PUBLIC_SITE_URL` | `https://armageddontest.icu` | Canonical site URL. |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from secrets | Browser-side Supabase auth. |
+
+> The value in `wrangler.jsonc` `vars` is a **Worker runtime** value only; it does
+> not reach the client build. `validate:production-env` warns (non-fatally) when
+> `NEXT_PUBLIC_ARMAGEDDON_API_BASE` is absent.
+
+The gatekeeper admin-override and tier checks additionally require the **Worker**
+to have `ADMIN_EMAIL` (exact, case-sensitive match of the account email),
+`SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` set as dashboard secrets — but
+these only take effect once the frontend can actually reach the backend (above).
+
 ## Deploy
 
 Run from the repository root after the static build succeeds:
@@ -88,3 +111,18 @@ npx wrangler secret list
 - Do not alter certification/legal copy during deployment-provider changes.
 - Do not reintroduce Render or legacy preview-host configuration unless a new deployment decision record explicitly approves it.
 - Do not set `Access-Control-Allow-Origin: *` in `handleSupportChat` — it must remain origin-locked to `canonicalHost`.
+
+
+### Operator UX readiness copy (2026-06-30)
+
+The static console now explains build-time backend gaps in plain language. If `NEXT_PUBLIC_ARMAGEDDON_API_BASE` is absent when `next build` runs, `/console` shows `Live backend connected` as incomplete and tells operators that real runs cannot start until the variable is configured at build time. If `ARMAGEDDON_ATTESTATION_SEED` is absent on the backend, the attestation UI shows `Evidence signing key unavailable`; no secret values are exposed, and signed certification artifacts remain incomplete until the seed is configured.
+
+### Service worker kill switch and Cloudflare Insights CSP (2026-07-04)
+
+`public/sw.js` is a permanent no-op service worker whose only job is to unregister itself and clear all caches on activate. A prior build shipped a real Workbox service worker at this path; it was removed from the codebase, but browsers that had already registered it kept re-fetching `/sw.js` on every visit — since the static edge falls back to the SPA shell (200 HTML) for any unrecognized path, the stale worker's own update check silently kept re-installing itself instead of ever seeing a 404. Do not delete `public/sw.js` or add a `fetch` handler to it; both would resurrect the stale-worker problem for returning visitors. `_headers` forces `Cache-Control: no-store` on `/sw.js` so the browser's periodic update check always sees the current (empty) file.
+
+Cloudflare Web Analytics loads `https://static.cloudflareinsights.com/beacon.min.js` and reports to `https://cloudflareinsights.com`; both hosts are allow-listed in the `_headers` CSP (`script-src` and `connect-src`). Do not remove them while Cloudflare Web Analytics is enabled on the zone — removing them reproduces the beacon `ERR_NAME_NOT_RESOLVED` / CSP-blocked console errors.
+
+### Build-time env parsing (2026-07-04)
+
+`checkRunEligibility` (via `packages/shared/src/gate.ts`) and `dbRateLimit` (`armageddon-site/src/lib/db-rate-limit.ts`) read Supabase credentials through `readEnv`/`cleanEnvValue` (`packages/shared/src/env.ts`), which strips stray surrounding quotes that dashboards sometimes paste around env values. Both Supabase clients are also lazily constructed on first use rather than at module scope — a malformed or absent `SUPABASE_URL` throws inside `supabase-js`'s constructor, and constructing that client at import time previously crashed `next build`'s page-data collection for `/api/run` with `Failed to collect page data for /api/run`. Keep client construction lazy; do not move it back to module scope.

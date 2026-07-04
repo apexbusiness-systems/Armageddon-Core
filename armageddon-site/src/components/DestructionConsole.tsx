@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useReducer, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
@@ -8,11 +8,24 @@ import { endSupabaseSession } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { DRAFT_KEY, canStartRunForTarget, readSavedCodebaseTarget, type CodebaseTarget, type OnboardingDraft } from '@/lib/codebase-target';
 import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
 import TargetConfigPanel from './TargetConfigPanel';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
+import RunTelemetryDeck, { type DeckConnection } from './RunTelemetryDeck';
+import TargetConfigPanel from './TargetConfigPanel';
+import RunReadinessChecklist, { remainingReadinessBlockers, type ReadinessItem } from './RunReadinessChecklist';
+import {
+    telemetryReducer,
+    EMPTY_TELEMETRY,
+    deriveSectorMatrix,
+    secureSectors,
+    type SectorStatus,
+} from '@/lib/run-telemetry';
+import { useT } from '@/i18n/useT';
+import type { HomeDictionary } from '@/i18n/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS & CONFIGURATION
@@ -84,15 +97,21 @@ function isTerminalStatus(s: string): s is 'passed' | 'failed' | 'cancelled' {
 }
 
 interface ArmageddonEvent {
+    id?: string;
     event_type: string;
     battery_id?: string;
     message?: string;
+    iteration?: number;
+    severity?: string;
+    created_at?: string;
 }
 
 // Real snake_case columns from armageddon_runs — there is no `results` column.
 interface ArmageddonRun {
     status: RunStatus;
     escape_rate?: number;
+    breaches?: number;
+    total_iterations?: number;
     batteries_executed?: string[];
     batteries_passed?: string[];
     batteries_failed?: string[];
@@ -112,6 +131,19 @@ interface GatekeeperResponse {
     eligible: boolean;
     tier: string;
     reason: string;
+}
+
+type ConsoleDictionary = HomeDictionary['console'];
+
+interface BuildReadinessItemsParams {
+    readonly userReady: boolean;
+    readonly targetReady: boolean;
+    readonly authorizationConfirmed: boolean;
+    readonly orgMembershipReady: boolean;
+    readonly backendConnected: boolean;
+    readonly batteryAccessVerified: boolean;
+    readonly attestationReady: boolean;
+    readonly labels: ConsoleDictionary['readiness']['items'];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -158,6 +190,119 @@ async function resolveActiveOrg(): Promise<OrgResolution> {
         return { ok: false, reason: 'no-org' };
     }
     return { ok: true, organizationId, accessToken: session.access_token };
+}
+
+function signedInReadinessItem(userReady: boolean): ReadinessItem {
+    return {
+        id: 'signed-in',
+        label: 'Signed in',
+        ready: userReady,
+        detail: userReady ? 'User session is active.' : 'Sign in to start a test run.',
+        required: true,
+        whatItMeans: userReady ? 'Armageddon can associate runs with your account.' : 'No active user session is available in this browser.',
+        whyItMatters: 'Runs and evidence must be tied to an authenticated operator.',
+        nextStep: userReady ? 'Continue setup.' : 'Sign in before starting a run.',
+        ctaLabel: userReady ? undefined : 'Sign in',
+        ctaHref: userReady ? undefined : '/onboarding',
+    };
+}
+
+function targetReadinessItem(targetReady: boolean, labels: ConsoleDictionary['readiness']['items']): ReadinessItem {
+    return {
+        id: 'target',
+        label: labels.target.label,
+        ready: targetReady,
+        detail: targetReady ? labels.target.detailReady : 'Choose the app, API, or agent endpoint Armageddon should test.',
+        required: true,
+        whatItMeans: targetReady ? 'A target endpoint is saved for this browser.' : 'Armageddon does not yet know what system to test.',
+        whyItMatters: 'Every run needs an explicit, authorized target endpoint.',
+        nextStep: targetReady ? 'Confirm authorization and workspace readiness.' : 'Set the target endpoint in onboarding.',
+        ctaLabel: targetReady ? undefined : 'Set target',
+        ctaHref: targetReady ? undefined : '/onboarding#target-config',
+    };
+}
+
+function authorizationReadinessItem(authorizationConfirmed: boolean, labels: ConsoleDictionary['readiness']['items']): ReadinessItem {
+    return {
+        id: 'authorization',
+        label: labels.authorization.label,
+        ready: authorizationConfirmed,
+        detail: authorizationConfirmed ? labels.authorization.detailReady : 'Confirm you are authorized to test this target.',
+        required: true,
+        whatItMeans: 'The operator must explicitly confirm authorized-use scope.',
+        whyItMatters: 'Armageddon must only be run against systems you own or are authorized to assess.',
+        nextStep: authorizationConfirmed ? 'Authorization is confirmed.' : 'Review and confirm authorization in onboarding.',
+        ctaLabel: authorizationConfirmed ? undefined : 'Review authorization',
+        ctaHref: authorizationConfirmed ? undefined : '/onboarding#target-config',
+    };
+}
+
+function organizationReadinessItem(orgMembershipReady: boolean, labels: ConsoleDictionary['readiness']['items']): ReadinessItem {
+    return {
+        id: 'organization',
+        label: labels.organization.label,
+        ready: orgMembershipReady,
+        detail: orgMembershipReady ? labels.organization.detailReady : 'Your account is signed in, but it has not been added to a workspace yet.',
+        required: true,
+        whatItMeans: orgMembershipReady ? 'Runs will be tied to an active workspace.' : 'A workspace is required so runs, evidence, permissions, and billing are tied to the correct organization.',
+        whyItMatters: 'Workspace membership prevents orphaned evidence and unauthorized billing or permission scope.',
+        nextStep: orgMembershipReady ? 'Continue setup.' : 'Ask an admin to add your login email to an organization, then refresh this page.',
+        technicalDetail: orgMembershipReady ? undefined : 'The backend returned 404 from /api/me/organizations because no organization_members row exists for this user. No organization_members row was found for this Supabase user.',
+    };
+}
+
+function backendReadinessItem(backendConnected: boolean, labels: ConsoleDictionary['readiness']['items']): ReadinessItem {
+    return {
+        id: 'backend',
+        label: labels.backend.label,
+        ready: backendConnected,
+        detail: backendConnected ? labels.backend.detailReady : 'The live Armageddon backend is not connected in this build.',
+        required: true,
+        whatItMeans: backendConnected ? 'Backed run APIs are reachable from this build.' : 'This deployment can save local setup, but it cannot start real runs until NEXT_PUBLIC_ARMAGEDDON_API_BASE is configured at build time.',
+        whyItMatters: 'Run initiation, gatekeeper checks, telemetry, and evidence persistence require the live backend.',
+        nextStep: backendConnected ? 'Continue setup.' : 'Rebuild with NEXT_PUBLIC_ARMAGEDDON_API_BASE set to the Armageddon backend origin.',
+    };
+}
+
+function testAccessReadinessItem(batteryAccessVerified: boolean, labels: ConsoleDictionary['readiness']['items']): ReadinessItem {
+    return {
+        id: 'battery-access',
+        label: labels.batteryAccess.label,
+        ready: batteryAccessVerified,
+        detail: batteryAccessVerified ? labels.batteryAccess.detailReady : 'Your current account or plan cannot start this test set yet.',
+        required: true,
+        whatItMeans: batteryAccessVerified ? 'Gatekeeper confirmed this account can start the selected test set.' : 'The selected tests require account or plan access that is not verified yet.',
+        whyItMatters: 'Access checks prevent starting tests outside the workspace plan or review scope.',
+        nextStep: batteryAccessVerified ? 'Continue setup.' : 'View pricing or contact an admin to enable access.',
+        ctaLabel: batteryAccessVerified ? undefined : 'View pricing',
+        ctaHref: batteryAccessVerified ? undefined : '/pricing',
+    };
+}
+
+function evidenceSigningReadinessItem(attestationReady: boolean): ReadinessItem {
+    return {
+        id: 'evidence-signing',
+        label: 'Evidence signing key unavailable',
+        ready: attestationReady,
+        detail: attestationReady ? 'Signed verification artifacts are available.' : 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured.',
+        required: false,
+        whatItMeans: attestationReady ? 'The public attestation key is available for evidence verification.' : 'Certification artifacts cannot be considered complete until this is fixed.',
+        whyItMatters: 'Signed evidence lets reviewers verify that artifacts came from the Armageddon pipeline.',
+        nextStep: attestationReady ? 'Continue setup.' : 'Ask an operator to configure ARMAGEDDON_ATTESTATION_SEED for signed evidence.',
+        technicalDetail: attestationReady ? undefined : 'ARMAGEDDON_ATTESTATION_SEED is missing or /api/attestation/pubkey is unavailable.',
+    };
+}
+
+function buildReadinessItems(params: BuildReadinessItemsParams): ReadinessItem[] {
+    return [
+        signedInReadinessItem(params.userReady),
+        targetReadinessItem(params.targetReady, params.labels),
+        authorizationReadinessItem(params.authorizationConfirmed, params.labels),
+        organizationReadinessItem(params.orgMembershipReady, params.labels),
+        backendReadinessItem(params.backendConnected, params.labels),
+        testAccessReadinessItem(params.batteryAccessVerified, params.labels),
+        evidenceSigningReadinessItem(params.attestationReady),
+    ];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -291,23 +436,44 @@ export default function DestructionConsole({
     const [isComplete, setIsComplete] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
-    const [threatMap, setThreatMap] = useState<ThreatCell[]>(() =>
-        Array.from({ length: 64 }, (_, i) => ({ id: i, status: 'idle' }))
+    // Live telemetry is derived ONLY from the real Supabase event/run stream.
+    const [telemetry, dispatchTelemetry] = useReducer(telemetryReducer, EMPTY_TELEMETRY);
+    // The 64-cell matrix is now a truthful projection of real attack outcomes.
+    const threatMap = useMemo<ThreatCell[]>(
+        () => deriveSectorMatrix(telemetry).map((status: SectorStatus, id) => ({ id, status })),
+        [telemetry]
     );
+    const secureSectorCount = useMemo(() => secureSectors(telemetry), [telemetry]);
     const [currentBattery, setCurrentBattery] = useState<number>(0);
     const [runId, setRunId] = useState<string | null>(null);
     const [organizationId, setOrganizationId] = useState<string | null>(null);
     const [terminalStatus, setTerminalStatus] = useState<RunStatus | null>(null);
+    const [codebaseTarget, setCodebaseTarget] = useState<CodebaseTarget | null>(null);
+    const [onboardingDraft, setOnboardingDraft] = useState<OnboardingDraft | null>(null);
+    const [orgMembershipReady, setOrgMembershipReady] = useState(false);
+    const [batteryAccessVerified, setBatteryAccessVerified] = useState(false);
     const [flashActive, setFlashActive] = useState(false);
     const terminalRef = useRef<HTMLDivElement>(null);
     const user = useAuth();
     const attestationPubKey = useAttestationPubKey();
+    const { dictionary } = useT();
+    const t = dictionary.home.console;
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
     // Removed unused userTier
     const [canCustomize, setCanCustomize] = useState(false);
 
     // Track subscriptions for cleanup
     const subscriptionRefs = useRef<RealtimeChannel[]>([]);
+
+    // Whether a live backend is wired into THIS build. Drives honest copy:
+    // a locked/empty surface must say "backend not connected", not imply a tier gate.
+    const backendConnected = isApiConfigured();
+
+    // Connection state for the live telemetry deck.
+    let deckConnection: DeckConnection = 'standby';
+    if (!backendConnected) deckConnection = 'disconnected';
+    else if (isRunning) deckConnection = 'live';
+    else if (isComplete) deckConnection = 'complete';
 
     // ────────────────────────────────────────────────────────────────────────
     // EFFECTS
@@ -333,8 +499,10 @@ export default function DestructionConsole({
                 const data = (await res.json()) as GatekeeperResponse;
                 if (data.tier) {
                     setCanCustomize(data.tier !== 'free_dry');
+                    setBatteryAccessVerified(Boolean(data.eligible));
                 }
             } catch (e) {
+                setBatteryAccessVerified(false);
                 console.error('Failed to fetch tier', e);
             }
         };
@@ -346,6 +514,40 @@ export default function DestructionConsole({
         return () => {
             subscriptionRefs.current.forEach(channel => channel.unsubscribe());
             subscriptionRefs.current = [];
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (cancelled) return;
+            try {
+                setCodebaseTarget(readSavedCodebaseTarget());
+                const rawDraft = localStorage.getItem(DRAFT_KEY);
+                setOnboardingDraft(rawDraft ? (JSON.parse(rawDraft) as OnboardingDraft) : null);
+            } catch {
+                setCodebaseTarget(null);
+                setOnboardingDraft(null);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        const checkOrgMembership = async () => {
+            if (!isApiConfigured()) {
+                setOrgMembershipReady(false);
+                return;
+            }
+            const org = await resolveActiveOrg();
+            if (!cancelled) setOrgMembershipReady(org.ok);
+        };
+        void checkOrgMembership();
+        return () => {
+            cancelled = true;
         };
     }, []);
 
@@ -388,14 +590,13 @@ export default function DestructionConsole({
             const denom = executed || passed || selectedBatteries.length;
             const escapeRate = run.escape_rate ?? 0;
             addLine(LABELS.SYS, `${passed}/${denom} BATTERIES PASSED | ESCAPE RATE: ${(escapeRate * 100).toFixed(2)}%`, MSG_TYPE.SUCCESS);
-            addLine(LABELS.SYS, 'VERDICT: EVIDENCE GENERATED — SUBMIT FOR REVIEW', MSG_TYPE.SUCCESS);
+            addLine(LABELS.SYS, 'VERDICT: EVIDENCE GENERATED | SUBMIT FOR REVIEW', MSG_TYPE.SUCCESS);
             onStatusChange?.('certified');
-            setThreatMap(prev => prev.map(c => ({ ...c, status: 'safe' })));
         } else if (run.status === 'cancelled') {
-            addLine(LABELS.SYS, 'VERDICT: RUN CANCELLED — NO CERTIFICATION ISSUED', MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, 'VERDICT: RUN CANCELLED | NO CERTIFICATION ISSUED', MSG_TYPE.WARNING);
             onStatusChange?.('idle');
         } else {
-            addLine(LABELS.SYS, 'VERDICT: BREACH EVIDENCE RECORDED — REVIEW REQUIRED', MSG_TYPE.ERROR);
+            addLine(LABELS.SYS, 'VERDICT: BREACH EVIDENCE RECORDED | REVIEW REQUIRED', MSG_TYPE.ERROR);
             onStatusChange?.('rejected');
         }
         addLine(LABELS.SYS, LABELS.DIVIDER, MSG_TYPE.SUCCESS);
@@ -403,8 +604,35 @@ export default function DestructionConsole({
         setIsComplete(true);
     }, [addLine, onStatusChange, selectedBatteries]);
 
+    const readinessItems = useMemo<ReadinessItem[]>(() => buildReadinessItems({
+        userReady: user !== null,
+        targetReady: codebaseTarget !== null,
+        authorizationConfirmed: onboardingDraft?.authorizationConfirmed === true,
+        orgMembershipReady,
+        backendConnected,
+        batteryAccessVerified,
+        attestationReady: attestationPubKey !== null,
+        labels: t.readiness.items,
+    }), [attestationPubKey, backendConnected, batteryAccessVerified, codebaseTarget, onboardingDraft, orgMembershipReady, t, user]);
+
     const initiateSequence = useCallback(async () => {
         if (isRunning) return;
+
+        const savedTarget = readSavedCodebaseTarget();
+        setCodebaseTarget(savedTarget);
+        const targetReadiness = canStartRunForTarget(savedTarget);
+        const blockers = remainingReadinessBlockers(readinessItems);
+        if (!targetReadiness.ok || blockers.length > 0) {
+            setIsComplete(false);
+            setTerminalLines([]);
+            const reason = targetReadiness.ok
+                ? `${t.readiness.completeItemsFirstPrefix}${blockers.join(', ')}.`
+                : targetReadiness.code === 'missing' ? t.readiness.targetMissingReason : t.readiness.targetInvalidReason;
+            addLine(LABELS.SYS, `${t.readiness.runBlockedPrefix}${reason}`, MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, t.readiness.noRunStarted, MSG_TYPE.SYSTEM);
+            onStatusChange?.('idle');
+            return;
+        }
 
         // Honest degradation: the public static deployment has no live-fire
         // backend. Never fabricate a run, verdict, or certificate.
@@ -422,12 +650,13 @@ export default function DestructionConsole({
         setIsComplete(false);
         setTerminalLines([]);
         setCurrentBattery(0);
-        setThreatMap(prev => prev.map(c => ({ ...c, status: 'idle' })));
+        // Clear prior telemetry so the deck/matrix start from a real, empty state.
+        dispatchTelemetry({ type: 'reset' });
         onStatusChange?.('calibrating');
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
 
-        addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 7 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
+        addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 8 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
         addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);
 
         // Resolve a real session + organization. Never fall back to a demo or user id.
@@ -435,7 +664,7 @@ export default function DestructionConsole({
         if (!org.ok) {
             const messages: Record<typeof org.reason, string> = {
                 'unauthenticated': 'Sign in to start a certification run.',
-                'no-org': 'Your account has no organization membership. Visit /pricing or contact your admin.',
+                'no-org': 'Your account is signed in, but it has not been added to a workspace yet. Ask an admin to add your login email to an organization, then refresh this page. Admin detail: No organization_members row was found for this Supabase user.',
                 'org-error': 'Could not resolve your organization. Please retry.',
             };
             addLine(LABELS.SYS, messages[org.reason], MSG_TYPE.WARNING);
@@ -447,23 +676,13 @@ export default function DestructionConsole({
         setOrganizationId(orgId);
         let runId: string;
 
-        let targetUrl: string | undefined;
-        try {
-            const rawDraft = localStorage.getItem('armageddon:onboarding-draft');
-            if (rawDraft) {
-                const draft = JSON.parse(rawDraft);
-                targetUrl = draft.targetUrl;
-            }
-        } catch {
-            // Ignore parse errors
-        }
-
-        if (!targetUrl || targetUrl.trim() === '') {
-            addLine('CRIT', 'FATAL ERROR: Target URL is missing. Please configure target in onboarding first.', MSG_TYPE.ERROR);
+        if (!savedTarget) {
+            addLine('CRIT', t.readiness.targetMissingFatal, MSG_TYPE.ERROR);
             setIsRunning(false);
             onStatusChange?.('idle');
             return;
         }
+        const targetUrl = savedTarget.endpointUrl;
 
         try {
             const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries, org.accessToken, targetUrl);
@@ -477,7 +696,7 @@ export default function DestructionConsole({
             }
             runId = data.runId;
             setRunId(runId);
-            addLine(LABELS.SYS, `Workflow started against ${targetUrl}: ${runId}`, MSG_TYPE.SYSTEM);
+            addLine(LABELS.SYS, t.readiness.workflowStartedAgainst.replace('{url}', targetUrl).replace('{runId}', runId), MSG_TYPE.SYSTEM);
             addLine(LABELS.SYS, 'Subscribing to real-time event stream...', MSG_TYPE.SYSTEM);
         } catch (e) {
             console.error("API call failed", e);
@@ -504,6 +723,10 @@ export default function DestructionConsole({
                         handleTrapTrigger();
                         return;
                     }
+
+                    // Feed the live telemetry deck from the same real event (single
+                    // source — no extra channel). Idempotent: the reducer de-dupes by id.
+                    dispatchTelemetry({ type: 'event', event });
 
                     const typeMap: Record<string, TerminalLine['type']> = {
                         'BATTERY_STARTED': MSG_TYPE.COMMAND,
@@ -533,6 +756,9 @@ export default function DestructionConsole({
                 { event: EVENTS.UPDATE, schema: TABLE.SCHEMA, table: TABLE.RUNS, filter: `id=eq.${runId}` },
                 (payload: { new: ArmageddonRun }) => {
                     const run = payload.new;
+                    // Live progress (escape rate, breaches, iteration cap) feeds the deck
+                    // on every update — not only at terminal state.
+                    dispatchTelemetry({ type: 'run', run });
                     if (isTerminalStatus(run.status)) {
                         supabase.removeChannel(eventsChannel);
                         supabase.removeChannel(runsChannel);
@@ -548,7 +774,7 @@ export default function DestructionConsole({
         runsChannel.subscribe();
         subscriptionRefs.current.push(runsChannel);
 
-    }, [isRunning, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion]);
+    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion, t]);
 
     const handleLogout = useCallback(async () => {
         const sb = getRequiredSupabase('Supabase not initialized');
@@ -576,8 +802,8 @@ export default function DestructionConsole({
 
         const isTerminal = terminalStatus !== null && isTerminalStatus(terminalStatus);
         const warnings: string[] = [];
-        if (!isTerminal) warnings.push('Run is not terminal — exported evidence is incomplete and non-certifiable.');
-        if (!runId) warnings.push('No durable run id — evidence cannot be verified.');
+        if (!isTerminal) warnings.push('Run is not terminal: exported evidence is incomplete and non-certifiable.');
+        if (!runId) warnings.push('No durable run id: evidence cannot be verified.');
 
         const evidence = {
             organizationId,
@@ -659,11 +885,12 @@ export default function DestructionConsole({
                             <source srcSet="/wordmark.webp" type="image/webp" />
                             <img
                                 src="/wordmark.png"
-                                alt="ARMAGEDDON LEVEL 7"
+                                alt="ARMAGEDDON LEVEL 8"
                                 width={824}
                                 height={315}
                                 fetchPriority="high"
-                                decoding="async"
+                                loading="eager"
+                                decoding="sync"
                                 className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)] animate-pulse-slow"
                             />
                         </picture>
@@ -675,18 +902,34 @@ export default function DestructionConsole({
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
                                 {/* Meaningful copy sits on a solid high-contrast panel — never
-                                    behind the blur — and the CTA is a real, focusable link. */}
-                                <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
-                                    <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3">LOCKED</p>
-                                    <p className="mono-data text-signal text-sm">Custom Battery Selection</p>
-                                    <p className="mono-small text-signal/80 mt-1">Requires the Verified tier or higher.</p>
-                                    <a
-                                        href="/pricing?upgrade=verified"
-                                        className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
-                                    >
-                                        View pricing
-                                    </a>
-                                </div>
+                                    behind the blur — and the CTA is a real, focusable link.
+                                    Honest copy: distinguish "no backend on this deployment"
+                                    from a genuine tier gate, so the lock is never misread. */}
+                                {backendConnected ? (
+                                    <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
+                                        <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3 uppercase">{t.lockedLabel}</p>
+                                        <p className="mono-data text-signal text-sm">{t.customBatterySelection}</p>
+                                        <p className="mono-small text-signal/80 mt-1">{t.requiresVerifiedTier}</p>
+                                        <a
+                                            href="/pricing?upgrade=verified"
+                                            className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        >
+                                            {t.viewPricing}
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--destructive)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
+                                        <p className="mono-small tracking-[0.3em] text-[var(--destructive)] mb-3 uppercase">{t.backendNotConnectedLabel}</p>
+                                        <p className="mono-data text-signal text-sm">{t.noLiveBackendDesc}</p>
+                                        <p className="mono-small text-signal/80 mt-1">{t.configStateNotice}</p>
+                                        <a
+                                            href="/pricing"
+                                            className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                        >
+                                            {t.requestAccess}
+                                        </a>
+                                    </div>
+                                )}
                             </div>
                         )}
                         <BatterySelector
@@ -708,13 +951,17 @@ export default function DestructionConsole({
                             {(() => {
                                 if (isRunning) {
                                     return (
-                                        <span className="flex items-center gap-3">
+                                        <span className="flex items-center gap-3 uppercase">
                                             <span className="w-2 h-2 bg-aerospace rounded-full animate-pulse" />
-                                            EXECUTING {currentBattery}/13
+                                            {t.executingLabel} {currentBattery}/13
                                         </span>
                                     );
                                 }
-                                return isComplete ? 'REINITIATE SEQUENCE' : 'INITIATE SEQUENCE';
+                                return (
+                                    <span className="uppercase">
+                                        {isComplete ? t.reinitiateSequence : t.initiateSequence}
+                                    </span>
+                                );
                             })()}
                         </motion.button>
 
@@ -727,9 +974,9 @@ export default function DestructionConsole({
                                 >
                                     <button
                                         onClick={handleExportJson}
-                                        className="btn-secondary w-full"
+                                        className="btn-secondary w-full uppercase"
                                     >
-                                        EXPORT JSON EVIDENCE
+                                        {t.exportJsonEvidence}
                                     </button>
                                 </motion.div>
                             )}
@@ -739,20 +986,21 @@ export default function DestructionConsole({
 
                 <motion.div
                     className="grid lg:grid-cols-3 gap-6 mb-8"
-                    initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }}
+                    initial={false}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="lg:col-span-2 terminal flex flex-col h-[600px] border border-white/10 bg-black/40 backdrop-blur-sm rounded-sm">
-                        <div className="terminal-header items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
-                            <div className="flex items-center gap-3">
-                                <div className="flex gap-1" aria-hidden="true">
+                        <div className="terminal-header items-center justify-between gap-2 border-b border-white/5 bg-[#0a0a0a] px-4 py-2 flex">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex gap-1 shrink-0" aria-hidden="true">
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-70"></span>
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-50"></span>
                                     <span className="w-1 h-3 bg-[var(--aerospace)] opacity-30"></span>
                                 </div>
-                                <span className="mono-small text-signal/60 tracking-widest">DESTRUCTION_CONSOLE</span>
+                                <span className="mono-small text-signal/60 tracking-widest truncate uppercase">{t.consoleLabel}</span>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 sm:gap-4 shrink-0 flex-wrap justify-end">
                                 {user && (
                                     <div className="flex items-center gap-3">
                                         <span className="mono-small text-zinc-400 text-[10px] hidden sm:inline-block">
@@ -765,11 +1013,11 @@ export default function DestructionConsole({
                                 )}
                                 <div className="flex items-center gap-2 border-l border-white/10 pl-4">
                                     <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-[var(--safe)] animate-pulse' : 'bg-zinc-700'}`}></span>
-                                    <span className={`mono-small ${isRunning ? 'text-[var(--safe)]' : 'text-zinc-500'} opacity-70`}>
-                                        {isRunning ? 'ONLINE' : 'STANDBY'}
+                                    <span className={`mono-small ${isRunning ? 'text-[var(--safe)]' : 'text-zinc-500'} opacity-70 uppercase`}>
+                                        {isRunning ? t.statusOnline : t.statusStandby}
                                     </span>
                                 </div>
-                                <div className="border-l border-white/10 pl-4">
+                                <div className="border-l border-white/10 pl-4 shrink-0">
                                     <AttestationBadge />
                                 </div>
                             </div>
@@ -789,10 +1037,10 @@ export default function DestructionConsole({
                                         <span className="w-1 h-1 bg-[var(--destructive)] opacity-50"></span>
                                         <span className="w-1 h-1 bg-[var(--destructive)] opacity-30"></span>
                                     </div>
-                                    <span className="mono-small text-signal/60 tracking-widest">THREAT_MATRIX</span>
+                                    <span className="mono-small text-signal/60 tracking-widest uppercase">{t.threatMatrixLabel}</span>
                                 </div>
-                                <div className="mono-small text-zinc-500">
-                                    SECURE_SECTORS: {threatMap.filter(t => t.status === 'safe').length}/64
+                                <div className="mono-small text-zinc-500 uppercase">
+                                    {t.secureSectorsLabel}: {secureSectorCount}/64
                                 </div>
                             </div>
                             <div className="p-6 flex-1 flex items-center justify-center bg-[url('/grid-pattern.png')] bg-repeat opacity-80">
@@ -801,6 +1049,16 @@ export default function DestructionConsole({
                         </div>
                         <LeaderboardWidget status={status} />
                     </div>
+                </motion.div>
+
+                {/* Live run telemetry — full-width row, driven by the real event stream. */}
+                <motion.div
+                    className="mb-8"
+                    initial={false}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
+                >
+                    <RunTelemetryDeck telemetry={telemetry} connection={deckConnection} />
                 </motion.div>
             </div>
         </section>

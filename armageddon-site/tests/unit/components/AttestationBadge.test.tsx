@@ -7,7 +7,7 @@
  *   • Configured key fetched from /api/attestation/pubkey is surfaced
  *     with the OFFLINE_VERIFY tone and key id slice.
  *   • 503 responses render the EPHEMERAL_KEY warning tone.
- *   • Network errors render the KEY_UNAVAILABLE tone without throwing.
+ *   • Network errors render the Evidence signing key unavailable tone without throwing.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -35,13 +35,33 @@ describe('AttestationBadge', () => {
         vi.restoreAllMocks();
     });
 
-    it('shows KEY_UNAVAILABLE when no backend is configured for the deployment', () => {
+    it('shows Evidence signing key unavailable when no backend is configured for the deployment', () => {
         delete process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
         const fetchSpy = vi.fn(async () => new Response(null, { status: 200 }));
         setFetch(fetchSpy);
         render(<AttestationBadge />);
-        expect(screen.getByText('KEY_UNAVAILABLE')).toBeInTheDocument();
+        expect(screen.getByText('Evidence signing key unavailable')).toBeInTheDocument();
         expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('exposes an accessible name for the error state regardless of viewport', () => {
+        delete process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
+        setFetch(vi.fn(async () => new Response(null, { status: 200 })));
+        render(<AttestationBadge />);
+        // aria-label carries the full status independent of which label variant
+        // is visually shown — clip-proofing must never strip meaning from AT.
+        const badge = screen.getByLabelText('Attestation: evidence signing key unavailable');
+        expect(badge).toHaveAttribute('data-attestation-status', 'error');
+    });
+
+    it('keeps both the full label and the compact code in the DOM (clip-proof contract)', () => {
+        delete process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE;
+        setFetch(vi.fn(async () => new Response(null, { status: 200 })));
+        render(<AttestationBadge />);
+        // Full word stays rendered for lg+ and assistive tech; compact code
+        // ('OFF') is the narrow-viewport fallback so the chip never overflows.
+        expect(screen.getByText('Evidence signing key unavailable')).toBeInTheDocument();
+        expect(screen.getByText('OFF')).toBeInTheDocument();
     });
 
     it('shows CHECKING_KEY while the fetch is in flight', () => {
@@ -73,7 +93,7 @@ describe('AttestationBadge', () => {
         expect(screen.getByText('[deadbeef…]')).toBeInTheDocument();
     });
 
-    it('shows EPHEMERAL_KEY tone when endpoint returns 503', async () => {
+    it('shows evidence signing unavailable tone when endpoint returns 503', async () => {
         setFetch(vi.fn(async () => new Response(JSON.stringify({
             error: 'ATTESTATION_KEY_NOT_CONFIGURED',
             message: 'Set ARMAGEDDON_ATTESTATION_SEED.',
@@ -83,16 +103,16 @@ describe('AttestationBadge', () => {
 
         render(<AttestationBadge />);
         await waitFor(() => {
-            expect(screen.getByText('EPHEMERAL_KEY')).toBeInTheDocument();
+            expect(screen.getByText('Evidence signing key unavailable')).toBeInTheDocument();
         });
     });
 
-    it('shows KEY_UNAVAILABLE tone on network error', async () => {
+    it('shows Evidence signing key unavailable tone on network error', async () => {
         setFetch(vi.fn(async () => { throw new Error('network down'); }));
 
         render(<AttestationBadge />);
         await waitFor(() => {
-            expect(screen.getByText('KEY_UNAVAILABLE')).toBeInTheDocument();
+            expect(screen.getByText('Evidence signing key unavailable')).toBeInTheDocument();
         });
     });
 });

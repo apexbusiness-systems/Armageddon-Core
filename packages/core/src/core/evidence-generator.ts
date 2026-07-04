@@ -105,6 +105,7 @@ export class EvidenceGenerator {
             chaos_seed: this.options.seed,
             mode: this.options.mode,
             target_url: this.options.targetUrl,
+            certification_level: this.report.level ?? 7,
             verdict: verdict,
             score: this.report.score,
             grade: this.report.grade,
@@ -138,7 +139,7 @@ export class EvidenceGenerator {
         const date = new Date(this.report.meta.timestamp).toUTCString();
         const attestation = this.getAttestation();
 
-        let md = `# ARMAGEDDON LEVEL 7 CERTIFICATION REPORT\n\n`;
+        let md = `# ARMAGEDDON LEVEL ${this.report.level ?? 7} CERTIFICATION REPORT\n\n`;
         md += `${LEGAL_HEADER_MD}\n\n`;
 
         md += `## Executive Summary\n\n`;
@@ -216,7 +217,7 @@ RESULTS:
   Failed:               ${failedCount}
   Aggregate Score:      ${this.report.score}/100
 
-Level 7 God Mode:
+Level ${this.report.level ?? 7} God Mode:
   Total Attacks:        ${totalAttacks}
   Escapes:              ${totalEscapes}
   Escape Rate:          ${escapeRate}%

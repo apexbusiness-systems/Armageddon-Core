@@ -160,3 +160,59 @@ security regression tests added for the 2026-06-26 OmniPort remediation package.
 | `armageddon-site/tests/unit/omniport-ssrf.test.ts` | Enforcement (CI) | Validates OmniPort SSRF rejection for localhost/private/reserved IP targets and private DNS resolutions while allowing public HTTPS. |
 | `armageddon-site/tests/unit/api-run-temporal-cleanup.test.ts` | Enforcement (CI) | Validates `/api/run` marks inserted rows failed when Temporal connection or workflow start fails. |
 | `armageddon-site/tests/unit/api-omniport-execute-temporal-cleanup.test.ts` | Enforcement (CI) | Validates OmniPort execute marks inserted rows failed when Temporal connection fails. |
+
+## Addendum — 2026-06-27
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+codebase onboarding regression tests added for the first-run target-endpoint
+intake flow. (The implementation that shipped records a single deployed
+app / API / LLM-agent **endpoint URL**; the earlier "repository or zip archive"
+framing was superseded before merge and is retained here only as history.)
+
+| Test file | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/tests/unit/app-onboarding-codebase-target.test.tsx` | Enforcement (CI) | Validates onboarding target-endpoint validation and local target persistence that does not claim upload, ingestion, or analysis. |
+| `armageddon-site/tests/unit/components/DestructionConsole-codebase-target.test.tsx` | Enforcement (CI) | Validates console target readiness summaries and run gating when no valid target endpoint or backend is configured. |
+| `armageddon-site/tests/unit/api-run-target-endpoint.test.ts` | Enforcement (CI) | Proves a configured `targetEndpoint` is persisted into the run config and forwarded into the workflow input (no silent drop on the runtime path). |
+| `armageddon-site/tests/unit/lib/codebase-target.test.ts` | Enforcement (CI) | Validates shared codebase target parsing, validation, summaries, and run-readiness gating. |
+
+## Addendum — 2026-06-27 target readiness follow-up
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+run-readiness UI tests and review-only SQL draft added after reconciling the
+merged onboarding/i18n work.
+
+| File | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/tests/unit/components/TargetConfigPanel.test.tsx` | Enforcement (CI) | Validates target-configuration empty/configured states and onboarding CTA routing. |
+| `armageddon-site/tests/unit/components/RunReadinessChecklist.test.tsx` | Enforcement (CI) | Validates visible run-readiness blockers, guided remediation, and all-ready state. |
+
+| `armageddon-site/tests/unit/app-root-auth-routing.test.tsx` | Enforcement (CI) | Added 2026-06-30 to verify authenticated root visits route to `/console` while logged-out visitors keep public marketing. |
+| `armageddon-site/tests/unit/app-console-workspace.test.tsx` | Enforcement (CI) | Added 2026-06-30 to verify `/console` remains an operational workspace without public marketing sections. |
+
+| `docs/ops/sql/2026-06-27-org-unblock-review.sql` | Review-only operational draft | Must be reviewed and parameterized by an operator before execution; Codex must not execute it. |
+| `armageddon-site/tests/unit/active-target-copy.test.ts` | Enforcement (CI) | Validates active target-configuration UI does not claim repository, zip upload, or code-analysis capabilities. |
+
+## Addendum — 2026-06-30 target/readiness i18n coverage
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the
+localization of the onboarding/console target-configuration and run-readiness
+UI (`TargetConfigPanel`, `RunReadinessChecklist`, and the console's readiness
+checklist/blocking copy in `DestructionConsole`) across all 7 supported
+locales, plus the resulting `canStartRunForTarget` reason-code refactor.
+
+| Change | Status | Maintenance rule |
+| --- | --- | --- |
+| `armageddon-site/src/i18n/types.ts` `HomeDictionary.console.targetConfig` / `.readiness` | Schema source of truth | Update alongside all 7 dictionaries; enforced by `tests/unit/i18n-dictionaries.test.ts` parity check. |
+| `armageddon-site/src/i18n/dictionaries/{en,fr,de,it,es,zh-CN,pt}.ts` | Canonical translated copy | Keep key parity; do not introduce the forbidden repository/zip/code-analysis phrases enforced by `active-target-copy.test.ts`. |
+| `armageddon-site/src/lib/codebase-target.ts` `canStartRunForTarget` | Returns `code: 'missing' \| 'invalid'` instead of an English `reason` string | Callers must map the code to a locale string; do not reintroduce hardcoded English in this pure lib function. |
+| `armageddon-site/src/components/TargetConfigPanel.tsx`, `armageddon-site/src/components/RunReadinessChecklist.tsx` | Accept optional translated `labels`/`title`/`allReadyLabel`/`blockedPrefix` props, defaulting to the existing English copy | Preserves existing un-wrapped component tests; `DestructionConsole` passes the active locale's strings. |
+| `armageddon-site/tests/unit/lib/codebase-target.test.ts` | Enforcement (CI) | Updated for the `canStartRunForTarget` code-based contract. |
+## Addendum — 2026-07-04 release-closure evidence
+
+The 2026-05-15 audit remains a historical baseline. This addendum records release-closure audit evidence captured by executable repository commands.
+
+| File | Status | Maintenance rule |
+| --- | --- | --- |
+| `docs/audits/BUILD_VERIFICATION_2026-07-04.log` | Generated audit evidence | Verbatim `npm run build` output captured on 2026-07-04 with exit code 0; regenerate only by rerunning the command and recording the new dated evidence file. |
+| `docs/audits/KV_BINDING_VERIFICATION_REQUIRED_2026-07-04.md` | Blocking audit action | Created 2026-07-04 after `npx wrangler kv namespace list` could not run without `CLOUDFLARE_API_TOKEN`; operators must inject Cloudflare credentials through the shell environment (never pasted into logs or docs), then use the listed Wrangler and Cloudflare Dashboard/API checks before rerunning Work Package 2. |

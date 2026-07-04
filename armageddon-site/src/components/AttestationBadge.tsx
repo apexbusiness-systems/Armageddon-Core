@@ -48,7 +48,7 @@ export default function AttestationBadge() {
     const [state, setState] = useState<State>(() =>
         isApiConfigured()
             ? { status: 'loading' }
-            : { status: 'error', detail: 'Attestation backend not connected on this deployment.' }
+            : { status: 'error', detail: 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured.' }
     );
 
     useEffect(() => {
@@ -61,7 +61,7 @@ export default function AttestationBadge() {
                     setState({
                         status: 'ephemeral',
                         spec: body.spec,
-                        detail: 'No signing seed configured — per-process key only.',
+                        detail: 'Evidence signing key unavailable. Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured.',
                     });
                     return;
                 }
@@ -91,7 +91,14 @@ export default function AttestationBadge() {
     }, []);
 
     let icon;
+    // `label` is the full, meaningful state word (shown at lg+).
+    // `code` is the compact glyph shown on narrow viewports so the badge never
+    // clips — the colored shield icon carries the state non-verbally, so the
+    // abbreviation loses no at-a-glance meaning.
+    // `aria` is the always-complete accessible name, independent of viewport.
     let label;
+    let code;
+    let aria;
     let toneClass;
     let detail: string;
 
@@ -99,43 +106,54 @@ export default function AttestationBadge() {
         case 'loading':
             icon = <Loader2 className="w-3.5 h-3.5 animate-spin" />;
             label = 'CHECKING_KEY';
+            code = 'KEY?';
+            aria = 'Attestation: checking key';
             toneClass = 'border-white/10 text-white/50';
             detail = '';
             break;
         case 'configured':
             icon = <ShieldCheck className="w-3.5 h-3.5" />;
             label = 'OFFLINE_VERIFY';
+            code = 'VRF';
+            aria = 'Attestation: offline-verifiable key active';
             toneClass = 'border-emerald-500/40 text-emerald-400 bg-emerald-500/5';
             detail = state.keyId ? `kid: ${state.keyId}` : '';
             break;
         case 'ephemeral':
             icon = <ShieldAlert className="w-3.5 h-3.5" />;
-            label = 'EPHEMERAL_KEY';
+            label = 'Evidence signing key unavailable';
+            code = 'EPH';
+            aria = 'Attestation: evidence signing key unavailable; ephemeral per-process key only';
             toneClass = 'border-amber-500/40 text-amber-400 bg-amber-500/5';
-            detail = state.detail ?? '';
+            detail = state.detail ?? 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured. Secret values are never displayed.';
             break;
         case 'error':
             icon = <ShieldAlert className="w-3.5 h-3.5" />;
-            label = 'KEY_UNAVAILABLE';
+            label = 'Evidence signing key unavailable';
+            code = 'OFF';
+            aria = 'Attestation: evidence signing key unavailable';
             toneClass = 'border-red-500/40 text-red-400 bg-red-500/5';
-            detail = state.detail ?? '';
+            detail = state.detail ?? 'Runs may start, but signed verification artifacts are unavailable until ARMAGEDDON_ATTESTATION_SEED is configured. Secret values are never displayed.';
             break;
     }
 
     return (
         <div
             className={cn(
-                'mono-small flex items-center gap-2 px-3 py-1.5 border tracking-widest text-[10px] rounded-sm',
+                'mono-small flex items-center gap-2 px-3 py-1.5 border tracking-widest text-[10px] rounded-sm shrink-0 whitespace-nowrap max-w-full',
                 toneClass
             )}
             title={detail || 'Cryptographic attestation status'}
+            aria-label={aria}
             data-attestation-status={state.status}
             data-attestation-keyid={state.keyId ?? ''}
         >
             {icon}
-            <span>{label}</span>
+            {/* Full label at lg+, compact code below — full text stays in the DOM. */}
+            <span className="hidden lg:inline">{label}</span>
+            <span className="lg:hidden" aria-hidden="true">{code}</span>
             {state.status === 'configured' && state.keyId && (
-                <span className="text-white/40">[{state.keyId.slice(0, 8)}…]</span>
+                <span className="hidden xl:inline text-white/40">[{state.keyId.slice(0, 8)}…]</span>
             )}
         </div>
     );

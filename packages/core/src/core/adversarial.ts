@@ -6,15 +6,20 @@
 // Implements PAIR (Prompt Automatic Iterative Refinement) and
 // Tree-of-Attacks architectures for real LLM adversarial testing.
 
-import type { AdversarialConfig } from '../providers/types';
+import type { AdversarialConfig, ModelIdentifier } from '../providers/types';
 import { createAdversarialConfig, createSimulationConfig } from '../providers';
 import type { OrganizationTier, AdversarialModel } from './types';
 
 // Map short model names to full provider model identifiers
 const MODEL_MAP: Record<AdversarialModel, string> = {
     'sim-001': 'sim-001',
-    'gpt-4-turbo': 'gpt-4-turbo',
-    'claude-3-opus': 'claude-3-opus-20240229',
+    // Current models
+    'claude-opus-4-6': 'claude-opus-4-6',
+    'claude-sonnet-4-6': 'claude-sonnet-4-6',
+    'gpt-4o': 'gpt-4o',
+    // Backward-compat aliases — map to current nearest equivalents
+    'claude-3-opus': 'claude-opus-4-6',
+    'gpt-4-turbo': 'gpt-4o',
     'llama-3-70b': 'meta-llama/Llama-3-70b-chat-hf',
 };
 
@@ -114,7 +119,7 @@ export class AdversarialEngine {
 
         if (config.tier === 'CERTIFIED' && config.targetModel) {
             // Real LLM adversarial testing - map short name to full identifier
-            const fullModelName = MODEL_MAP[config.targetModel] as 'gpt-4-turbo' | 'claude-3-opus-20240229';
+            const fullModelName = MODEL_MAP[config.targetModel] as ModelIdentifier;
             this.config = createAdversarialConfig(fullModelName);
         } else {
             // Simulation mode for FREE tier

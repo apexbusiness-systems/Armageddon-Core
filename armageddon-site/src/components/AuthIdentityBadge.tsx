@@ -22,7 +22,7 @@ export default function AuthIdentityBadge({ user, direction, align }: AuthIdenti
             className={`mono-small text-signal/40 text-xs ${alignmentClass} hidden md:block`}
         >
             <div>ID: {operatorId}</div>
-            <div className="text-[var(--safe)]">CLEARANCE: LEVEL 7</div>
+            <div className="text-[var(--safe)]">CLEARANCE: LEVEL 8</div>
         </motion.div>
     );
 }

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import SectionIntro from './SectionIntro';
 import RevealPanel from './RevealPanel';
+import { useT } from '@/i18n/useT';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COMPONENT
@@ -12,6 +13,8 @@ import RevealPanel from './RevealPanel';
 
 export default function CertificationSeal() {
     const [isHovered, setIsHovered] = useState(false);
+    const { dictionary } = useT();
+    const t = dictionary.home.certificationSeal;
 
     const metadata = {
         runId: 'AE-1A7F9C2B',
@@ -30,10 +33,10 @@ export default function CertificationSeal() {
 
             <div className="relative z-10 max-w-5xl mx-auto">
                 <SectionIntro
-                    eyebrow="CERTIFICATION ARTIFACT"
-                    title="THE ARTIFACT"
+                    eyebrow={t.eyebrow}
+                    title={t.title}
                     titleClassName="display-large text-signal mb-6"
-                    description="Evidence-based certification. Not a promise—a receipt."
+                    description={t.description}
                     descriptionClassName="mono-data text-signal/50 max-w-xl mx-auto"
                 />
 
@@ -89,8 +92,8 @@ export default function CertificationSeal() {
                             transition={{ duration: 0.3 }}
                         >
                             <div className="card-panel p-5">
-                                <div className="mono-small text-[var(--aerospace)] mb-4 tracking-wider">
-                                    CERTIFICATION METADATA
+                                <div className="mono-small text-[var(--aerospace)] mb-4 tracking-wider uppercase">
+                                    {t.metadataLabel}
                                 </div>
                                 <div className="space-y-2 mono-data text-xs">
                                     {Object.entries(metadata).map(([key, value]) => (
@@ -112,19 +115,19 @@ export default function CertificationSeal() {
 
                     {/* Hover hint */}
                     <motion.p
-                        className="mt-24 mono-small text-signal/25"
+                        className="mt-24 mono-small text-signal/25 uppercase"
                         animate={{ opacity: isHovered ? 0 : 1 }}
                     >
-                        HOVER TO INSPECT METADATA
+                        {t.hoverHint}
                     </motion.p>
                 </motion.div>
 
                 {/* Evidence bundle */}
                 <RevealPanel className="mt-24 grid md:grid-cols-3 gap-4">
                     {[
-                        { icon: '{ }', name: 'armageddon-report.json', desc: 'Structured machine-readable results' },
-                        { icon: '◎', name: 'armageddon-report.md', desc: 'Executive + engineering summary' },
-                        { icon: '★', name: 'certificate.txt', desc: 'Signed verification certificate' },
+                        { icon: '{ }', name: 'armageddon-report.json', desc: t.artifactReportJsonDesc },
+                        { icon: '◎', name: 'armageddon-report.md', desc: t.artifactReportMdDesc },
+                        { icon: '★', name: 'certificate.txt', desc: t.artifactCertificateDesc },
                     ].map((artifact, i) => (
                         <motion.div
                             key={artifact.name}

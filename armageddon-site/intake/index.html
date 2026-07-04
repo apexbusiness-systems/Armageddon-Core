@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ARMAGEDDON TEST SUITE — CERTIFICATION INTAKE</title>
-    <meta name="description" content="Submit your system for ARMAGEDDON adversarial certification. Evidence-based. Not a promise — a receipt." />
+    <title>ARMAGEDDON TEST SUITE: CERTIFICATION INTAKE</title>
+    <meta name="description" content="Submit your system for ARMAGEDDON adversarial certification. Evidence-based. Not a promise: a receipt." />
     <meta name="theme-color" content="#000000" />
 
     <!-- Exact same Google Fonts as the main site -->
@@ -470,7 +470,7 @@
 
       <!-- HERO -->
       <section id="hero" aria-labelledby="hero-heading">
-        <p id="hero-eyebrow">// CERTIFICATION INTAKE — SEQUENCE INITIATION</p>
+        <p id="hero-eyebrow">// CERTIFICATION INTAKE: SEQUENCE INITIATION</p>
         <h1 id="hero-heading">
           COMPLIANCE IS A CHECKLIST.
           <span class="red">ARMAGEDDON PRODUCES EVIDENCE.</span>
@@ -514,7 +514,7 @@
 
         <!-- TIER SELECTION (above form for layout parity with site) -->
         <div id="tiers-section">
-          <p class="tiers-header">// 01 — SELECT CERTIFICATION TIER</p>
+          <p class="tiers-header">// 01: SELECT CERTIFICATION TIER</p>
           <div class="tier-grid" role="radiogroup" aria-label="Certification tier">
             <label class="tier-card is-selected" id="tier-card-selfserve">
               <input type="radio" name="tier" value="Self-Serve" checked id="tier-selfserve" />
@@ -561,7 +561,7 @@
         <!-- FORM -->
         <form id="auditForm" novalidate aria-label="Certification intake form">
 
-          <div class="divider">02 — OPERATOR IDENTIFICATION</div>
+          <div class="divider">02: OPERATOR IDENTIFICATION</div>
 
           <div class="form-row">
             <div class="field">
@@ -589,7 +589,7 @@
             </div>
           </div>
 
-          <div class="divider">03 — SYSTEM PROFILE</div>
+          <div class="divider">03: SYSTEM PROFILE</div>
 
           <div class="form-row">
             <div class="field">
@@ -620,7 +620,7 @@
             </div>
           </div>
 
-          <div class="divider">04 — REQUESTED BATTERIES</div>
+          <div class="divider">04: REQUESTED BATTERIES</div>
 
           <div class="check-grid">
             <label class="check-item"><input type="checkbox" name="batteries" value="unit_module" /><span>01 · Unit / Module</span></label>
@@ -634,12 +634,12 @@
             <label class="check-item"><input type="checkbox" name="batteries" value="supply_chain" /><span>13 · Supply Chain <span class="god-tag">GOD</span></span></label>
           </div>
 
-          <div class="divider">05 — MISSION BRIEF</div>
+          <div class="divider">05: MISSION BRIEF</div>
 
           <div class="field full">
             <label class="field-label" for="description">System Description <span class="req">*</span></label>
             <textarea id="description" name="description" required maxlength="4000" rows="6"
-              placeholder="// DESCRIBE YOUR AGENT — TOOLS, APIs, AUTONOMY LEVEL, KNOWN FAILURE MODES, PAST INCIDENTS, THREAT VECTORS TO PRIORITIZE..."></textarea>
+              placeholder="// DESCRIBE YOUR AGENT: TOOLS, APIs, AUTONOMY LEVEL, KNOWN FAILURE MODES, PAST INCIDENTS, THREAT VECTORS TO PRIORITIZE..."></textarea>
             <p class="field-hint">// Evidence of past incidents accelerates triage. Redact secrets.</p>
           </div>
 
@@ -737,7 +737,7 @@
             const el = document.getElementById(id);
             if (el) { el.style.borderColor = 'var(--aerospace)'; el.focus(); }
           });
-          showAlert('// MISSING REQUIRED FIELDS — CHECK HIGHLIGHTED INPUTS');
+          showAlert('// MISSING REQUIRED FIELDS: CHECK HIGHLIGHTED INPUTS');
           return;
         }
         REQUIRED.forEach(id => { const el = document.getElementById(id); if(el) el.style.borderColor = ''; });
@@ -775,7 +775,7 @@
                 if (el) el.style.borderColor = 'var(--aerospace)';
               });
             }
-            showAlert(result.error || '// SUBMISSION FAILED — CORRECT HIGHLIGHTED FIELDS AND RETRY');
+            showAlert(result.error || '// SUBMISSION FAILED: CORRECT HIGHLIGHTED FIELDS AND RETRY');
             return;
           }
 
@@ -791,7 +791,7 @@
         } catch (err) {
           const detail = err instanceof Error ? err.message : String(err);
           console.error('[ARMAGEDDON INTAKE] submit failed:', detail);
-          showAlert('// NETWORK ERROR — DATA PRESERVED IN FORM. RETRY IN A MOMENT.');
+          showAlert('// NETWORK ERROR: DATA PRESERVED IN FORM. RETRY IN A MOMENT.');
         } finally {
           submitBtn.disabled = false;
           btnLabel.textContent = 'INITIATE SEQUENCE';

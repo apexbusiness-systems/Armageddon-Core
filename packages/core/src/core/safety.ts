@@ -40,14 +40,24 @@ export class SafetyGuard {
     'firebaseio.com'
   ];
 
-  private constructor() {
-    this.simMode = process.env.SIM_MODE === 'true';
-    this.sandboxTenant = process.env.SANDBOX_TENANT;
+  private constructor(env: Partial<Record<string, string>> = process.env) {
+    this.simMode = env['SIM_MODE'] === 'true';
+    this.sandboxTenant = env['SANDBOX_TENANT'];
   }
 
   public static getInstance(): SafetyGuard {
     SafetyGuard.instance ??= new SafetyGuard();
     return SafetyGuard.instance;
+  }
+
+  /**
+   * Creates an isolated SafetyGuard instance reading from a provided env map
+   * instead of process.env. Use ONLY in battery tests that need to simulate
+   * unsafe configurations without mutating the shared process environment.
+   * Does NOT affect the singleton returned by getInstance().
+   */
+  public static createWithEnv(env: Partial<Record<string, string>>): SafetyGuard {
+    return new SafetyGuard(env);
   }
 
   /**

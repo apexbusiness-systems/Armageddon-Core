@@ -12,7 +12,13 @@ export type ProviderName = 'openai' | 'anthropic' | 'together' | 'groq' | 'simul
  * Model identifiers grouped by provider
  */
 export type OpenAIModel = 'gpt-4-turbo' | 'gpt-4o' | 'gpt-4o-mini' | 'gpt-3.5-turbo';
-export type AnthropicModel = 'claude-3-opus-20240229' | 'claude-3-sonnet-20240229' | 'claude-3-haiku-20240307';
+export type AnthropicModel =
+    | 'claude-opus-4-6'
+    | 'claude-sonnet-4-6'
+    | 'claude-haiku-4-5'
+    | 'claude-3-opus-20240229'     // backward compat — do not remove
+    | 'claude-3-sonnet-20240229'   // backward compat — do not remove
+    | 'claude-3-haiku-20240307';   // backward compat — do not remove
 export type TogetherModel = 'meta-llama/Llama-3-70b-chat-hf' | 'mistralai/Mixtral-8x7B-Instruct-v0.1';
 export type GroqModel = 
     | 'llama-3.1-8b-instant' 

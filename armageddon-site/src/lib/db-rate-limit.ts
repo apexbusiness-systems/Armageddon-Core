@@ -1,16 +1,29 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { readEnv } from '@armageddon/shared';
 
-// Requires service role to call the RPC securely
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Requires service role to call the RPC securely.
+// Lazy singleton: constructing the client at module scope crashes
+// `next build` page-data collection when the env is absent or malformed
+// (e.g. a URL pasted with surrounding quotes). Missing/invalid credentials
+// surface as an RPC failure inside dbRateLimit, which fails closed.
+let cachedClient: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.warn('Missing Supabase credentials for rate limiting');
+function getRateLimitClient(): SupabaseClient {
+    if (cachedClient) return cachedClient;
+
+    const supabaseUrl = readEnv('SUPABASE_URL') ?? readEnv('NEXT_PUBLIC_SUPABASE_URL');
+    const supabaseServiceKey = readEnv('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+        console.warn('Missing Supabase credentials for rate limiting');
+        throw new Error('Rate limiter Supabase credentials are not configured');
+    }
+
+    cachedClient = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { persistSession: false },
+    });
+    return cachedClient;
 }
-
-const supabase = createClient(supabaseUrl || 'https://mock.supabase.co', supabaseServiceKey || 'mock-key', {
-    auth: { persistSession: false },
-});
 
 export interface RateLimitOptions {
     scope: 'ip' | 'org';
@@ -33,6 +46,7 @@ export async function dbRateLimit(options: RateLimitOptions): Promise<RateLimitR
     const expiresAt = new Date(bucketStartMs + options.windowMs).toISOString();
 
     try {
+        const supabase = getRateLimitClient();
         const { data, error } = await supabase.rpc('increment_rate_limit', {
             p_scope: options.scope,
             p_key: options.key,

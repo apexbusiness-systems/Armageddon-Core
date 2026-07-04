@@ -6,22 +6,18 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import type { PlanId } from '@/lib/pricing';
 import { PLANS, PLAN_ORDER } from '@/lib/pricing';
-import { isApiConfigured } from '@/lib/runtime-api';
+import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { useT } from '@/i18n/useT';
+import {
+    DRAFT_KEY,
+    createEndpointTarget,
+    saveCodebaseTarget,
+    validateTargetEndpointUrl,
+    type CodebaseTarget,
+    type OnboardingDraft,
+    type TargetEnv,
+} from '@/lib/codebase-target';
 
-type TargetEnv = 'local' | 'staging' | 'production';
-
-interface OnboardingDraft {
-    orgName: string;
-    contactEmail: string;
-    tier: PlanId;
-    targetSystemName: string;
-    targetUrl: string;
-    environment: TargetEnv;
-    authorizationConfirmed: boolean;
-    acceptableUseAck: boolean;
-}
-
-const DRAFT_KEY = 'armageddon:onboarding-draft';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isPlanId(value: string | null): value is PlanId {
@@ -37,10 +33,13 @@ const EMPTY_DRAFT: OnboardingDraft = {
     environment: 'staging',
     authorizationConfirmed: false,
     acceptableUseAck: false,
+    codebaseTarget: null,
 };
 
 export default function OnboardingPage() {
     const router = useRouter();
+    const { dictionary } = useT();
+    const t = dictionary.onboarding;
     const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
     const [paymentPending, setPaymentPending] = useState(false);
     const [errors, setErrors] = useState<readonly string[]>([]);
@@ -65,7 +64,8 @@ export default function OnboardingPage() {
             const tierParam = params.get('tier');
             const tier: PlanId = isPlanId(tierParam) ? tierParam : (restored.tier ?? 'self-serve');
             setPaymentPending(params.get('payment') === 'pending');
-            setDraft({ ...EMPTY_DRAFT, ...restored, tier });
+            const restoredDraft = { ...EMPTY_DRAFT, ...restored, tier };
+            setDraft(restoredDraft);
         });
         return () => {
             cancelled = true;
@@ -97,14 +97,47 @@ export default function OnboardingPage() {
         return found;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const prepareBackendIntake = async (target: CodebaseTarget): Promise<CodebaseTarget> => {
+        if (!isApiConfigured()) return target;
+        try {
+            const res = await apiFetch('/api/codebases', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sourceType: 'endpoint',
+                    targetEndpoint: target.endpointUrl,
+                    label: target.label,
+                    targetSystemName: draft.targetSystemName.trim(),
+                    environment: draft.environment,
+                }),
+            });
+            if (!res.ok) return target;
+            const data = (await res.json()) as { codebaseId?: string; intakeId?: string };
+            return { ...target, status: data.codebaseId || data.intakeId ? 'ready' : target.status, updatedAt: new Date().toISOString() };
+        } catch {
+            return target;
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const found = validate(draft);
         setErrors(found);
         if (found.length > 0) return;
 
+        let persistedDraft = draft;
+        if (draft.codebaseTarget) {
+            const target = await prepareBackendIntake(draft.codebaseTarget);
+            persistedDraft = { ...draft, codebaseTarget: target, targetUrl: target.endpointUrl };
+            try {
+                saveCodebaseTarget(target);
+            } catch {
+                /* ignore */
+            }
+        }
+
         try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(persistedDraft));
         } catch {
             /* ignore */
         }
@@ -135,17 +168,16 @@ export default function OnboardingPage() {
         return (
             <main className="min-h-screen grid-bg flex items-center justify-center p-6">
                 <div className="max-w-md w-full border border-white/10 bg-black/80 p-8 rounded-sm text-center">
-                    <h1 className="text-xl font-mono text-signal mb-3 tracking-widest uppercase">Draft saved</h1>
+                    <h1 className="text-xl font-mono text-signal mb-3 tracking-widest uppercase">{t.backendPending.title}</h1>
                     <p className="text-signal/80 text-sm mb-6">
-                        Live runs aren&apos;t connected on this deployment yet. Your onboarding details are saved
-                        locally. Choose a plan or request a scoped run to continue.
+                        {t.backendPending.body}
                     </p>
                     <div className="flex flex-col gap-3">
                         <Link href="/pricing" className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
-                            View pricing
+                            {t.backendPending.viewPricing}
                         </Link>
                         <Link href={`/intake?tier=${draft.tier}`} className="btn-secondary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
-                            Request a scoped run
+                            {t.backendPending.requestScopedRun}
                         </Link>
                     </div>
                 </div>
@@ -160,10 +192,10 @@ export default function OnboardingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="max-w-lg w-full border border-white/10 bg-black/80 p-8 rounded-sm"
             >
-                <h1 className="text-2xl font-mono text-signal mb-2 tracking-widest uppercase">Onboarding Setup</h1>
+                <h1 className="text-2xl font-mono text-signal mb-2 tracking-widest uppercase">{t.title}</h1>
                 <p className="mono-small text-signal/70 mb-6">
-                    Plan: <span className="text-[var(--aerospace)]">{selectedPlan.name}</span>
-                    {paymentPending && <span className="text-amber-400"> · payment pending</span>}
+                    {t.planPrefix}: <span className="text-[var(--aerospace)]">{selectedPlan.name}</span>
+                    {paymentPending && <span className="text-amber-400"> · {t.paymentPending}</span>}
                 </p>
 
                 {errors.length > 0 && (
@@ -177,17 +209,17 @@ export default function OnboardingPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5 form-control" noValidate>
-                    <Field id="orgName" label="Organization Name">
+                    <Field id="orgName" label={t.fields.orgName}>
                         <input id="orgName" type="text" required value={draft.orgName}
                             onChange={(e) => update('orgName', e.target.value)} className={inputClass} placeholder="ACME Corp" />
                     </Field>
 
-                    <Field id="contactEmail" label="Contact Email">
+                    <Field id="contactEmail" label={t.fields.contactEmail}>
                         <input id="contactEmail" type="email" required value={draft.contactEmail}
                             onChange={(e) => update('contactEmail', e.target.value)} className={inputClass} placeholder="security@acme.com" />
                     </Field>
 
-                    <Field id="tier" label="Selected Tier">
+                    <Field id="tier" label={t.fields.tier}>
                         <select id="tier" value={draft.tier}
                             onChange={(e) => update('tier', e.target.value as PlanId)} className={selectClass}>
                             {PLAN_ORDER.map((id) => (
@@ -196,9 +228,10 @@ export default function OnboardingPage() {
                         </select>
                     </Field>
 
-                    <Field id="targetSystemName" label="Target System Name">
+                    <Field id="targetSystemName" label={t.fields.targetSystemName}>
                         <input id="targetSystemName" type="text" required value={draft.targetSystemName}
                             onChange={(e) => update('targetSystemName', e.target.value)} className={inputClass} placeholder="Checkout API" />
+                        <p className="mono-small text-signal/60 mt-2">{t.help.targetSystemName}</p>
                     </Field>
 
                     <Field id="targetUrl" label="Target endpoint URL">
@@ -206,12 +239,12 @@ export default function OnboardingPage() {
                             onChange={(e) => update('targetUrl', e.target.value)} className={inputClass} placeholder="https://your-system.example.com/endpoint" />
                     </Field>
 
-                    <Field id="environment" label="Environment">
+                    <Field id="environment" label={t.fields.environment}>
                         <select id="environment" value={draft.environment}
                             onChange={(e) => update('environment', e.target.value as TargetEnv)} className={selectClass}>
-                            <option value="local">Local</option>
-                            <option value="staging">Staging</option>
-                            <option value="production">Production</option>
+                            <option value="local">{t.environmentOptions.local}</option>
+                            <option value="staging">{t.environmentOptions.staging}</option>
+                            <option value="production">{t.environmentOptions.production}</option>
                         </select>
                     </Field>
 
@@ -219,7 +252,8 @@ export default function OnboardingPage() {
                         <input id="authorizationConfirmed" type="checkbox" checked={draft.authorizationConfirmed}
                             onChange={(e) => update('authorizationConfirmed', e.target.checked)} className="mt-1" />
                         <span className="mono-small text-signal/80">
-                            I confirm I am authorized to run adversarial tests against this target.
+                            {t.authorizationLabel}
+                            <span className="block text-signal/60 mt-1">{t.help.authorization}</span>
                         </span>
                     </label>
 
@@ -227,13 +261,13 @@ export default function OnboardingPage() {
                         <input id="acceptableUseAck" type="checkbox" checked={draft.acceptableUseAck}
                             onChange={(e) => update('acceptableUseAck', e.target.checked)} className="mt-1" />
                         <span className="mono-small text-signal/80">
-                            I acknowledge the acceptable use policy and that Armageddon produces evidence, not a guarantee.
+                            {t.acceptableUseLabel}
                         </span>
                     </label>
 
                     <button type="submit"
                         className="w-full mt-2 bg-[var(--aerospace)] hover:bg-white text-black font-bold font-mono py-4 uppercase tracking-[0.2em] transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
-                        Continue
+                        {t.submit}
                     </button>
                 </form>
             </motion.div>

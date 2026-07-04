@@ -20,6 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
+import en from '../../src/i18n/dictionaries/en';
 
 const SRC = join(__dirname, '..', '..', 'src');
 
@@ -65,18 +66,24 @@ describe('canonical UI freeze — footer CTA + sub-footer', () => {
         expect(footer).not.toContain('CLOUDFLARE / LOCAL MOAT');
     });
 
-    it('keeps the deployment indicator and centers it', () => {
-        expect(footer).toContain('CLOUDFLARE EDGE READY // LOCAL MOAT BACKED');
+    it('keeps the deployment indicator wired through the i18n dictionary and centers it', () => {
+        expect(footer).toContain('dictionary.common.footer.deploymentIndicator');
         const indicatorBlock = footer.slice(
             footer.indexOf('Deployment indicator'),
-            footer.indexOf('CLOUDFLARE EDGE READY // LOCAL MOAT BACKED'),
+            footer.indexOf('dictionary.common.footer.deploymentIndicator'),
         );
         expect(indicatorBlock).toContain('justify-center');
+    });
+
+    it('keeps the canonical English deployment indicator copy with the // separator', () => {
+        expect(en.common.footer.deploymentIndicator).toBe('Cloudflare edge ready // local moat backed');
     });
 });
 
 describe('canonical UI freeze — pricing page cards', () => {
-    const page = read('app/pricing/page.tsx');
+    // Card markup lives in the client component; page.tsx is a thin server
+    // wrapper that only keeps the static `metadata` export.
+    const page = read('app/pricing/PricingPageClient.tsx');
 
     it('uses the .pricing-card contrast panel class on every card', () => {
         expect(page).toContain('pricing-card');

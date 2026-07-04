@@ -287,7 +287,8 @@ function buildRunPlan(
     requestedIterations: number | undefined,
 ): RunPlan {
     const isCertified = eligibleTier === 'certified';
-    const defaultIterations = isCertified && level === 7 ? 10000 : 2500;
+    // God-tier (Level 7 = cloud, Level 8 = air-gapped Moat) runs the full iteration budget.
+    const defaultIterations = isCertified && level >= 7 ? 10000 : 2500;
     const iterations = normalizeIterations(requestedIterations ?? defaultIterations);
     // In SIM_MODE always use FREE tier so SimulationAdapter runs (no live LLM calls).
     const tier: 'CERTIFIED' | 'FREE' = (isCertified && process.env.SIM_MODE !== 'true') ? 'CERTIFIED' : 'FREE';
@@ -323,7 +324,7 @@ async function startCertificationRun(res: ServerResponse, supabase: SupabaseClie
         const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId,
             taskQueue: TEMPORAL_TASK_QUEUE,
-            args: [{ runId, organizationId, iterations: plan.iterations, tier: plan.tier, seed: plan.seed, batteries }],
+            args: [{ runId, organizationId, level: params.level, iterations: plan.iterations, tier: plan.tier, seed: plan.seed, batteries }],
         });
 
         await supabase
@@ -547,15 +548,17 @@ interface PendingRun {
 }
 
 async function dispatchPendingRun(sb: SupabaseClient, client: Client, run: PendingRun): Promise<void> {
-    const cfg = (run.config ?? {}) as { batteries?: string[]; iterations?: number; tier?: string; seed?: number };
-    const { batteries = DEFAULT_BATTERIES, iterations = 2500, tier = 'FREE', seed = 0 } = cfg;
+    const cfg = (run.config ?? {}) as { batteries?: string[]; iterations?: number; tier?: string; seed?: number; targetModel?: string };
+    const { batteries = DEFAULT_BATTERIES, iterations = 2500, tier = 'FREE', seed = 0, targetModel = 'sim-001' } = cfg;
     const workflowTier = (tier === 'certified' && process.env.SIM_MODE !== 'true') ? 'CERTIFIED' : 'FREE';
+    // Only forward a real model when tier is actually CERTIFIED; force sim-001 otherwise.
+    const resolvedTargetModel = workflowTier === 'CERTIFIED' ? (targetModel || 'claude-sonnet-4-6') : 'sim-001';
 
     try {
         const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId: run.workflow_id,
             taskQueue: TEMPORAL_TASK_QUEUE,
-            args: [{ runId: run.id, organizationId: run.organization_id, iterations, tier: workflowTier, seed, batteries }],
+            args: [{ runId: run.id, organizationId: run.organization_id, level: run.level, iterations, tier: workflowTier, seed, batteries, targetModel: resolvedTargetModel }],
         });
 
         await sb.from('armageddon_runs')

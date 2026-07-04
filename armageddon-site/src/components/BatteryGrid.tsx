@@ -5,10 +5,13 @@ import { BATTERIES } from '@armageddon/shared';
 import BatteryCard from './BatteryCard';
 import SectionIntro from './SectionIntro';
 import RevealPanel from './RevealPanel';
+import { useT } from '@/i18n/useT';
 
 export default function BatteryGrid() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [hoveredId, setHoveredId] = useState<string | null>(null);
+    const { dictionary } = useT();
+    const t = dictionary.home.batteryGrid;
 
     return (
         <section className="py-32 px-4 relative overflow-hidden">
@@ -17,9 +20,9 @@ export default function BatteryGrid() {
 
             <div className="relative z-10 max-w-7xl mx-auto">
                 <SectionIntro
-                    eyebrow="ADVERSARIAL BATTERY MANIFEST"
-                    title="THE 13 BATTERIES"
-                    description="Concurrent adversarial operations. Batteries 10 & 13 execute 10,000 iterations with escape threshold <0.01%. Sandboxed destruction only."
+                    eyebrow={t.eyebrow}
+                    title={t.title}
+                    description={t.description}
                 />
 
                 {/* Battery Grid */}
@@ -42,19 +45,19 @@ export default function BatteryGrid() {
                 <RevealPanel className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="stat-block">
                         <div className="stat-value">13</div>
-                        <div className="stat-label">Total Batteries</div>
+                        <div className="stat-label">{t.statTotalBatteries}</div>
                     </div>
                     <div className="stat-block">
-                        <div className="stat-value">10K+</div>
-                        <div className="stat-label">God Mode Iterations</div>
+                        <div className="stat-value">PAIR</div>
+                        <div className="stat-label">{t.statRealAdversarialEngine}</div>
                     </div>
                     <div className="stat-block">
                         <div className="stat-value">&lt;0.01%</div>
-                        <div className="stat-label">Escape Threshold</div>
+                        <div className="stat-label">{t.statEscapeThreshold}</div>
                     </div>
                     <div className="stat-block">
                         <div className="stat-value">FULL</div>
-                        <div className="stat-label">Concurrency</div>
+                        <div className="stat-label">{t.statConcurrency}</div>
                     </div>
                 </RevealPanel>
             </div>

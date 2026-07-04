@@ -11,7 +11,14 @@ export type OrganizationTier = 'FREE' | 'CERTIFIED';
 /**
  * Supported adversarial models
  */
-export type AdversarialModel = 'sim-001' | 'gpt-4-turbo' | 'claude-3-opus' | 'llama-3-70b';
+export type AdversarialModel =
+    | 'sim-001'
+    | 'claude-opus-4-6'       // primary — current flagship
+    | 'claude-sonnet-4-6'     // cost-efficient adversarial
+    | 'gpt-4o'                // primary OpenAI
+    | 'claude-3-opus'         // backward compat alias
+    | 'gpt-4-turbo'           // backward compat alias
+    | 'llama-3-70b';          // backward compat alias
 
 /**
  * Battery result status

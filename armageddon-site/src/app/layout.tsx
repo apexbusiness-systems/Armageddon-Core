@@ -1,7 +1,14 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import { Bebas_Neue, Space_Mono, Syne } from 'next/font/google';
 import StickyArmageddonPlayer from '@/components/StickyArmageddonPlayer';
 import PwaInstallDock from '@/components/PwaInstallDock';
+import LanguageSelector from '@/components/LanguageSelector';
+import AppProviders from '@/components/AppProviders';
+
+const bebasNeue = Bebas_Neue({ subsets: ['latin'], weight: '400', variable: '--font-display', display: 'swap' });
+const spaceMono = Space_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-mono', display: 'swap' });
+const syne = Syne({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-body', display: 'swap' });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // METADATA
@@ -17,7 +24,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://armageddontest.icu'),
-    title: 'APEX L7',
+    title: 'Armageddon Test',
     description: 'Sandboxed adversarial certification for AI & software systems. Destruction-grade testing, evidence-based certification. Are you Armageddoned?',
     keywords: ['AI security', 'adversarial testing', 'prompt injection', 'LLM security', 'certification', 'sandbox testing', 'OWASP', 'AI red team'],
     authors: [{ name: 'APEX Business Systems Ltd.' }],
@@ -67,38 +74,44 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className="bg-[var(--void)] text-[var(--signal)] antialiased">
-                {/* Preload the LCP hero wordmark — AVIF covers ~93% of browsers; the
-                    rest fall back through the <picture> element in DestructionConsole. */}
+            <head>
+                {/* LCP preload hint — keep this single-format so modern browsers do
+                    not spend the critical path fetching both AVIF and WebP before
+                    painting the hero wordmark. The <picture> fallback still serves
+                    WebP/PNG to older browsers during normal discovery. */}
                 <link rel="preload" as="image" href="/wordmark.avif" type="image/avif" fetchPriority="high" />
-                {/* CONTAINMENT VIEWPORT */}
-                <div className="relative min-h-screen">
-                    {/* Main Content */}
-                    {children}
+            </head>
+            <body className={`${bebasNeue.variable} ${spaceMono.variable} ${syne.variable} bg-[var(--void)] text-[var(--signal)] antialiased`}>
+                <AppProviders>
+                    {/* CONTAINMENT VIEWPORT */}
+                    <div className="relative min-h-screen">
+                        {/* Main Content */}
+                        {children}
 
-                    {/* FIRE GLOW - Simulated containment breach */}
-                    <div className="fire-glow" aria-hidden="true" />
+                        {/* FIRE GLOW - Simulated containment breach */}
+                        <div className="fire-glow" aria-hidden="true" />
 
-                    {/* ATMOSPHERIC OVERLAYS */}
-                    <div className="vignette-overlay" aria-hidden="true" />
-                    <div className="noise-overlay" aria-hidden="true" />
-                    <div className="chromatic-edge" aria-hidden="true" />
-                    <div className="scanline" aria-hidden="true" />
+                        {/* ATMOSPHERIC OVERLAYS */}
+                        <div className="vignette-overlay" aria-hidden="true" />
+                        <div className="noise-overlay" aria-hidden="true" />
+                        <div className="chromatic-edge" aria-hidden="true" />
+                        <div className="scanline" aria-hidden="true" />
 
-                    {/* SYSTEM STATUS INDICATOR */}
-                    <div className="fixed top-5 left-5 z-[10000] pointer-events-none">
-                        <div className="flex items-center gap-3 bg-[var(--void)]/95 border border-[var(--tungsten)] px-4 py-2 backdrop-blur-sm">
-                            <div className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse shadow-[0_0_8px_var(--safe)]" />
-                            <span className="mono-small text-[var(--safe)]/80 tracking-widest">
-                                CLOUDFLARE_EDGE_READY
-                            </span>
+                        {/* SYSTEM STATUS INDICATOR */}
+                        <div className="fixed top-5 left-5 z-[10000] pointer-events-none">
+                            <div className="flex items-center gap-3 bg-[var(--void)]/95 border border-[var(--tungsten)] px-4 py-2 backdrop-blur-sm">
+                                <div className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse shadow-[0_0_8px_var(--safe)]" />
+                                <span className="mono-small text-[var(--safe)]/80 tracking-widest">
+                                    CLOUDFLARE_EDGE_READY
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <PwaInstallDock />
-                <StickyArmageddonPlayer />
-
+                    <LanguageSelector />
+                    <PwaInstallDock />
+                    <StickyArmageddonPlayer />
+                </AppProviders>
             </body>
         </html>
     );
