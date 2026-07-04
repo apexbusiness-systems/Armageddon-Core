@@ -12,6 +12,10 @@
     "./attestation-key": {
       "types": "./dist/attestation-key.d.ts",
       "default": "./dist/attestation-key.js"
+    },
+    "./omniport": {
+      "types": "./dist/omniport.d.ts",
+      "default": "./dist/omniport.js"
     }
   },
   "scripts": {

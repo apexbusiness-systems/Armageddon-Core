@@ -688,7 +688,19 @@ export default function DestructionConsole({
 
             if (!ok || !data.runId) {
                 if (status === 403) {
-                    handleTrapTrigger();
+                    // Eligibility/membership denial (e.g. plan tier, battery access) —
+                    // not an adversarial signal. Surface it like the org-membership
+                    // check above; genuine trap detection stays on the EVENTS.TRAP
+                    // realtime channel handler below.
+                    addLine(LABELS.SYS, data.error || 'Access denied.', MSG_TYPE.WARNING);
+                    if (data.upsellMessage) {
+                        addLine(LABELS.SYS, data.upsellMessage, MSG_TYPE.WARNING);
+                    }
+                    if (data.upgradeUrl) {
+                        addLine(LABELS.SYS, `Upgrade: ${data.upgradeUrl}`, MSG_TYPE.WARNING);
+                    }
+                    setIsRunning(false);
+                    onStatusChange?.('idle');
                     return;
                 }
                 throw new Error(data.error || 'Run failed');

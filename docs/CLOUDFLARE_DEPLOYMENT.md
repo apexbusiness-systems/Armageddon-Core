@@ -1,7 +1,7 @@
 # Cloudflare Static Edge Deployment
 
-**Docs version**: 2026.06.25<br>
-**Last reviewed**: 2026-06-25<br>
+**Docs version**: 2026.07.04<br>
+**Last reviewed**: 2026-07-04<br>
 **Deployment surface**: Static Cloudflare edge assets for `armageddon-site`
 
 Armageddon's production-safe execution path remains the local Docker Moat. Cloudflare is used only for the static containment-interface edge surface; Temporal, the Python bridge, service-role operations, and test batteries remain local/Moat-backed.
@@ -26,7 +26,7 @@ step):
 
 | Variable | Value | Why |
 | --- | --- | --- |
-| `NEXT_PUBLIC_ARMAGEDDON_API_BASE` | `https://armageddontest.icu` | Same-origin backend the Worker serves (`/api/run`, `/api/gatekeeper`, `/api/attestation/pubkey`, …). **If missing, `isApiConfigured()` is `false` and the console silently locks every backed action** — custom batteries show "requires verified tier", runs cannot start, and the attestation badge reads `Evidence signing key unavailable`, regardless of any Worker secret (including `ADMIN_EMAIL`). |
+| `NEXT_PUBLIC_ARMAGEDDON_API_BASE` | `https://armageddontest.icu` | Same-origin backend base URL. **If missing, `isApiConfigured()` is `false` and the console silently locks every backed action** — custom batteries show "requires verified tier", runs cannot start, and the attestation badge reads `Evidence signing key unavailable`, regardless of any Worker secret (including `ADMIN_EMAIL`). |
 | `NEXT_PUBLIC_SITE_URL` | `https://armageddontest.icu` | Canonical site URL. |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from secrets | Browser-side Supabase auth. |
 
@@ -38,6 +38,47 @@ The gatekeeper admin-override and tier checks additionally require the **Worker*
 to have `ADMIN_EMAIL` (exact, case-sensitive match of the account email),
 `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` set as dashboard secrets — but
 these only take effect once the frontend can actually reach the backend (above).
+
+### Which routes the Worker itself serves (verified against `intake-handler.ts`, 2026-07-04)
+
+The Worker's `fetch` handler (`armageddon-site/src/intake-handler.ts`) dispatches a
+fixed switch statement **before** falling through to static assets. Only the
+routes in that switch return dynamic JSON; everything else — including any
+path that merely *looks* like an API route — falls through to
+`env.ASSETS.fetch(request)` and, per `wrangler.jsonc`'s
+`not_found_handling: single-page-application`, gets the **same 200 HTML SPA
+shell as a nonexistent path**, not a 404 and not JSON.
+
+| Route | Served by the Worker? |
+| --- | --- |
+| `/api/intake` | Yes — `handleIntake` |
+| `/api/me/organizations` | Yes — `handleMeOrganizations` |
+| `/api/omniport/health` | Yes — `handleOmniportHealth` |
+| `/api/gatekeeper` | Yes — `handleGatekeeper` |
+| `/api/run` | Yes — `handleRun` (creates a `pending` row; does **not** call Temporal itself — see below) |
+| `/api/support-chat` | Yes — `handleSupportChat` (ATLAS) |
+| `/api/attestation/pubkey` | **No.** Confirmed live 2026-07-04: returns HTTP 200 with the SPA shell, identical to hitting a nonexistent path — not the JSON attestation response, not a 503. The Next.js route at `armageddon-site/src/app/api/attestation/pubkey/route.ts` is never invoked in this deployment. |
+| `/api/omniport/execute`, `/api/omniport/live-fire`, `/api/omniport/control`, `/api/omniport/waiver`, `/api/omniport/telemetry` | **No.** Same as above — the Next.js route files under `armageddon-site/src/app/api/omniport/` are static-export-only and never served here. |
+
+The routes marked "No" above are only implemented in
+`packages/core/src/api-server.ts` (a standalone Node HTTP process — see
+`packages/core/Dockerfile.api`). **Where that process runs in production is
+not committed to this repository and is UNVERIFIED.** `docker-compose.yml`
+(local dev) and `docker-compose.moat.yml` / `docker-compose.moat.cloud.yml`
+(operator Moat) all define an `api`/`worker` service, but none of those files
+are a production cloud deployment target — there is no committed Fly.io,
+Render, Railway, or similar config for `api-server.ts`. Do not assume these
+routes are reachable at `https://armageddontest.icu` in production without
+fresh operator evidence (see `PRODUCTION_STATUS.md`).
+
+`/api/run`'s actual dispatch to Temporal happens out-of-band: the Worker only
+inserts a `pending` row in Supabase; `packages/core/src/api-server.ts`'s
+background poller (`startPendingRunsLoop`) is what claims that row and starts
+the Temporal workflow via gRPC. That poller process must be running
+somewhere with connectivity to both Supabase and the `TEMPORAL_ADDRESS`
+configured in `wrangler.jsonc` for `/api/run` to ever leave the `pending`
+state — this is exactly the "Temporal worker poller" row already flagged
+`UNVERIFIED` in `PRODUCTION_STATUS.md`.
 
 ## Deploy
 

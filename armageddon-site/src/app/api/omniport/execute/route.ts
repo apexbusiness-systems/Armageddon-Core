@@ -8,9 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getTemporalClient } from '@/lib/temporal';
 import { getSupabaseServiceRole } from '@/lib/supabase';
-import { guardOmniPort, isOmniPortEnabled, OmniPortExecuteRequestSchema, parseOmniPortBody, persistTelemetryEvent, deriveRunSeed, type OmniPortExecuteRequest } from '@/lib/omniport';
-
-const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
+import { guardOmniPort, isOmniPortEnabled, OmniPortExecuteRequestSchema, parseOmniPortBody, persistTelemetryEvent, deriveRunSeed, resolveOmniPortTaskQueue, type OmniPortExecuteRequest } from '@/lib/omniport';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
     const guard = guardOmniPort(request);
@@ -44,7 +42,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 tier: 'CERTIFIED',
                 seed,
                 omniPortRunRef,
-                targetUrl,
+                targetEndpoint: targetUrl,
             },
         });
 
@@ -73,7 +71,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId,
-            taskQueue: TEMPORAL_TASK_QUEUE,
+            taskQueue: resolveOmniPortTaskQueue(organizationId),
             args: [{
                 runId,
                 organizationId,
@@ -81,7 +79,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 tier: 'CERTIFIED',
                 seed,
                 batteries: batteries ?? ['B10', 'B11', 'B12', 'B13', 'B14'],
-                targetUrl,
+                targetEndpoint: targetUrl,
             }],
         });
     } catch (err) {

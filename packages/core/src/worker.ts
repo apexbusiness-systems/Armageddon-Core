@@ -24,11 +24,19 @@ healthServer.start();
 
 async function connectWithRetry(): Promise<NativeConnection> {
     const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';
+    // Temporal Cloud (and any TLS-terminated cluster, e.g. a shared cluster an
+    // operator's Moat worker connects out to) requires an API key + TLS. Local
+    // dev against the bundled docker-compose.moat.yml `temporal` service has
+    // neither set, so this is a no-op there — same plaintext connection as before.
+    const apiKey = process.env.TEMPORAL_API_KEY || undefined;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
             console.log(`[Worker] Connecting to Temporal at ${address} (attempt ${attempt}/${MAX_RETRIES})...`);
-            const connection = await NativeConnection.connect({ address });
+            const connection = await NativeConnection.connect({
+                address,
+                ...(apiKey ? { apiKey, tls: true } : {}),
+            });
             console.log('[Worker] Connected to Temporal successfully.');
             healthServer.setTemporalConnected(true);
             return connection;

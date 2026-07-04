@@ -1,0 +1,58 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# KINETIC ENGINE (MOAT) — CLOUD-CONNECTED ("Moat-pulls") MODE
+#
+# Unlike docker-compose.moat.yml (a fully local, air-gapped replica with its
+# own bundled Temporal server), this file runs ONLY the worker. It connects
+# outbound to the shared Temporal Cloud cluster the public console also
+# uses, and long-polls a task queue scoped to one organization:
+#
+#   `${OMNIPORT_TASK_QUEUE_PREFIX:-armageddon-moat}-<organizationId>`
+#   (see packages/shared/src/omniport.ts: resolveOmniPortTaskQueue)
+#
+# This is the operator side of the OmniPort "Moat-pulls" custody model: no
+# inbound exposure is required on the operator's network — the worker reaches
+# out, the same way any Temporal worker does. What the operator must
+# provision (this repo cannot do this for you):
+#
+#   1. A Temporal Cloud namespace/API key scoped to their organization,
+#      OR an operator-specific queue name coordinated with whoever runs the
+#      shared cluster (TEMPORAL_ADDRESS / TEMPORAL_API_KEY / TEMPORAL_NAMESPACE
+#      / TEMPORAL_TASK_QUEUE in .env.moat).
+#   2. OMNIPORT_ENABLED=true plus the OmniPort secrets in .env.moat, so the
+#      api-server process (wherever it's deployed) accepts OmniHub-triggered
+#      /api/omniport/execute and /api/omniport/live-fire requests for this org.
+#   3. An explicit choice on SIM_MODE. Unlike docker-compose.moat.yml, this
+#      file does NOT hardcode SIM_MODE — it reads whatever .env.moat sets.
+#      .env.moat.example defaults SIM_MODE=true; live-fire against a real
+#      target requires deliberately setting SIM_MODE=false in .env.moat AND
+#      completing the waiver flow (/api/omniport/waiver then /api/omniport/
+#      live-fire) — this compose file does not and cannot skip that gate.
+#
+# Usage: docker compose -f docker-compose.moat.cloud.yml up
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: packages/core/Dockerfile
+    image: armageddon-worker:${MOAT_VERSION:-latest}
+    container_name: armageddon-worker-moat-cloud
+    env_file:
+      - .env.moat
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G

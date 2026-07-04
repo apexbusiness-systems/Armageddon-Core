@@ -7,6 +7,7 @@ vi.mock('@/lib/omniport', () => ({
     deriveRunSeed: vi.fn(() => 123),
     isOmniPortEnabled: vi.fn(() => true),
     persistTelemetryEvent: vi.fn(),
+    resolveOmniPortTaskQueue: vi.fn(() => 'armageddon-moat-org-1'),
     OmniPortExecuteRequestSchema: {},
 }));
 vi.mock('@/lib/temporal', () => ({ getTemporalClient: vi.fn() }));
