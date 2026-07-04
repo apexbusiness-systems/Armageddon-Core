@@ -632,7 +632,7 @@ function canonicalJson(value) {
     }
     if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
     if (t === 'object') {
-        const keys = Object.keys(value).filter(k => value[k] !== undefined).sort();
+        const keys = Object.keys(value).filter(k => value[k] !== undefined).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
         return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalJson(value[k])).join(',') + '}';
     }
     return 'null';

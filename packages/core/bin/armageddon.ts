@@ -33,14 +33,16 @@ program
   .option('--output <dir>', 'Output directory', './results')
   .option('--iterations <number>', 'Number of iterations per battery', '100')
   .option('--target <url>', 'Target URL')
+  .option('--level <number>', 'Certification level', '7')
   .option('--no-worker', 'Skip starting a local worker (use external)')
   .action(async (options) => {
     const runId = uuidv4();
     const seed = Number.parseInt(options.seed, 10);
     const mode = options.mode;
     const iterations = Number.parseInt(options.iterations, 10);
+    const level = Number.parseInt(options.level, 10);
 
-    console.log(`[CLI] Starting Armageddon Run ${runId}`);
+    console.log(`[CLI] Starting Armageddon Run ${runId} (Level ${level})`);
     console.log(`[CLI] Mode: ${mode}, Seed: ${seed}`);
 
     // Set Environment Variables for the run
@@ -82,6 +84,9 @@ program
         const tier = mode === 'destructive' ? 'CERTIFIED' : 'FREE';
         const workflowId = `armageddon-${runId}`;
 
+        // Disable SupabaseReporter since we don't have a valid organization ID to satisfy foreign key constraints locally.
+        process.env.DISABLE_REPORTER = 'true';
+
         console.log(`[CLI] Submitting workflow ${workflowId}...`);
 
         const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
@@ -90,6 +95,7 @@ program
             args: [{
                 runId,
                 iterations,
+                level,
                 tier,
                 targetEndpoint: options.target || process.env.TARGET_URL || 'http://localhost:3000',
                 targetModel: 'sim-001',

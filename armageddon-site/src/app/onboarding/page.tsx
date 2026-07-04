@@ -10,7 +10,9 @@ import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import { useT } from '@/i18n/useT';
 import {
     DRAFT_KEY,
+    createEndpointTarget,
     saveCodebaseTarget,
+    validateTargetEndpointUrl,
     type CodebaseTarget,
     type OnboardingDraft,
     type TargetEnv,

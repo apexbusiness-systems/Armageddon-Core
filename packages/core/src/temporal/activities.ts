@@ -898,6 +898,11 @@ export interface FinalizeRunInput {
 export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void> {
     safetyGuard.enforce('FinalizeRun');
 
+    if (process.env.DISABLE_REPORTER === 'true') {
+        console.log('[FinalizeRun] Bypassing durable state persistence because reporter is disabled.');
+        return;
+    }
+
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) {

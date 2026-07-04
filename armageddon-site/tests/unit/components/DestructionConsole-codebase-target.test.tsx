@@ -37,19 +37,23 @@ function renderConsole() {
 describe('DestructionConsole target readiness', () => {
     it('shows target configuration and readiness before battery controls', async () => {
         renderConsole();
-        expect(await screen.findByText(/No target configured/i)).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Configure target' })).toHaveAttribute('href', '/onboarding');
+        expect(await screen.findByText('No target configured')).toBeInTheDocument();
+        expect(screen.getByText('Run Readiness Checklist')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Set Target' })).toHaveAttribute('href', '/onboarding#target-config');
     });
 
     it('blocks execution with exact remaining readiness items', async () => {
         renderConsole();
-        await screen.findByText(/No target configured/i);
+        await screen.findByText('No target configured');
 
         await userEvent.click(screen.getByRole('button', { name: /initiate sequence/i }));
 
         await waitFor(() => {
             expect(screen.getByText(/RUN BLOCKED: Configure the deployed app URL/)).toBeInTheDocument();
         });
+        expect(screen.getAllByText(/Target configured/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Workspace membership active/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Live backend connected/).length).toBeGreaterThan(0);
         expect(screen.getByText(/No run, analysis, verdict, or certificate has been started/)).toBeInTheDocument();
     });
 });

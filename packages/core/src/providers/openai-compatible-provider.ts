@@ -38,6 +38,16 @@ export abstract class OpenAICompatibleProvider extends BaseProvider {
     protected abstract getRequestBody(request: LLMRequest): Record<string, unknown>;
 
     protected async executeRequest(request: LLMRequest): Promise<ProviderExecutionResult> {
+        if (process.env.SIM_MODE === 'true' && !this.apiKey) {
+            console.warn(`[${this.label}] SIM_MODE=true and no API key. Returning mock response.`);
+            return {
+                usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+                content: `[MOCK ${this.label}] Bypass successful for prompt: ${request.prompt.substring(0, 20)}...`,
+                finishReason: 'stop',
+                raw: { mocked: true }
+            };
+        }
+
         const body = this.getRequestBody(request);
 
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
