@@ -97,6 +97,14 @@ export class SupabaseReporter {
         const supabaseUrl = process.env.SUPABASE_URL;
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+        if (process.env.DISABLE_REPORTER === 'true') {
+            console.log('[Reporter] Reporter disabled via DISABLE_REPORTER env variable.');
+            // @ts-expect-error - Next.js App Router context may not be available in CLI
+            this.client = null;
+            this.runId = runId;
+            return;
+        }
+
         if (!supabaseUrl || !supabaseKey) {
             throw new Error('[Reporter] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
         }
@@ -113,6 +121,7 @@ export class SupabaseReporter {
         eventType: EventType,
         payload?: Record<string, unknown>
     ): Promise<void> {
+        if (process.env.DISABLE_REPORTER === 'true') return;
         const row = buildEventRow(this.runId, batteryId, eventType, payload, new Date().toISOString());
 
         // Single realtime transport: the durable insert IS the live signal. The
@@ -136,6 +145,7 @@ export class SupabaseReporter {
             payload?: Record<string, unknown>;
         }>
     ): Promise<void> {
+        if (process.env.DISABLE_REPORTER === 'true') return;
         if (events.length === 0) return;
 
         const createdAt = new Date().toISOString();
@@ -154,6 +164,7 @@ export class SupabaseReporter {
      * Upsert progress to armageddon_runs table (every N iterations).
      */
     async upsertProgress(progress: Omit<RunProgress, 'runId' | 'updatedAt'>): Promise<void> {
+        if (process.env.DISABLE_REPORTER === 'true') return;
         // Progress (not terminal proof) → update real snake_case columns on the run row
         // keyed by id. Non-fatal: log on error, never corrupt the run record.
         const escapeRate = progress.totalIterations > 0
@@ -182,6 +193,7 @@ export class SupabaseReporter {
         status: 'COMPLETED' | 'FAILED',
         summary: Record<string, unknown>
     ): Promise<void> {
+        if (process.env.DISABLE_REPORTER === 'true') return;
         const terminalStatus = status === 'COMPLETED' ? 'passed' : 'failed';
         await this.pushEvent('SYSTEM', status === 'COMPLETED' ? 'RUN_COMPLETED' : 'RUN_FAILED', summary);
 

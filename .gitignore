@@ -22,3 +22,6 @@ attestation-demo-evidence.json
 
 # TypeScript incremental build cache (generated)
 *.tsbuildinfo
+
+# Test run outputs
+results/
