@@ -127,7 +127,7 @@ export default function CertificationSeal() {
                     {[
                         { icon: '{ }', name: 'armageddon-report.json', desc: t.artifactReportJsonDesc },
                         { icon: '◎', name: 'armageddon-report.md', desc: t.artifactReportMdDesc },
-                        { icon: '★', name: 'certificate.txt', desc: t.artifactCertificateDesc },
+                        { icon: '★', name: 'certificate.pdf', desc: t.artifactCertificateDesc },
                     ].map((artifact, i) => (
                         <motion.div
                             key={artifact.name}

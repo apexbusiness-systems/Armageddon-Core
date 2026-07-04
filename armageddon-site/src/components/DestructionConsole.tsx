@@ -458,7 +458,7 @@ export default function DestructionConsole({
     const { dictionary } = useT();
     const t = dictionary.home.console;
     const [selectedBatteries, setSelectedBatteries] = useState<string[]>(['B10', 'B11', 'B12', 'B13']);
-    // Removed unused userTier
+    const [userTier, setUserTier] = useState<string>('free_dry');
     const [canCustomize, setCanCustomize] = useState(false);
 
     // Track subscriptions for cleanup
@@ -499,6 +499,7 @@ export default function DestructionConsole({
                 if (data.tier) {
                     setCanCustomize(data.tier !== 'free_dry');
                     setBatteryAccessVerified(Boolean(data.eligible));
+                    setUserTier(data.tier);
                 }
             } catch (e) {
                 setBatteryAccessVerified(false);
@@ -655,7 +656,9 @@ export default function DestructionConsole({
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
 
-        addLine(LABELS.SYS, '▓▓▓ ARMAGEDDON LEVEL 8 SEQUENCE INITIATED ▓▓▓', MSG_TYPE.SYSTEM);
+        const TIER_LEVEL_MAP: Record<string, number> = { certified: 8, verified: 6 };
+        const targetLevel = TIER_LEVEL_MAP[userTier] ?? 3;
+        addLine(LABELS.SYS, `▓▓▓ ARMAGEDDON LEVEL ${targetLevel} SEQUENCE INITIATED ▓▓▓`, MSG_TYPE.SYSTEM);
         addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);
 
         // Resolve a real session + organization. Never fall back to a demo or user id.
@@ -684,7 +687,7 @@ export default function DestructionConsole({
         const targetUrl = savedTarget.endpointUrl;
 
         try {
-            const { ok, status, data } = await startWorkflowApi(orgId, 7, selectedBatteries, org.accessToken, targetUrl);
+            const { ok, status, data } = await startWorkflowApi(orgId, targetLevel, selectedBatteries, org.accessToken, targetUrl);
 
             if (!ok || !data.runId) {
                 if (status === 403) {
@@ -785,7 +788,7 @@ export default function DestructionConsole({
         runsChannel.subscribe();
         subscriptionRefs.current.push(runsChannel);
 
-    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion, t]);
+    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion, t, userTier]);
 
     const handleLogout = useCallback(async () => {
         const sb = getRequiredSupabase('Supabase not initialized');

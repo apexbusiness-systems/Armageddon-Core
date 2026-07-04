@@ -193,8 +193,8 @@ program
             targetUrl: reportJson.target_url
         });
 
-        const cert = generator.generateCertificateTxt();
-        const certPath = path.join(path.dirname(reportPath), 'certificate.txt');
+        const cert = await generator.generateCertificatePdf();
+        const certPath = path.join(path.dirname(reportPath), 'certificate.pdf');
         await fs.promises.writeFile(certPath, cert);
 
         console.log(`[CERTIFY] Certificate generated at ${certPath}`);

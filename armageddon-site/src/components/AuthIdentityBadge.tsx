@@ -7,9 +7,10 @@ type AuthIdentityBadgeProps = Readonly<{
     user: User | null;
     direction: 'left' | 'right';
     align: 'left' | 'right';
+    clearanceLevel?: number;
 }>;
 
-export default function AuthIdentityBadge({ user, direction, align }: AuthIdentityBadgeProps) {
+export default function AuthIdentityBadge({ user, direction, align, clearanceLevel }: AuthIdentityBadgeProps) {
     const offset = direction === 'right' ? 20 : -20;
     const operatorId = user?.email?.split('@')[0].toUpperCase() ?? 'OPERATOR';
     const alignmentClass = align === 'right' ? 'text-right' : 'text-left';
@@ -22,7 +23,7 @@ export default function AuthIdentityBadge({ user, direction, align }: AuthIdenti
             className={`mono-small text-signal/40 text-xs ${alignmentClass} hidden md:block`}
         >
             <div>ID: {operatorId}</div>
-            <div className="text-[var(--safe)]">CLEARANCE: LEVEL 8</div>
+            <div className="text-[var(--safe)]">CLEARANCE: LEVEL {clearanceLevel ?? 8}</div>
         </motion.div>
     );
 }

@@ -138,7 +138,7 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
 
 
                     <p className="mt-4 mono-small text-signal/30 text-[10px]">
-                        ID: GATEKEEPER-L7 // ENFORCED BY APEX
+                        ID: GATEKEEPER-L8 // ENFORCED BY APEX
                     </p>
                 </div>
             </motion.div>
