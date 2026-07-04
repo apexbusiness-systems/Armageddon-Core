@@ -7,6 +7,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { readEnv } from './env';
 import {
     MIN_CERTIFICATION_LEVEL,
     MAX_CERTIFICATION_LEVEL,
@@ -87,8 +88,8 @@ function getSupabaseClient(): SupabaseClient {
     if (supabaseInstance) return supabaseInstance;
 
     // Attempt standard env var then Next.js public env var
-    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = readEnv('SUPABASE_URL') ?? readEnv('NEXT_PUBLIC_SUPABASE_URL');
+    const serviceKey = readEnv('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!url || !serviceKey) {
         throw new Error(
