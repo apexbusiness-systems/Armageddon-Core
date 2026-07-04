@@ -81,6 +81,7 @@
 | --- | --- | --- |
 | `docs/audits/PR_TRIAGE_DECISION_2026-03-04.md` | Historical record | Preserve. |
 | `docs/audits/cloudflare-remote-build-audit-2026-05-07.md` | Historical record | Preserve as Cloudflare cutover evidence. |
+| `docs/audits/LOCAL_WORKER_CREDENTIALS_REQUIRED_2026-07-04.md` | Operational blocker | Preserve until the operator has populated `.env.moat` on the Docker Desktop host, completed Section 0 inventory, and verified a Branch A cloud-connected worker run. |
 | `docs/audits/pr-33-hybrid-cloud-moat-audit.md` | Historical record | Preserve. |
 | `docs/deployment-cloudflare-local-audit.md` | Historical/supporting deployment audit | Updated only when superseding evidence exists. |
 | `docs/deployment-gate-run-2026-05-06.md` | Historical gate run | Preserve; rerun gates for current approval. |
