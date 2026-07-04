@@ -22,6 +22,7 @@ This hub is the canonical entry point for onboarding engineers and agents. If a 
 | Current release posture | [`../PRODUCTION_STATUS.md`](../PRODUCTION_STATUS.md) | Repository-verified production-readiness snapshot. |
 | Sonar quality gate | [`docs/compliance/SONAR_GATE_POLICY.md`](./compliance/SONAR_GATE_POLICY.md) | Duplication and quality-gate expectations. |
 | Documentation audit | [`docs/DOCUMENTATION_AUDIT_2026-05-15.md`](./DOCUMENTATION_AUDIT_2026-05-15.md) | Inventory of reviewed Markdown, text, HTML, README, runbook, status, audit, and map documents. |
+| Local worker credential blocker | [`docs/audits/LOCAL_WORKER_CREDENTIALS_REQUIRED_2026-07-04.md`](./audits/LOCAL_WORKER_CREDENTIALS_REQUIRED_2026-07-04.md) | File-based blocker for cloud-connected Docker Desktop worker deployment credentials and host-side inventory prerequisites. |
 
 ## Verified root commands
 
