@@ -20,6 +20,7 @@ import {
     parseOmniPortBody,
     persistTelemetryEvent,
     deriveRunSeed,
+    resolveOmniPortTaskQueue,
     OmniPortLiveFireRequestSchema,
     type OmniPortLiveFireRequest,
 } from '@/lib/omniport';
@@ -38,8 +39,6 @@ function enforceSafetyGuardLiveFire(waiverRecordId: string): void {
     }
     console.warn('[OmniPort LIVE-FIRE] Authorized run initiated:', waiverRecordId);
 }
-
-const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
     // Step 1: OMNIPORT_ENABLED + HMAC bearer token auth
@@ -136,7 +135,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 seed,
                 liveFire: true,
                 waiverRecordId: waiverRecord.id,
-                targetUrl,
+                targetEndpoint: targetUrl,
             },
         });
 
@@ -165,7 +164,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
         handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId,
-            taskQueue: TEMPORAL_TASK_QUEUE,
+            taskQueue: resolveOmniPortTaskQueue(organizationId),
             args: [{
                 runId,
                 organizationId,
@@ -173,7 +172,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 tier: 'CERTIFIED',
                 seed,
                 batteries: selectedBatteries,
-                targetUrl,
+                targetEndpoint: targetUrl,
             }],
         });
     } catch (err) {

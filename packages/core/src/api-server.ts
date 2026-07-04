@@ -13,6 +13,17 @@
  *   GET  /api/run?runId=<id>         — auth + run status fetch
  *   POST /api/gatekeeper             — auth + admin tier check
  *   GET  /api/attestation/pubkey     — Ed25519 public key (503 if seed not set)
+ *   POST /api/omniport/execute       — OmniHub-triggered remote run (SIM_MODE)
+ *   POST /api/omniport/live-fire     — OmniHub-authorized live-fire run (waiver-gated)
+ *   POST /api/omniport/control       — signal a running workflow (cancel actionable; others buffered)
+ *   POST /api/omniport/waiver        — persist a live-fire waiver acceptance
+ *   GET  /api/omniport/telemetry     — pull cached telemetry events for a run
+ *
+ * The /api/omniport/* routes mirror the reference implementation in
+ * armageddon-site/src/app/api/omniport/*\/route.ts. That Next.js layer runs in
+ * a static-export deployment and is not reachable in production — this is
+ * the process that actually serves the OmniPort connector end-to-end,
+ * because it (like /api/run above) needs real Temporal gRPC access.
  *
  * Env vars (canonical names; legacy aliases accepted):
  *   SUPABASE_URL | NEXT_PUBLIC_SUPABASE_URL   — Supabase project URL
@@ -20,13 +31,23 @@
  *   SUPABASE_SERVICE_ROLE_SECRET               — accepted alias (deprecated)
  *   TEMPORAL_ADDRESS                           — default: localhost:7233
  *   TEMPORAL_NAMESPACE                         — default: default
- *   TEMPORAL_TASK_QUEUE                        — default: armageddon-level-7
+ *   TEMPORAL_TASK_QUEUE                        — default: armageddon-level-7 (fallback only;
+ *                                                 OmniPort routes prefer a per-operator queue,
+ *                                                 see OMNIPORT_TASK_QUEUE_PREFIX)
  *   API_PORT                                   — default: 8081
  *   RATE_LIMIT_FAIL_OPEN                       — set true to bypass rate-limit on failure
  *   ADMIN_EMAIL                                — grants admin override in gatekeeper
  *   ARMAGEDDON_ATTESTATION_SEED               — Ed25519 seed (hex/base64)
  *   SIM_MODE                                   — set true for simulation mode
  *   SANDBOX_TENANT                             — tenant identifier
+ *   OMNIPORT_ENABLED                           — master toggle; all /api/omniport/* routes
+ *                                                 except /health return 503 unless 'true'
+ *   OMNIPORT_API_KEY                           — bearer token OmniHub must present
+ *   OMNIPORT_WEBHOOK_SECRET                     — HMAC secret for telemetry signing
+ *   OMNIPORT_LIVE_FIRE_SECRET                   — HS256 secret for live-fire waiver JWTs
+ *   OMNIPORT_TASK_QUEUE_PREFIX                  — per-operator Temporal task-queue prefix
+ *                                                 (default: armageddon-moat); each org's Moat
+ *                                                 worker polls `${prefix}-${organizationId}`
  */
 
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
@@ -36,6 +57,14 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Client, Connection } from '@temporalio/client';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES } from '@armageddon/shared';
+import {
+    validateSSRF,
+    isOmniPortEnabled,
+    verifyOmniPortBearerToken,
+    verifyWaiverToken,
+    deriveRunSeed,
+    resolveOmniPortTaskQueue,
+} from '@armageddon/shared/omniport';
 
 // ── Env ────────────────────────────────────────────────────────────────────────
 
@@ -70,6 +99,10 @@ const SUPABASE_SERVICE_ROLE_KEY = trimChar(
 const TEMPORAL_ADDRESS = process.env.TEMPORAL_ADDRESS ?? 'localhost:7233';
 const TEMPORAL_NAMESPACE = process.env.TEMPORAL_NAMESPACE ?? 'default';
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE ?? 'armageddon-level-7';
+// Temporal Cloud (and any shared cluster an operator's Moat setup points at
+// instead of a local dev instance) requires an API key + TLS. Unset locally,
+// so this is a no-op against the bundled docker-compose.moat.yml `temporal`.
+const TEMPORAL_API_KEY = process.env.TEMPORAL_API_KEY || undefined;
 
 // ── Supabase singletons ────────────────────────────────────────────────────────
 
@@ -94,7 +127,10 @@ async function getTemporalClient(): Promise<Client> {
     if (_temporalClient) return _temporalClient;
     if (_temporalPromise) return _temporalPromise;
     _temporalPromise = (async () => {
-        const connection = await Connection.connect({ address: TEMPORAL_ADDRESS });
+        const connection = await Connection.connect({
+            address: TEMPORAL_ADDRESS,
+            ...(TEMPORAL_API_KEY ? { apiKey: TEMPORAL_API_KEY, tls: true } : {}),
+        });
         const client = new Client({ connection, namespace: TEMPORAL_NAMESPACE });
         _temporalClient = client;
         console.log(`[Temporal] Connected to ${TEMPORAL_ADDRESS} (ns: ${TEMPORAL_NAMESPACE})`);
@@ -481,6 +517,490 @@ function handleAttestationPubkey(_req: IncomingMessage, res: ServerResponse): vo
     }));
 }
 
+// ── OmniPort connector ──────────────────────────────────────────────────────────
+// Inbound OmniHub → Armageddon routes. Every safety gate from the reference
+// Next.js implementation is preserved here: OMNIPORT_ENABLED, bearer token,
+// SSRF validation on any target URL, waiver JWT + persisted waiver record
+// for live-fire, and fail-closed handling on DB/Temporal errors.
+
+type OmniPortGuardErr = { status: 401 | 503; error: string; code: string };
+
+function omniPortGuard(req: IncomingMessage): OmniPortGuardErr | null {
+    if (!isOmniPortEnabled()) {
+        return { status: 503, error: 'OmniPort connector is disabled on this instance', code: 'OMNIPORT_DISABLED' };
+    }
+    if (!verifyOmniPortBearerToken(req.headers.authorization)) {
+        return { status: 401, error: 'Unauthorized', code: 'UNAUTHORIZED' };
+    }
+    return null;
+}
+
+async function persistOmniPortTelemetry(
+    supabase: SupabaseClient,
+    runId: string,
+    orgId: string,
+    eventType: string,
+    payload: Record<string, unknown>,
+    opts: { required?: boolean } = {},
+): Promise<void> {
+    try {
+        const { error } = await supabase.from('omniport_telemetry_events').insert({
+            run_id: runId,
+            org_id: orgId,
+            event_type: eventType,
+            payload,
+            timestamp: Date.now(),
+        });
+        if (error) {
+            if (opts.required) throw new Error(`Required telemetry '${eventType}' failed to persist: ${error.message}`);
+            console.warn('[OmniPort] Telemetry DB write failed (non-fatal):', error.message);
+        }
+    } catch (err) {
+        if (opts.required) throw err;
+        console.error('[OmniPort] Telemetry error (non-fatal):', (err as Error).message);
+    }
+}
+
+// POST /api/omniport/execute — mirrors /api/run, triggered by OmniHub instead of the console.
+interface OmniPortExecuteBody {
+    organizationId?: unknown;
+    level?: unknown;
+    iterations?: unknown;
+    batteries?: unknown;
+    targetUrl?: unknown;
+}
+
+interface ValidatedOmniPortExecute {
+    organizationId: string;
+    level: number;
+    iterations: number;
+    batteries: string[];
+    targetUrl: string;
+}
+
+function validateOmniPortExecuteBody(body: OmniPortExecuteBody): { ok: true; value: ValidatedOmniPortExecute } | { ok: false; error: string } {
+    if (typeof body.organizationId !== 'string' || !body.organizationId) return { ok: false, error: 'organizationId is required' };
+    if (typeof body.level !== 'number' || body.level < 1 || body.level > 7) return { ok: false, error: 'level must be 1-7' };
+    if (typeof body.iterations !== 'number' || !(body.iterations > 0)) return { ok: false, error: 'iterations must be a positive number' };
+    if (typeof body.targetUrl !== 'string' || !body.targetUrl) return { ok: false, error: 'targetUrl is required' };
+    const batteries = Array.isArray(body.batteries) && body.batteries.every((b) => typeof b === 'string')
+        ? body.batteries as string[]
+        : DEFAULT_BATTERIES;
+    return { ok: true, value: { organizationId: body.organizationId, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl } };
+}
+
+async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const guard = omniPortGuard(req);
+    if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
+
+    let raw: OmniPortExecuteBody;
+    try {
+        raw = JSON.parse(await readBody(req));
+    } catch {
+        json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
+        return;
+    }
+
+    const validated = validateOmniPortExecuteBody(raw);
+    if (!validated.ok) { json(res, 400, { success: false, error: validated.error, code: 'VALIDATION_ERROR' }); return; }
+    const { organizationId, level, iterations, batteries, targetUrl } = validated.value;
+
+    if (!(await validateSSRF(targetUrl))) {
+        json(res, 400, { success: false, error: 'targetUrl failed SSRF validation', code: 'SSRF_BLOCKED' });
+        return;
+    }
+
+    const runId = uuidv4();
+    const workflowId = `armageddon-${runId}`;
+    const seed = deriveRunSeed(runId, organizationId);
+    const omniPortRunRef = `omniport-${organizationId}-${runId}`;
+
+    const supabase = getServiceRole();
+    const { error: insertError } = await supabase.from('armageddon_runs').insert({
+        id: runId,
+        organization_id: organizationId,
+        level,
+        sim_mode: true,
+        sandbox_tenant: process.env.SANDBOX_TENANT ?? 'armageddon-test',
+        workflow_id: workflowId,
+        status: 'pending',
+        config: { batteries, iterations, tier: 'CERTIFIED', seed, omniPortRunRef, targetEndpoint: targetUrl },
+    });
+    if (insertError) {
+        console.error('[OmniPort] Failed to create run record:', insertError.message);
+        json(res, 500, { success: false, error: 'Failed to create run record', code: 'DB_INSERT_FAILED' });
+        return;
+    }
+
+    let client: Client;
+    try {
+        client = await getTemporalClient();
+    } catch (err) {
+        console.error('[OmniPort] Temporal unavailable:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        json(res, 503, { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' });
+        return;
+    }
+
+    let handle;
+    try {
+        handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+            workflowId,
+            taskQueue: resolveOmniPortTaskQueue(organizationId),
+            args: [{ runId, organizationId, iterations, tier: 'CERTIFIED', seed, batteries, targetEndpoint: targetUrl }],
+        });
+    } catch (err) {
+        console.error('[OmniPort] Workflow start failed:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        json(res, 500, { success: false, error: 'Failed to start workflow', code: 'WORKFLOW_START_FAILED' });
+        return;
+    }
+
+    await supabase.from('armageddon_runs')
+        .update({ workflow_run_id: handle.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
+        .eq('id', runId);
+
+    if (isOmniPortEnabled()) {
+        await persistOmniPortTelemetry(supabase, runId, organizationId, 'run.started', { workflowId, level, iterations, omniPortRunRef });
+    }
+
+    json(res, 200, { success: true, runId, workflowId, omniPortRunRef });
+}
+
+// POST /api/omniport/live-fire — EXCLUSIVE SIM_MODE=false execution path.
+// INVARIANT: enforceOmniPortLiveFireGuard is private to this function. It does NOT
+// reuse any generic safety-guard helper — that would throw on SIM_MODE=false. No
+// other handler in this file may bypass SIM_MODE via this mechanism.
+function enforceOmniPortLiveFireGuard(waiverRecordId: string): void {
+    if (!process.env.OMNIPORT_LIVE_FIRE_SECRET) {
+        throw new Error('LOCKDOWN: OMNIPORT_LIVE_FIRE_SECRET is not set — live-fire authorization denied');
+    }
+    if (!waiverRecordId) {
+        throw new Error('LOCKDOWN: waiverRecordId is empty — live-fire authorization denied');
+    }
+    console.warn('[OmniPort LIVE-FIRE] Authorized run initiated:', waiverRecordId);
+}
+
+interface OmniPortLiveFireBody {
+    organizationId?: unknown;
+    waiverToken?: unknown;
+    level?: unknown;
+    iterations?: unknown;
+    batteries?: unknown;
+    targetUrl?: unknown;
+}
+
+interface ValidatedOmniPortLiveFire {
+    organizationId: string;
+    waiverToken: string;
+    level: number;
+    iterations: number;
+    batteries: string[];
+    targetUrl: string;
+}
+
+function validateOmniPortLiveFireBody(body: OmniPortLiveFireBody): { ok: true; value: ValidatedOmniPortLiveFire } | { ok: false; error: string } {
+    if (typeof body.organizationId !== 'string' || !body.organizationId) return { ok: false, error: 'organizationId is required' };
+    if (typeof body.waiverToken !== 'string' || !body.waiverToken) return { ok: false, error: 'waiverToken is required' };
+    if (typeof body.level !== 'number' || body.level < 1 || body.level > 7) return { ok: false, error: 'level must be 1-7' };
+    if (typeof body.iterations !== 'number' || !(body.iterations > 0)) return { ok: false, error: 'iterations must be a positive number' };
+    if (typeof body.targetUrl !== 'string' || !body.targetUrl) return { ok: false, error: 'targetUrl is required' };
+    const batteries = Array.isArray(body.batteries) && body.batteries.every((b) => typeof b === 'string')
+        ? body.batteries as string[]
+        : DEFAULT_BATTERIES;
+    return { ok: true, value: { organizationId: body.organizationId, waiverToken: body.waiverToken, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl } };
+}
+
+async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const guard = omniPortGuard(req);
+    if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
+
+    let raw: OmniPortLiveFireBody;
+    try {
+        raw = JSON.parse(await readBody(req));
+    } catch {
+        json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
+        return;
+    }
+
+    const validated = validateOmniPortLiveFireBody(raw);
+    if (!validated.ok) { json(res, 400, { success: false, error: validated.error, code: 'VALIDATION_ERROR' }); return; }
+    const { organizationId, waiverToken, level, iterations, batteries, targetUrl } = validated.value;
+
+    if (!(await validateSSRF(targetUrl))) {
+        json(res, 400, { success: false, error: 'targetUrl failed SSRF validation', code: 'SSRF_BLOCKED' });
+        return;
+    }
+
+    const waiverPayload = verifyWaiverToken(waiverToken);
+    if (!waiverPayload) {
+        json(res, 401, { authorized: false, reason: 'WAIVER_TOKEN_INVALID_OR_EXPIRED' });
+        return;
+    }
+    if (waiverPayload.orgId !== organizationId) {
+        json(res, 403, { authorized: false, reason: 'WAIVER_ORG_MISMATCH', code: 'WAIVER_ORG_MISMATCH' });
+        return;
+    }
+    if (waiverPayload.runLevel !== level) {
+        json(res, 403, { authorized: false, reason: 'WAIVER_RUN_LEVEL_MISMATCH', code: 'WAIVER_RUN_LEVEL_MISMATCH' });
+        return;
+    }
+
+    const waiverTokenHash = createHash('sha256').update(waiverToken).digest('hex');
+    const supabase = getServiceRole();
+
+    const { data: waiverRecord, error: waiverError } = await supabase
+        .from('omniport_waiver_records')
+        .select('id, expires_at, waiver_token_hash')
+        .eq('org_id', organizationId)
+        .eq('run_level', level)
+        .gte('expires_at', new Date().toISOString())
+        .order('accepted_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    if (waiverError || !waiverRecord) {
+        json(res, 403, { authorized: false, reason: 'WAIVER_RECORD_NOT_FOUND' });
+        return;
+    }
+    if (waiverRecord.waiver_token_hash !== waiverTokenHash) {
+        json(res, 403, { authorized: false, reason: 'WAIVER_TOKEN_HASH_MISMATCH', code: 'WAIVER_TOKEN_HASH_MISMATCH' });
+        return;
+    }
+
+    try {
+        enforceOmniPortLiveFireGuard(waiverRecord.id as string);
+    } catch (err) {
+        json(res, 403, { authorized: false, reason: 'LIVE_FIRE_GUARD_FAILED', error: (err as Error).message });
+        return;
+    }
+
+    const runId = uuidv4();
+    const workflowId = `armageddon-lf-${runId}`;
+    const seed = deriveRunSeed(runId, organizationId);
+    const selectedBatteries = batteries.length > 0 ? batteries : DEFAULT_BATTERIES;
+
+    const { error: insertError } = await supabase.from('armageddon_runs').insert({
+        id: runId,
+        organization_id: organizationId,
+        level,
+        sim_mode: false,
+        // armageddon_runs.sandbox_tenant is NOT NULL; live-fire runs are not
+        // sandboxed, so we record an explicit authorized marker instead of null.
+        sandbox_tenant: process.env.OMNIPORT_LIVE_FIRE_TENANT || 'live-fire-authorized',
+        workflow_id: workflowId,
+        status: 'pending',
+        config: { batteries: selectedBatteries, iterations, tier: 'CERTIFIED', seed, liveFire: true, waiverRecordId: waiverRecord.id, targetEndpoint: targetUrl },
+    });
+    if (insertError) {
+        console.error('[OmniPort] Live-fire run record insert failed:', insertError.message);
+        json(res, 500, { authorized: false, reason: 'DB_INSERT_FAILED', code: 'DB_INSERT_FAILED' });
+        return;
+    }
+
+    let client: Client;
+    try {
+        client = await getTemporalClient();
+    } catch (err) {
+        console.error('[OmniPort] Live-fire Temporal unavailable:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        json(res, 503, { authorized: false, reason: 'TEMPORAL_UNAVAILABLE', code: 'TEMPORAL_UNAVAILABLE' });
+        return;
+    }
+
+    let handle;
+    try {
+        handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+            workflowId,
+            taskQueue: resolveOmniPortTaskQueue(organizationId),
+            args: [{ runId, organizationId, iterations, tier: 'CERTIFIED', seed, batteries: selectedBatteries, targetEndpoint: targetUrl }],
+        });
+    } catch (err) {
+        console.error('[OmniPort] Live-fire workflow start failed:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        json(res, 500, { authorized: false, reason: 'WORKFLOW_START_FAILED', code: 'WORKFLOW_START_FAILED' });
+        return;
+    }
+
+    await supabase.from('armageddon_runs')
+        .update({ workflow_run_id: handle.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
+        .eq('id', runId);
+
+    // Proof-critical: if this cannot be persisted we must NOT report authorized: true.
+    try {
+        await persistOmniPortTelemetry(supabase, runId, organizationId, 'live_fire.authorized', {
+            workflowId, level, iterations, waiverRecordId: waiverRecord.id, liveFire: true,
+        }, { required: true });
+    } catch (err) {
+        console.error('[OmniPort] Live-fire proof telemetry failed:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        json(res, 500, { authorized: false, reason: 'PROOF_PERSIST_FAILED', code: 'PROOF_PERSIST_FAILED', runId });
+        return;
+    }
+
+    json(res, 200, { authorized: true, runId, workflowId, waiverRecordId: waiverRecord.id, liveFire: true });
+}
+
+// POST /api/omniport/control — hot-edit: injects a control signal into an active workflow.
+// UNCERTAIN: [signal-handler] — ArmageddonLevel7Workflow only handles the 'cancel' signal
+// today; other commands are delivered but not yet actionable (reported truthfully below).
+const OMNIPORT_CONTROL_COMMANDS = new Set(['pause', 'resume', 'cancel', 'adjust_iterations', 'inject_battery']);
+
+function isWorkflowNotFound(err: unknown): boolean {
+    if (err instanceof Error) {
+        return err.constructor.name === 'WorkflowNotFoundError' ||
+            err.message.includes('workflow not found') ||
+            err.message.includes('Workflow not found');
+    }
+    return false;
+}
+
+async function handleOmniPortControl(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const guard = omniPortGuard(req);
+    if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
+
+    let raw: { command?: unknown; runId?: unknown; params?: Record<string, unknown> };
+    try {
+        raw = JSON.parse(await readBody(req));
+    } catch {
+        json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
+        return;
+    }
+
+    if (typeof raw.runId !== 'string' || !raw.runId || typeof raw.command !== 'string' || !OMNIPORT_CONTROL_COMMANDS.has(raw.command)) {
+        json(res, 400, { success: false, error: 'Invalid command payload', code: 'VALIDATION_ERROR' });
+        return;
+    }
+    const command = { command: raw.command, runId: raw.runId, params: raw.params };
+    const workflowId = `armageddon-${command.runId}`;
+
+    let client: Client;
+    try {
+        client = await getTemporalClient();
+    } catch {
+        json(res, 503, { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' });
+        return;
+    }
+
+    const isCancel = command.command === 'cancel';
+    try {
+        const handle = client.workflow.getHandle(workflowId);
+        if (isCancel) {
+            await handle.signal('cancel');
+        } else {
+            await handle.signal('omniport.control', command);
+        }
+    } catch (err) {
+        if (isWorkflowNotFound(err)) {
+            json(res, 404, { acknowledged: false, error: 'RUN_NOT_FOUND', code: 'RUN_NOT_FOUND' });
+            return;
+        }
+        console.error('[OmniPort] Control signal failed:', (err as Error).message);
+        json(res, 500, { success: false, error: 'Failed to signal workflow', code: 'SIGNAL_FAILED' });
+        return;
+    }
+
+    if (isCancel) {
+        json(res, 200, { acknowledged: true, actionable: true, runId: command.runId, command: command.command, signalledAt: Date.now() });
+        return;
+    }
+    json(res, 202, {
+        acknowledged: true,
+        actionable: false,
+        runId: command.runId,
+        command: command.command,
+        note: `'${command.command}' signal delivered but the workflow handler is not yet implemented`,
+        signalledAt: Date.now(),
+    });
+}
+
+// POST /api/omniport/waiver — legal record: persists the live-fire waiver acceptance.
+async function handleOmniPortWaiver(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const guard = omniPortGuard(req);
+    if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
+
+    let raw: { waiverToken?: unknown; acceptedByUserId?: unknown; organizationId?: unknown };
+    try {
+        raw = JSON.parse(await readBody(req));
+    } catch {
+        json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
+        return;
+    }
+
+    if (typeof raw.waiverToken !== 'string' || !raw.waiverToken ||
+        typeof raw.acceptedByUserId !== 'string' || !raw.acceptedByUserId ||
+        typeof raw.organizationId !== 'string' || !raw.organizationId) {
+        json(res, 400, { success: false, error: 'Invalid waiver payload', code: 'VALIDATION_ERROR' });
+        return;
+    }
+    const { waiverToken, acceptedByUserId, organizationId } = raw as { waiverToken: string; acceptedByUserId: string; organizationId: string };
+
+    const waiverPayload = verifyWaiverToken(waiverToken);
+    if (!waiverPayload) {
+        json(res, 401, { accepted: false, reason: 'WAIVER_TOKEN_INVALID_OR_EXPIRED' });
+        return;
+    }
+    if (waiverPayload.orgId !== organizationId) {
+        json(res, 403, { accepted: false, reason: 'WAIVER_ORG_MISMATCH', code: 'WAIVER_ORG_MISMATCH' });
+        return;
+    }
+    if (waiverPayload.acceptedByUserId !== acceptedByUserId) {
+        json(res, 403, { accepted: false, reason: 'WAIVER_USER_MISMATCH', code: 'WAIVER_USER_MISMATCH' });
+        return;
+    }
+
+    const waiverTokenHash = createHash('sha256').update(waiverToken).digest('hex');
+    const supabase = getServiceRole();
+
+    const { data: inserted, error: insertError } = await supabase
+        .from('omniport_waiver_records')
+        .insert({
+            org_id: organizationId,
+            user_id: acceptedByUserId,
+            waiver_version: '1.0',
+            waiver_token_hash: waiverTokenHash,
+            run_level: waiverPayload.runLevel,
+            expires_at: new Date(waiverPayload.expiresAt).toISOString(),
+        })
+        .select('id')
+        .single();
+
+    if (insertError || !inserted) {
+        console.error('[OmniPort] Waiver record insert failed:', insertError?.message);
+        json(res, 500, { accepted: false, reason: 'WAIVER_RECORD_INSERT_FAILED', code: 'DB_INSERT_FAILED' });
+        return;
+    }
+
+    json(res, 200, { accepted: true, waiverRecordId: inserted.id, authorizedUntil: waiverPayload.expiresAt });
+}
+
+// GET /api/omniport/telemetry?runId=<uuid> — on-demand pull of cached telemetry events.
+async function handleOmniPortTelemetry(req: IncomingMessage, res: ServerResponse, query: URLSearchParams): Promise<void> {
+    const guard = omniPortGuard(req);
+    if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
+
+    const runId = query.get('runId');
+    if (!runId) {
+        json(res, 400, { success: false, error: 'runId query parameter is required', code: 'MISSING_RUN_ID' });
+        return;
+    }
+
+    const supabase = getServiceRole();
+    const { data: events, error } = await supabase
+        .from('omniport_telemetry_events')
+        .select('id, run_id, org_id, event_type, payload, timestamp, created_at')
+        .eq('run_id', runId)
+        .order('timestamp', { ascending: false })
+        .limit(50);
+
+    if (error) {
+        json(res, 200, { success: true, runId, events: [], warning: 'telemetry_table_not_initialized' });
+        return;
+    }
+
+    json(res, 200, { success: true, runId, events: events ?? [], count: (events ?? []).length });
+}
+
 // ── Router ─────────────────────────────────────────────────────────────────────
 
 type RouteHandler = (req: IncomingMessage, res: ServerResponse, url: URL) => void | Promise<void>;
@@ -496,6 +1016,11 @@ const ROUTES: Record<string, RouteHandler> = {
     'GET /api/run': (req, res, url) => handleRunGet(req, res, url.searchParams),
     'POST /api/gatekeeper': (req, res) => handleGatekeeper(req, res),
     'GET /api/attestation/pubkey': (req, res) => handleAttestationPubkey(req, res),
+    'POST /api/omniport/execute': (req, res) => handleOmniPortExecute(req, res),
+    'POST /api/omniport/live-fire': (req, res) => handleOmniPortLiveFire(req, res),
+    'POST /api/omniport/control': (req, res) => handleOmniPortControl(req, res),
+    'POST /api/omniport/waiver': (req, res) => handleOmniPortWaiver(req, res),
+    'GET /api/omniport/telemetry': (req, res, url) => handleOmniPortTelemetry(req, res, url.searchParams),
 };
 
 function writeCorsPreflight(res: ServerResponse): void {

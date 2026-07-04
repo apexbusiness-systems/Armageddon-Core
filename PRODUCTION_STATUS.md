@@ -23,6 +23,7 @@ This status file reports what can be proven from the repository checkout. Public
 | Support chat / privacy pages | Defined | `armageddon-site/src/app/support/page.tsx` and `armageddon-site/src/app/privacy/page.tsx` shipped in PR #143. |
 | Render deployment | Removed | Deprecated `render.yaml` and duplicate `renderyaml` were removed on 2026-05-15. |
 | Secrets template | Defined | `.env.moat.example` is the committed environment template; populated `.env.moat` must remain uncommitted. |
+| OmniPort connector (Level 8 / Kinetic Moat) | Defined, not provisioned | `packages/core/src/api-server.ts` → `handleOmniPort*`; `packages/shared/src/omniport.ts`; `docker-compose.moat.cloud.yml`. `OMNIPORT_ENABLED` is unset everywhere (safe default: routes return 503). No per-operator Temporal Cloud credentials exist. **Not usable for a real live-fire run today regardless of provisioning**: `packages/core/src/worker.ts` refuses to start unless `SIM_MODE=true` (protected invariant, `CLAUDE.md`), which this work does not and must not change. See `feature_registry.md` "OmniPort Connector" domain. |
 
 ---
 
@@ -80,6 +81,7 @@ docker compose -f docker-compose.moat.yml --env-file .env.moat up -d --build
 
 | Date | Decision | Evidence |
 | --- | --- | --- |
+| 2026-07-04 | Wired the OmniPort connector (execute/live-fire/control/waiver/telemetry) into `packages/core/src/api-server.ts` — previously unreachable in both production backends (the Next.js routes are static-export-only and never served). Extracted shared auth/crypto primitives to `packages/shared/src/omniport.ts` so `armageddon-site` and `armageddon-core` cannot drift. Fixed a `targetUrl`/`targetEndpoint` field-name mismatch that silently dropped the target from every OmniPort-triggered workflow. Added per-operator Temporal task-queue resolution and a `docker-compose.moat.cloud.yml` for the "Moat-pulls" custody model. Confirmed this does **not** make live-fire executable: `packages/core/src/worker.ts`'s `SIM_MODE=true` startup gate (protected in `CLAUDE.md`) is untouched and still blocks it — flagged as a known, deliberate limitation, not fixed here. | PR #174, `packages/shared/src/omniport.ts`, `packages/core/src/api-server.ts`, `docker-compose.moat.cloud.yml`, `feature_registry.md`. |
 | 2026-07-04 | Confirmed `npm run build` succeeds end-to-end (Next.js production build) on an unrestricted-network environment; closes the sandbox-network-only build-verification gap from the 2026-06-24 release-gate audit. | `docs/audits/BUILD_VERIFICATION_2026-07-04.log`, exit code 0. |
 | 2026-06-24 | Added ATLAS support-chat agent (`/api/support-chat`) with injection-hardened Cloudflare Worker backend; added privacy policy page. | PR #143, `armageddon-site/src/intake-handler.ts`, `armageddon-site/src/app/support/page.tsx`, `armageddon-site/src/app/privacy/page.tsx`. |
 | 2026-06-24 | Fixed two security bugs in `validateSupportInput` (empty-string code and over-broad base64 pattern); exported security functions for test coverage. | PR #143, `armageddon-site/tests/unit/worker-support-chat-security.test.ts`. |

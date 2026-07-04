@@ -1,103 +1,40 @@
 // armageddon-site/src/lib/omniport.ts
-// OmniPort server-side auth utilities: token verification, HMAC signing, JWT waiver validation.
+// OmniPort server-side auth utilities: Next.js route adapter over the shared
+// crypto/auth primitives in @armageddon/shared/omniport (SSRF validation,
+// bearer token check, waiver JWT verification, task-queue resolution).
 // All comparisons use timing-safe equality. No secrets ever leave this module.
 
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import { z } from 'zod';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type SupabaseClient } from '@supabase/supabase-js';
+import {
+    validateSSRF,
+    isOmniPortEnabled,
+    verifyOmniPortBearerToken,
+    verifyWebhookSignature,
+    signTelemetryPayload,
+    verifyWaiverToken,
+    deriveRunSeed,
+    resolveOmniPortTaskQueue,
+    type WaiverTokenPayload,
+} from '@armageddon/shared/omniport';
 
-// ─── SSRF Validation Helper ────────────────────────────────────────────────
-
-function parseIPv4Address(hostname: string): string | null {
-    const host = hostname.toLowerCase();
-    if (/^\d+$/.test(host)) {
-        const value = Number(host);
-        if (Number.isInteger(value) && value >= 0 && value <= 0xffffffff) {
-            return [24, 16, 8, 0].map(shift => (value >>> shift) & 255).join('.');
-        }
-    }
-
-    const parts = host.split('.');
-    if (parts.length === 4 && parts.every(part => /^\d+$/.test(part))) {
-        const octets = parts.map(Number);
-        if (octets.every(octet => octet >= 0 && octet <= 255)) return octets.join('.');
-    }
-
-    return null;
-}
-
-function isBlockedIpAddress(address: string): boolean {
-    const ipVersion = isIP(address);
-    if (ipVersion === 4) {
-        const parsed = parseIPv4Address(address);
-        if (!parsed) return true;
-        const [a, b] = parsed.split('.').map(Number) as [number, number, number, number];
-        return (
-            a === 0 ||
-            a === 10 ||
-            a === 127 ||
-            a === 169 && b === 254 ||
-            a === 172 && b >= 16 && b <= 31 ||
-            a === 192 && b === 168 ||
-            a >= 224
-        );
-    }
-
-    if (ipVersion === 6) {
-        const normalized = address.toLowerCase();
-        return (
-            normalized === '::1' ||
-            normalized === '::' ||
-            normalized.startsWith('fc') ||
-            normalized.startsWith('fd') ||
-            normalized.startsWith('fe8') ||
-            normalized.startsWith('fe9') ||
-            normalized.startsWith('fea') ||
-            normalized.startsWith('feb')
-        );
-    }
-
-    return true;
-}
-
-export async function validateSSRF(url: string): Promise<boolean> {
-    try {
-        const parsed = new URL(url);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
-
-        const hostname = parsed.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
-        if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false;
-
-        const decodedHostname = decodeURIComponent(hostname);
-        const directIPv4 = parseIPv4Address(decodedHostname);
-        if (directIPv4) return !isBlockedIpAddress(directIPv4);
-        if (isIP(decodedHostname)) return !isBlockedIpAddress(decodedHostname);
-
-        const results = await lookup(decodedHostname, { all: true, verbatim: true });
-        if (results.length === 0) return false;
-        return results.every(result => !isBlockedIpAddress(result.address));
-    } catch {
-        return false;
-    }
-}
-
-// ─── WaiverTokenPayload (mirrored from packages/core/src/omniport/types.ts) ─
-// armageddon-core is not a workspace dep of armageddon-site; types are defined here locally.
-
-export const WaiverTokenPayloadSchema = z.object({
-    orgId: z.string().min(1),
-    issuedAt: z.number().int(),
-    expiresAt: z.number().int(),
-    runLevel: z.number().int().min(1).max(7),
-    acceptedByUserId: z.string().min(1),
-    waiverVersion: z.literal('1.0'),
-});
-export type WaiverTokenPayload = z.infer<typeof WaiverTokenPayloadSchema>;
+export {
+    validateSSRF,
+    isOmniPortEnabled,
+    verifyWebhookSignature,
+    signTelemetryPayload,
+    verifyWaiverToken,
+    deriveRunSeed,
+    resolveOmniPortTaskQueue,
+    type WaiverTokenPayload,
+};
 
 // ─── Zod schemas for route I/O boundaries ─────────────────────────────────
+// Request/response shapes are Next.js-route-specific validation and stay
+// local to this workspace; the underlying crypto/auth checks they call into
+// live in @armageddon/shared/omniport so armageddon-core's standalone API
+// server can share the exact same logic.
 
 export const OmniPortExecuteRequestSchema = z.object({
     organizationId: z.string().min(1),
@@ -133,12 +70,6 @@ export const WaiverRecordRequestSchema = z.object({
 });
 export type WaiverRecordRequest = z.infer<typeof WaiverRecordRequestSchema>;
 
-// ─── OMNIPORT_ENABLED guard ────────────────────────────────────────────────
-
-export function isOmniPortEnabled(): boolean {
-    return process.env.OMNIPORT_ENABLED === 'true';
-}
-
 /**
  * Combined auth guard for all OmniPort routes.
  * Returns a NextResponse (503 or 401) if the request should be rejected,
@@ -151,99 +82,13 @@ export function guardOmniPort(request: NextRequest): NextResponse | null {
             { status: 503 }
         );
     }
-    if (!verifyOmniPortToken(request)) {
+    if (!verifyOmniPortBearerToken(request.headers.get('Authorization'))) {
         return NextResponse.json(
             { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },
             { status: 401 }
         );
     }
     return null;
-}
-
-// ─── Bearer token verification ─────────────────────────────────────────────
-
-export function verifyOmniPortToken(request: NextRequest): boolean {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) return false;
-    const token = authHeader.slice(7);
-    const apiKey = process.env.OMNIPORT_API_KEY;
-    if (!apiKey || !token) return false;
-    // Pad to equal length before timing-safe compare to avoid length oracle
-    const keyBuf = Buffer.from(apiKey, 'utf8');
-    const tokBuf = Buffer.from(token, 'utf8');
-    if (keyBuf.length !== tokBuf.length) return false;
-    return timingSafeEqual(keyBuf, tokBuf);
-}
-
-// ─── Webhook signature verification ───────────────────────────────────────
-
-export function verifyWebhookSignature(payload: string, signature: string): boolean {
-    const secret = process.env.OMNIPORT_WEBHOOK_SECRET;
-    if (!secret) return false;
-    const expected = createHmac('sha256', secret).update(payload).digest('hex');
-    const expectedBuf = Buffer.from(expected, 'utf8');
-    const actualBuf = Buffer.from(signature, 'utf8');
-    if (expectedBuf.length !== actualBuf.length) return false;
-    return timingSafeEqual(expectedBuf, actualBuf);
-}
-
-// ─── Telemetry payload signing ─────────────────────────────────────────────
-
-export function signTelemetryPayload(payload: string): string {
-    const secret = process.env.OMNIPORT_WEBHOOK_SECRET;
-    if (!secret) throw new Error('OMNIPORT_WEBHOOK_SECRET not configured');
-    return createHmac('sha256', secret).update(payload).digest('hex');
-}
-
-// ─── Waiver JWT verification (HS256, built-in crypto only) ────────────────
-
-function base64urlToBuffer(str: string): Buffer {
-    // Convert base64url → base64 → Buffer
-    const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice((str.length + 3) % 4 || 4);
-    return Buffer.from(padded, 'base64');
-}
-
-export function verifyWaiverToken(token: string): WaiverTokenPayload | null {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-        const [headerB64, payloadB64, signatureB64] = parts;
-
-        const secret = process.env.OMNIPORT_LIVE_FIRE_SECRET;
-        if (!secret) return null;
-
-        // Recompute expected HMAC-SHA256 over header.payload
-        const signingInput = `${headerB64}.${payloadB64}`;
-        const expectedSigBytes = createHmac('sha256', secret).update(signingInput).digest();
-        const actualSigBytes = base64urlToBuffer(signatureB64);
-
-        if (expectedSigBytes.length !== actualSigBytes.length) return null;
-        if (!timingSafeEqual(expectedSigBytes, actualSigBytes)) return null;
-
-        // Decode and parse claims
-        const payloadJson = base64urlToBuffer(payloadB64).toString('utf8');
-        const claims: unknown = JSON.parse(payloadJson);
-
-        const parsed = WaiverTokenPayloadSchema.safeParse(claims);
-        if (!parsed.success) return null;
-
-        // Enforce 15-minute window
-        const now = Date.now();
-        if (parsed.data.issuedAt > now) return null;               // issued in the future
-        if (parsed.data.expiresAt < now) return null;               // expired
-        if (now - parsed.data.issuedAt > 15 * 60 * 1000) return null; // older than 15 min
-
-        return parsed.data;
-    } catch {
-        return null;
-    }
-}
-
-// ─── Run seed derivation ───────────────────────────────────────────────────
-
-export function deriveRunSeed(runId: string, organizationId: string): number {
-    const digest = createHash('sha256').update(`${organizationId}:${runId}`).digest('hex');
-    return Number.parseInt(digest.slice(0, 8), 16);
 }
 
 // ─── Body parsing + Zod validation helper ─────────────────────────────────

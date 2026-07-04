@@ -43,6 +43,24 @@
   - **Scope:** Surfaces `OFFLINE_VERIFY` / `Evidence signing key unavailable` in the Destruction Console header. Powers the cryptographic-evidence narrative in the exported JSON bundle.
   - **Status:** Implemented and validated via jsdom unit tests.
 
+## Domain: OmniPort Connector — Level 8 / Kinetic Moat (NEW — scoping + plumbing)
+
+- **Feature:** OmniPort inbound routes (execute / live-fire / control / waiver / telemetry)
+  - **Location:** `armageddon-site/src/app/api/omniport/{execute,live-fire,control,waiver,telemetry}/route.ts` (reference implementation); `packages/core/src/api-server.ts` → `handleOmniPort*` (the process that actually serves these routes in production, since it — unlike the Cloudflare Worker in `intake-handler.ts` — has real Temporal gRPC access).
+  - **Scope:** OmniHub-triggered sandboxed runs (`execute`), waiver-gated live-fire runs (`live-fire`), workflow control signals (`control`), waiver acceptance persistence (`waiver`), and telemetry pull (`telemetry`). Auth/crypto primitives (SSRF validation, bearer token check, waiver JWT verify/sign, per-operator task-queue resolution) live in `packages/shared/src/omniport.ts` — the single source both `armageddon-site` and `packages/core` import, so the two surfaces cannot drift.
+  - **Per-operator task-queue separation:** `resolveOmniPortTaskQueue(organizationId)` in `packages/shared/src/omniport.ts` derives `${OMNIPORT_TASK_QUEUE_PREFIX:-armageddon-moat}-<organizationId>`, so each operator's Moat worker (`docker-compose.moat.cloud.yml`) only ever picks up its own organization's runs on the shared Temporal cluster.
+  - **Status:** Code-complete and unit-tested for the pieces owned by this repo (field-name consistency between the OmniPort routes and the workflow config — `targetEndpoint`, not `targetUrl` — was fixed; the OmniPort routes were previously unreachable in both production backends and are now wired into `api-server.ts`). **UNVERIFIED / NOT LIVE**: no per-operator Temporal Cloud credentials are provisioned, `OMNIPORT_ENABLED` is not set in any deployed environment (stays `false`, the safe default), and this has not been exercised against a real Temporal Cloud cluster or a real APEX-OmniHub instance.
+  - **Known blocker — do not treat "Moat-pulls" as functional yet:** `packages/core/src/worker.ts` calls `safetyGuard.enforce('WorkerStartup')` (`packages/core/src/core/safety.ts`), which is a protected invariant (see `CLAUDE.md`, "Never remove safety controls... SIM_MODE enforcement must never be disabled") — it hard `process.exit(1)`s at boot unless `SIM_MODE==='true'`. That means the worker process that actually executes battery activities cannot start in a live-fire (`SIM_MODE=false`) configuration today, independent of anything in the OmniPort connector. Enabling genuine non-simulated live-fire execution requires a separate, deliberate decision about how a live-fire-authorized worker boots safely — this PR does not make that decision or touch `safety.ts`.
+
+<details>
+<summary>Kinetic Moat cloud-connected mode</summary>
+
+  - **Location:** `docker-compose.moat.cloud.yml` (new — worker-only, no bundled local Temporal); `docker-compose.moat.yml` (unchanged — fully local dev stack); `.env.moat.example` (documents the per-operator queue convention).
+  - **Scope:** "Moat-pulls" custody model — an operator's worker connects outbound to a shared Temporal cluster and long-polls its own task queue; no inbound exposure needed on the operator's network. Requires the operator to provision a Temporal Cloud namespace/API key (or coordinate a queue name on a shared cluster) — this repo cannot do that provisioning.
+  - **Status:** Compose file validated with `docker compose config`. Temporal Cloud API-key/TLS auth (`TEMPORAL_API_KEY`) added to both `packages/core/src/worker.ts` and `packages/core/src/api-server.ts` connection paths (backward-compatible no-op when unset). Not deployed or run against a real cluster.
+
+</details>
+
 ## Certification Execution Defaults
 
 | Surface | Verified state |
