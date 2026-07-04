@@ -39,7 +39,7 @@ const SECTIONS: readonly Section[] = [
         <ul>
           <li><strong>GitHub Account Data:</strong> Username, email address (if provided by GitHub OAuth), organization membership, and installation scope (which repositories the GitHub App is installed on). This data is provided by GitHub per your authorization.</li>
           <li><strong>Test Execution Data:</strong> Repository metadata (name, branch, commit SHA), test run configuration, battery selection, and test output logs. This data is used solely to generate certification results.</li>
-          <li><strong>Certification Artifacts:</strong> Structured test results (armageddon-report.json, armageddon-report.md, certificate.txt) are generated and stored for the duration of your subscription and for a reasonable retention period thereafter.</li>
+          <li><strong>Certification Artifacts:</strong> Structured test results (armageddon-report.json, armageddon-report.md, certificate.pdf) are generated and stored for the duration of your subscription and for a reasonable retention period thereafter.</li>
           <li><strong>Usage Data:</strong> Page views, feature usage, and error logs collected via Cloudflare analytics. No personally identifiable information is included in these analytics.</li>
           <li><strong>Support Communications:</strong> Messages sent through our support chat (ATLAS) or via email to info-outreach@armageddontest.icu. These are used exclusively to resolve your support request.</li>
           <li><strong>Payment Data:</strong> If you subscribe to a paid tier, payment is processed by Stripe. APEX does not store full card numbers or payment credentials. Stripe&apos;s privacy policy applies to payment data.</li>

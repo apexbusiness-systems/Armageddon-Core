@@ -323,15 +323,21 @@ Issued by: APEX Business Systems Ltd.
     public async generateCertificatePdf(): Promise<Uint8Array> {
         const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
         
-        let templatePath = 'C:\\Users\\sinyo\\Armageddon-Core\\certs\\pdf-certificate.pdf';
-        if (!fs.existsSync(templatePath)) {
-            templatePath = path.resolve(__dirname, '../../../certs/pdf-certificate.pdf');
-        }
-        if (!fs.existsSync(templatePath)) {
-            templatePath = path.resolve(__dirname, '../../certs/pdf-certificate.pdf');
-        }
-        if (!fs.existsSync(templatePath)) {
-            templatePath = path.resolve(__dirname, '../certs/pdf-certificate.pdf');
+        // Resolve template relative to this file's location (works on all OSes / CI runners).
+        // Walk up until we find the certs/ directory — handles both ts-node (src/) and
+        // compiled (dist/) execution contexts.
+        const candidatePaths = [
+            path.resolve(__dirname, '../../../certs/pdf-certificate.pdf'),
+            path.resolve(__dirname, '../../certs/pdf-certificate.pdf'),
+            path.resolve(__dirname, '../certs/pdf-certificate.pdf'),
+            path.resolve(__dirname, 'certs/pdf-certificate.pdf'),
+        ];
+        const templatePath = candidatePaths.find(p => fs.existsSync(p));
+        if (!templatePath) {
+            throw new Error(
+                `PDF template not found. Searched:\n${candidatePaths.join('\n')}\n` +
+                'Ensure certs/pdf-certificate.pdf is present in the repository root.'
+            );
         }
         
         const templateBytes = fs.readFileSync(templatePath);

@@ -6,7 +6,7 @@
  * would not catch missing-but-optional-looking keys at the object level).
  *
  * Do not translate: brand/product names, battery ids (B01-B14), evidence
- * filenames (armageddon-report.json, armageddon-report.md, certificate.txt),
+ * filenames (armageddon-report.json, armageddon-report.md, certificate.pdf),
  * API paths, route paths, and security policy identifiers. Those are passed
  * through as plain strings or interpolation args, not dictionary keys.
  */

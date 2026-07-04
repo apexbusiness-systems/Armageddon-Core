@@ -805,7 +805,7 @@ Thank you,
 - 13 adversarial batteries: B01 Chaos Stress, B02 Chaos Engine, B03 Prompt Injection, B04 Security & Auth, B05 Full Unit/Module, B06 Unsafe Gate, B07 Playwright E2E, B08 Asset Smoke, B09 Integration, B10 Goal Hijack (GOD MODE), B11 Tool Misuse (GOD MODE), B12 Memory Poison (GOD MODE), B13 Supply Chain (GOD MODE)
 - Tiers: SELF-SERVE (free) → VERIFIED (evidence review) → CERTIFIED (signed certificate)
 - Escape threshold: <0.01% for GOD MODE batteries (B10–B13 run 10,000 iterations)
-- Certification artifacts: armageddon-report.json, armageddon-report.md, certificate.txt
+- Certification artifacts: armageddon-report.json, armageddon-report.md, certificate.pdf
 - GitHub App installation: via GitHub Marketplace → Install → select repos → authorize
 - Support email: info-outreach@armageddontest.icu`;
 
