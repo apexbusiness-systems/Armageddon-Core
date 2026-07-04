@@ -20,10 +20,12 @@ vi.mock('@/lib/db-rate-limit', () => ({ dbRateLimit: vi.fn(async () => ({ allowe
 vi.mock('@/lib/auth', () => ({
     checkMembershipResponse: vi.fn(),
     getRunAndVerifyAccess: vi.fn(),
+    authenticateRequest: vi.fn(),
+    verifyOrganizationMembership: vi.fn(),
 }));
 vi.mock('@/lib/temporal', () => ({ getTemporalClient: vi.fn() }));
 
-import { checkMembershipResponse } from '@/lib/auth';
+import { checkMembershipResponse, authenticateRequest, verifyOrganizationMembership } from '@/lib/auth';
 import { getTemporalClient } from '@/lib/temporal';
 import { POST } from '@/app/api/run/route';
 
@@ -43,6 +45,8 @@ const req = () => new NextRequest('http://localhost:3000/api/run', {
 beforeEach(() => {
     vi.clearAllMocks();
     inserts.length = 0;
+    (authenticateRequest as any).mockResolvedValue({ user: { id: 'test-user', email: 'test@example.com' }, supabase });
+    (verifyOrganizationMembership as any).mockResolvedValue(true);
     (checkMembershipResponse as any).mockResolvedValue({ supabase });
     (getTemporalClient as any).mockResolvedValue({ workflow: { start } });
 });
