@@ -91,7 +91,7 @@ export default function OnboardingPage() {
         if (d.orgName.trim() === '') found.push('Organization name is required.');
         if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
         if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
-        if (d.targetUrl.trim() === '') found.push('Target URL or repository URL is required.');
+        if (d.targetUrl.trim() === '') found.push('Target endpoint URL is required.');
         if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
         if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');
         return found;
@@ -201,9 +201,9 @@ export default function OnboardingPage() {
                             onChange={(e) => update('targetSystemName', e.target.value)} className={inputClass} placeholder="Checkout API" />
                     </Field>
 
-                    <Field id="targetUrl" label="Target URL or Repository URL">
+                    <Field id="targetUrl" label="Target endpoint URL">
                         <input id="targetUrl" type="text" required value={draft.targetUrl}
-                            onChange={(e) => update('targetUrl', e.target.value)} className={inputClass} placeholder="https://… or git@…" />
+                            onChange={(e) => update('targetUrl', e.target.value)} className={inputClass} placeholder="https://your-system.example.com/endpoint" />
                     </Field>
 
                     <Field id="environment" label="Environment">

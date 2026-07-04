@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/useAuth';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
+import TargetConfigPanel from './TargetConfigPanel';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 
@@ -669,7 +670,8 @@ export default function DestructionConsole({
                     </div>
 
                     <div className="mt-[calc(2rem+2cm)] mb-6 relative">
-                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">BATTERY CONFIGURATION</h3>
+                        <TargetConfigPanel />
+                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">STEP 2 — BATTERY CONFIGURATION</h3>
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
                                 {/* Meaningful copy sits on a solid high-contrast panel — never

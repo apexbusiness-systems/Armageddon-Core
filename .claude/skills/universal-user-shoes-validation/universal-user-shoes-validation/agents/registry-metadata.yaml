@@ -1,0 +1,7 @@
+# Optional interface hint for agent registries that read this format
+# (e.g. OpenAI-style agent builders). Ignored by runtimes that don't.
+interface:
+  display_name: "Universal User-Shoes Validation"
+  short_description: "Validate any product surface as a real user would and render a GO/NO-GO/BLOCKED decision."
+  icon: "compass"
+  accent_color: "#1f6feb"
