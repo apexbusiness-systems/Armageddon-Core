@@ -67,7 +67,8 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
             .then(data => {
                 if (cancelled) return;
                 const tier = data?.tier ?? 'free_dry';
-                setClearanceLevel(tier === 'certified' ? 8 : tier === 'verified' ? 6 : 3);
+                const TIER_LEVEL_MAP: Record<string, number> = { certified: 8, verified: 6 };
+                setClearanceLevel(TIER_LEVEL_MAP[tier] ?? 3);
             })
             .catch(() => {});
         return () => {

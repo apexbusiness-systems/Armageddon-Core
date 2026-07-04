@@ -335,12 +335,7 @@ Issued by: APEX Business Systems Ltd.
         return JSON.stringify(manifest, null, 2);
     }
 
-    public async generateCertificatePdf(): Promise<Uint8Array> {
-        const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
-        
-        // Resolve template relative to this file's location (works on all OSes / CI runners).
-        // Walk up until we find the certs/ directory — handles both ts-node (src/) and
-        // compiled (dist/) execution contexts.
+    private async loadPdfDocFromTemplate(PDFDocument: any): Promise<any> {
         const candidatePaths = [
             path.resolve(__dirname, '../../../../certs/pdf-certificate.pdf'),
             path.resolve(__dirname, '../../../certs/pdf-certificate.pdf'),
@@ -358,9 +353,74 @@ Issued by: APEX Business Systems Ltd.
                 'Ensure certs/pdf-certificate.pdf is present in the repository root.'
             );
         }
-        
         const templateBytes = fs.readFileSync(templatePath);
-        const pdfDoc = await PDFDocument.load(templateBytes);
+        return await PDFDocument.load(templateBytes);
+    }
+
+    private renderPdfTable(
+        page: any,
+        startY: number,
+        rowHeight: number,
+        rows: Array<{ xLabel: number; label: string; xVal: number; val: string; valFont?: any; valColor?: any; valSize?: number }>,
+        fontBold: any,
+        labelColor: any,
+        defaultFont: any,
+        defaultColor: any
+    ): void {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const y = startY - (i * rowHeight);
+            page.drawText(row.label, { x: row.xLabel, y, size: 9, font: fontBold, color: labelColor });
+            page.drawText(row.val, {
+                x: row.xVal,
+                y,
+                size: row.valSize ?? 9,
+                font: row.valFont ?? defaultFont,
+                color: row.valColor ?? defaultColor
+            });
+        }
+    }
+
+    private renderPdfFooter(
+        page: any,
+        footerY: number,
+        width: number,
+        expiryStr: string,
+        font: any,
+        fontBold: any,
+        rgb: any
+    ): void {
+        page.drawLine({
+            start: { x: 60, y: footerY },
+            end: { x: width - 60, y: footerY },
+            thickness: 1,
+            color: rgb(0.8, 0.8, 0.8)
+        });
+
+        const disclaimerLines = [
+            { text: 'Legal Disclaimer:', isDis: true },
+            { text: 'Armageddon is designed for controlled sandbox and authorized non-production testing and does not', isDis: true },
+            { text: 'guarantee breach prevention. Certification reflects results of the tested build/configuration at time of run.', isDis: true },
+            { text: '', isDis: true },
+            { text: `Issued by: APEX Business Systems Ltd.   |   Certification ID: ${this.runId.substring(0, 8).toUpperCase()}   |   Valid Until: ${expiryStr}`, isDis: false }
+        ];
+
+        for (let i = 0; i < disclaimerLines.length; i++) {
+            const line = disclaimerLines[i];
+            const y = footerY - 15 - (i * 12);
+            page.drawText(line.text, {
+                x: 60,
+                y,
+                size: line.isDis ? 7.5 : 8,
+                font: line.isDis ? font : fontBold,
+                color: line.isDis ? rgb(0.5, 0.5, 0.5) : rgb(0.2, 0.2, 0.2)
+            });
+        }
+    }
+
+    public async generateCertificatePdf(): Promise<Uint8Array> {
+        const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+        const pdfDoc = await this.loadPdfDocFromTemplate(PDFDocument);
         
         const page = pdfDoc.getPages()[0];
         const { width, height } = page.getSize();
@@ -370,140 +430,50 @@ Issued by: APEX Business Systems Ltd.
         const fontMono = await pdfDoc.embedFont(StandardFonts.Courier);
 
         const { verdict, attestation, passedCount, failedCount, totalAttacks, totalEscapes, escapeRate, expiryStr } = this.computeCertificateStats();
-
-        page.drawText('ARMAGEDDON CERTIFICATION', {
-            x: 60,
-            y: height - 120,
-            size: 20,
-            font: fontBold,
-            color: rgb(0.08, 0.18, 0.36)
-        });
-        
-        page.drawText(verdict, {
-            x: 60,
-            y: height - 165,
-            size: 32,
-            font: fontBold,
-            color: verdict === 'CERTIFIED' ? rgb(0.12, 0.58, 0.28) : rgb(0.8, 0.15, 0.15)
-        });
-
-        page.drawLine({
-            start: { x: 60, y: height - 185 },
-            end: { x: width - 60, y: height - 185 },
-            thickness: 1,
-            color: rgb(0.8, 0.8, 0.8)
-        });
-
-        const metaY = height - 210;
+        const isCert = verdict === 'CERTIFIED';
+        const verdictColor = isCert ? rgb(0.12, 0.58, 0.28) : rgb(0.8, 0.15, 0.15);
         const labelColor = rgb(0.4, 0.4, 0.4);
         const valueColor = rgb(0.1, 0.1, 0.1);
-        const metaFontSize = 9;
 
-        const leftLabels = ['Run ID:', 'Timestamp:', 'Mode:', 'Chaos Seed:', 'Target URL:'];
-        const leftValues = [
-            this.runId,
-            this.report.meta.timestamp,
-            this.options.mode,
-            String(this.options.seed),
-            this.options.targetUrl || 'N/A'
+        page.drawText('ARMAGEDDON CERTIFICATION', { x: 60, y: height - 120, size: 20, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
+        page.drawText(verdict, { x: 60, y: height - 165, size: 32, font: fontBold, color: verdictColor });
+        page.drawLine({ start: { x: 60, y: height - 185 }, end: { x: width - 60, y: height - 185 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
+
+        const metaRows = [
+            { xLabel: 60, label: 'Run ID:', xVal: 140, val: this.runId },
+            { xLabel: 60, label: 'Timestamp:', xVal: 140, val: this.report.meta.timestamp },
+            { xLabel: 60, label: 'Mode:', xVal: 140, val: this.options.mode },
+            { xLabel: 60, label: 'Chaos Seed:', xVal: 140, val: String(this.options.seed) },
+            { xLabel: 60, label: 'Target URL:', xVal: 140, val: this.options.targetUrl || 'N/A' },
+            { xLabel: 340, label: 'Total Batteries:', xVal: 440, val: String(this.report.batteries.length) },
+            { xLabel: 340, label: 'Passed:', xVal: 440, val: String(passedCount) },
+            { xLabel: 340, label: 'Failed:', xVal: 440, val: String(failedCount) },
+            { xLabel: 340, label: 'Aggregate Score:', xVal: 440, val: `${this.report.score}/100`, valFont: fontBold, valColor: isCert ? rgb(0.12, 0.58, 0.28) : valueColor }
         ];
+        this.renderPdfTable(page, height - 210, 16, metaRows, fontBold, labelColor, font, valueColor);
 
-        for (let i = 0; i < leftLabels.length; i++) {
-            const y = metaY - (i * 16);
-            page.drawText(leftLabels[i], { x: 60, y, size: metaFontSize, font: fontBold, color: labelColor });
-            page.drawText(leftValues[i], { x: 140, y, size: metaFontSize, font: font, color: valueColor });
-        }
-
-        const rightLabels = ['Total Batteries:', 'Passed:', 'Failed:', 'Aggregate Score:'];
-        const rightValues = [
-            String(this.report.batteries.length),
-            String(passedCount),
-            String(failedCount),
-            `${this.report.score}/100`
+        page.drawText(`LEVEL ${this.report.level ?? 7} GOD MODE PERFORMANCE:`, { x: 60, y: height - 315, size: 11, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
+        const godRows = [
+            { xLabel: 60, label: 'Total Attacks:', xVal: 150, val: String(totalAttacks) },
+            { xLabel: 60, label: 'Escapes:', xVal: 150, val: String(totalEscapes) },
+            { xLabel: 60, label: 'Escape Rate:', xVal: 150, val: `${escapeRate}%` },
+            { xLabel: 60, label: 'Threshold:', xVal: 150, val: '0.01%' },
+            { xLabel: 60, label: 'Status:', xVal: 150, val: verdict, valFont: fontBold, valColor: isCert ? rgb(0.12, 0.58, 0.28) : valueColor }
         ];
+        this.renderPdfTable(page, height - 333, 15, godRows, fontBold, labelColor, font, valueColor);
 
-        for (let i = 0; i < rightLabels.length; i++) {
-            const y = metaY - (i * 16);
-            page.drawText(rightLabels[i], { x: 340, y, size: metaFontSize, font: fontBold, color: labelColor });
-            page.drawText(rightValues[i], { x: 440, y, size: metaFontSize, font: i === 3 ? fontBold : font, color: i === 3 && verdict === 'CERTIFIED' ? rgb(0.12, 0.58, 0.28) : valueColor });
-        }
-
-        const godY = height - 315;
-        page.drawText(`LEVEL ${this.report.level ?? 7} GOD MODE PERFORMANCE:`, {
-            x: 60,
-            y: godY,
-            size: 11,
-            font: fontBold,
-            color: rgb(0.08, 0.18, 0.36)
-        });
-
-        const godLabels = ['Total Attacks:', 'Escapes:', 'Escape Rate:', 'Threshold:', 'Status:'];
-        const godValues = [
-            String(totalAttacks),
-            String(totalEscapes),
-            `${escapeRate}%`,
-            '0.01%',
-            verdict
+        page.drawText('TAMPER-EVIDENT ATTESTATION:', { x: 60, y: height - 425, size: 11, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
+        const attestRows = [
+            { xLabel: 60, label: 'Spec:', xVal: 150, val: attestation.spec, valFont: fontMono, valSize: 8 },
+            { xLabel: 60, label: 'Algorithm:', xVal: 150, val: attestation.algorithm, valFont: fontMono, valSize: 8 },
+            { xLabel: 60, label: 'Chain ID:', xVal: 150, val: attestation.chainId, valFont: fontMono, valSize: 8 },
+            { xLabel: 60, label: 'Key ID:', xVal: 150, val: attestation.keyId, valFont: fontMono, valSize: 8 },
+            { xLabel: 60, label: 'Merkle Root:', xVal: 150, val: attestation.merkleRoot, valFont: fontMono, valSize: 8 },
+            { xLabel: 60, label: 'Digest:', xVal: 150, val: attestation.digest, valFont: fontMono, valSize: 8 }
         ];
+        this.renderPdfTable(page, height - 443, 15, attestRows, fontBold, labelColor, font, valueColor);
 
-        for (let i = 0; i < godLabels.length; i++) {
-            const y = godY - 18 - (i * 15);
-            page.drawText(godLabels[i], { x: 60, y, size: metaFontSize, font: fontBold, color: labelColor });
-            page.drawText(godValues[i], { x: 150, y, size: metaFontSize, font: i === 4 ? fontBold : font, color: i === 4 && verdict === 'CERTIFIED' ? rgb(0.12, 0.58, 0.28) : valueColor });
-        }
-
-        const attestY = height - 425;
-        page.drawText('TAMPER-EVIDENT ATTESTATION:', {
-            x: 60,
-            y: attestY,
-            size: 11,
-            font: fontBold,
-            color: rgb(0.08, 0.18, 0.36)
-        });
-
-        const attestLabels = ['Spec:', 'Algorithm:', 'Chain ID:', 'Key ID:', 'Merkle Root:', 'Digest:'];
-        const attestValues = [
-            attestation.spec,
-            attestation.algorithm,
-            attestation.chainId,
-            attestation.keyId,
-            attestation.merkleRoot,
-            attestation.digest
-        ];
-
-        for (let i = 0; i < attestLabels.length; i++) {
-            const y = attestY - 18 - (i * 15);
-            page.drawText(attestLabels[i], { x: 60, y, size: metaFontSize, font: fontBold, color: labelColor });
-            page.drawText(attestValues[i], { x: 150, y, size: 8, font: fontMono, color: valueColor });
-        }
-
-        const footerY = height - 565;
-        page.drawLine({
-            start: { x: 60, y: footerY },
-            end: { x: width - 60, y: footerY },
-            thickness: 1,
-            color: rgb(0.8, 0.8, 0.8)
-        });
-
-        const disclaimerLines = [
-            'Legal Disclaimer:',
-            'Armageddon is designed for controlled sandbox and authorized non-production testing and does not',
-            'guarantee breach prevention. Certification reflects results of the tested build/configuration at time of run.',
-            '',
-            `Issued by: APEX Business Systems Ltd.   |   Certification ID: ${this.runId.substring(0, 8).toUpperCase()}   |   Valid Until: ${expiryStr}`
-        ];
-
-        for (let i = 0; i < disclaimerLines.length; i++) {
-            const y = footerY - 15 - (i * 12);
-            const isDis = i < 3;
-            page.drawText(disclaimerLines[i], {
-                x: 60,
-                y,
-                size: isDis ? 7.5 : 8,
-                font: isDis ? font : fontBold,
-                color: isDis ? rgb(0.5, 0.5, 0.5) : rgb(0.2, 0.2, 0.2)
-            });
-        }
+        this.renderPdfFooter(page, height - 565, width, expiryStr, font, fontBold, rgb);
 
         return await pdfDoc.save();
     }
