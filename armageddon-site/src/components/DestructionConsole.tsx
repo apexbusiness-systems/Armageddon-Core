@@ -11,11 +11,11 @@ import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import { DRAFT_KEY, canStartRunForTarget, readSavedCodebaseTarget, type CodebaseTarget, type OnboardingDraft } from '@/lib/codebase-target';
 import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
+import TargetConfigPanel from './TargetConfigPanel';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 import RunTelemetryDeck, { type DeckConnection } from './RunTelemetryDeck';
-import TargetConfigPanel from './TargetConfigPanel';
-import RunReadinessChecklist, { remainingReadinessBlockers, type ReadinessItem } from './RunReadinessChecklist';
+import { remainingReadinessBlockers, type ReadinessItem } from './RunReadinessChecklist';
 import {
     telemetryReducer,
     EMPTY_TELEMETRY,
@@ -895,11 +895,9 @@ export default function DestructionConsole({
                         </picture>
                     </div>
 
-                    <TargetConfigPanel target={codebaseTarget} draft={onboardingDraft} labels={t.targetConfig} />
-                    <RunReadinessChecklist items={readinessItems} title={t.readiness.title} allReadyLabel={t.readiness.allReady} blockedPrefix={t.readiness.blockedPrefix} />
-
-                    <div className="mt-16 mb-6 relative">
-                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider uppercase">{t.batteryConfigLabel}</h3>
+                    <div className="mt-[calc(2rem+2cm)] mb-6 relative">
+                        <TargetConfigPanel />
+                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">STEP 2 — BATTERY CONFIGURATION</h3>
                         {!canCustomize && (
                             <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
                                 {/* Meaningful copy sits on a solid high-contrast panel — never

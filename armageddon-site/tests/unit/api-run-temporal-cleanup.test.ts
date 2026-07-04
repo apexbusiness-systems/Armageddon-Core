@@ -9,11 +9,13 @@ vi.mock('@armageddon/shared', () => ({
 vi.mock('@/lib/db-rate-limit', () => ({ dbRateLimit: vi.fn(async () => ({ allowed: true })) }));
 vi.mock('@/lib/auth', () => ({
     checkMembershipResponse: vi.fn(),
+    authenticateRequest: vi.fn(),
+    verifyOrganizationMembership: vi.fn(),
     getRunAndVerifyAccess: vi.fn(),
 }));
 vi.mock('@/lib/temporal', () => ({ getTemporalClient: vi.fn() }));
 
-import { checkMembershipResponse } from '@/lib/auth';
+import { checkMembershipResponse, authenticateRequest, verifyOrganizationMembership } from '@/lib/auth';
 import { getTemporalClient } from '@/lib/temporal';
 import { POST } from '@/app/api/run/route';
 
@@ -30,6 +32,8 @@ beforeEach(() => {
     vi.clearAllMocks();
     updates.length = 0;
     (checkMembershipResponse as any).mockResolvedValue({ supabase });
+    (authenticateRequest as any).mockResolvedValue({ supabase, user: { id: 'u1' } });
+    (verifyOrganizationMembership as any).mockResolvedValue(true);
 });
 
 describe('POST /api/run temporal cleanup', () => {

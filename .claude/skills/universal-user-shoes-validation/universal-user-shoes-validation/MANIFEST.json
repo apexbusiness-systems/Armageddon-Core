@@ -1,0 +1,18 @@
+{
+  "name": "universal-user-shoes-validation",
+  "version": "1.0.0",
+  "description": "Validates any product surface \u2014 UI screen, API, CLI, agent or chat flow, dashboard, or document \u2014 the way a real first-time user would experience it, then issues a GO, NO-GO, or BLOCKED decision backed by evidence. Use when asked to audit, certify, harden, rescue, release-gate, or \"test like a user\" a feature, screen, endpoint, modal, or flow, or to write a go/no-go report. Does not cover isolated unit-level code review with no user-facing surface.",
+  "author": "APEX Business Systems Ltd.",
+  "license": "Proprietary",
+  "spec": "agent-skills-open-format",
+  "runtime": "vendor-agnostic \u2014 open Agent Skills (.skill) format; portable to any compatible agent runtime",
+  "install": {
+    "claude_ai": "Settings -> Capabilities -> Upload skill -> dist/universal-user-shoes-validation-1.0.0.skill",
+    "claude_code_manual": "cp -r universal-user-shoes-validation ~/.claude/skills/  (or .claude/skills/ for project scope)",
+    "skills_sh": "npx skills add <your-repo-url> --skill universal-user-shoes-validation"
+  },
+  "evidence": {
+    "scorecard": "scorecard.json",
+    "trigger_eval": "evals/trigger-eval.json"
+  }
+}

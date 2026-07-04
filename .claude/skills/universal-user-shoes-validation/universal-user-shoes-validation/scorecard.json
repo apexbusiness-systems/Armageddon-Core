@@ -1,0 +1,32 @@
+{
+  "skill": "universal-user-shoes-validation",
+  "generated_utc": "2026-06-20T09:04:48+00:00",
+  "tooling": "apex-skill-forge v9 forge.py",
+  "lint": {
+    "fails": 0,
+    "warns": 0,
+    "findings": []
+  },
+  "tokens": {
+    "method": "estimate: characters / 4",
+    "metadata_always_loaded": 121,
+    "description_chars": 452,
+    "skill_md_body_on_trigger": 1398,
+    "skill_md_lines": 106,
+    "references_on_demand": {
+      "domain-playbooks.md": 941,
+      "report-templates.md": 534,
+      "validation-rubric.md": 715
+    },
+    "scripts_loaded_tokens": 0
+  },
+  "trigger_eval": {
+    "validated": true,
+    "positive": 10,
+    "negative": 10,
+    "total": 20
+  },
+  "trigger_accuracy_live": null,
+  "note": "Token values are estimates (chars/4). trigger_accuracy_live: run the 20-query eval set in a live Claude Code session and record the measured rate here (e.g. 19/20 = 0.950) to complete the evidence chain.",
+  "rubric_score": 100
+}

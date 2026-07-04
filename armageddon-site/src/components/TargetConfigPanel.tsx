@@ -1,83 +1,120 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { CodebaseTarget, OnboardingDraft } from '@/lib/codebase-target';
+import { motion } from 'framer-motion';
 
-export interface TargetConfigPanelLabels {
-    readonly stepLabel: string;
-    readonly noTargetTitle: string;
-    readonly noTargetDesc: string;
-    readonly setTarget: string;
-    readonly targetNameLabel: string;
-    readonly targetUrlLabel: string;
-    readonly environmentLabel: string;
-    readonly authorizationStatusLabel: string;
-    readonly authorizedConfirmed: string;
-    readonly authorizationRequired: string;
-    readonly editTarget: string;
+// Mirrors the persisted onboarding draft contract in app/onboarding/page.tsx.
+// Read-only here: this panel never writes the draft, it only surfaces it.
+const DRAFT_KEY = 'armageddon:onboarding-draft';
+
+interface TargetSummary {
+    targetSystemName: string;
+    targetUrl: string;
+    environment: string;
 }
 
-const DEFAULT_LABELS: TargetConfigPanelLabels = {
-    stepLabel: 'Step 1: Target Configuration',
-    noTargetTitle: 'No target configured',
-    noTargetDesc: 'Connect the deployed app URL, API endpoint, or LLM/agent endpoint that ARMAGEDDON should test.',
-    setTarget: 'Set Target',
-    targetNameLabel: 'Target name',
-    targetUrlLabel: 'Target URL',
-    environmentLabel: 'Environment',
-    authorizationStatusLabel: 'Authorization status',
-    authorizedConfirmed: 'Authorized use confirmed',
-    authorizationRequired: 'Authorization confirmation required',
-    editTarget: 'Edit Target',
-};
-
-interface TargetConfigPanelProps {
-    readonly target: CodebaseTarget | null;
-    readonly draft: Pick<OnboardingDraft, 'environment' | 'authorizationConfirmed'> | null;
-    readonly labels?: TargetConfigPanelLabels;
-}
-
-export default function TargetConfigPanel({ target, draft, labels = DEFAULT_LABELS }: TargetConfigPanelProps) {
-    const href = '/onboarding#target-config';
-    if (!target) {
-        return (
-            <section className="mt-8 border border-white/10 bg-black/40 p-4 rounded-sm text-left" aria-label="Target configuration">
-                <p className="mono-small text-signal/60 tracking-widest uppercase">{labels.stepLabel}</p>
-                <h3 className="mono-data text-amber-300 mt-2">{labels.noTargetTitle}</h3>
-                <p className="mono-small text-signal/70 mt-2">
-                    {labels.noTargetDesc}
-                </p>
-                <Link href={href} className="btn-secondary inline-block mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
-                    {labels.setTarget}
-                </Link>
-            </section>
-        );
+function readTarget(): TargetSummary | null {
+    if (globalThis.window === undefined) return null;
+    try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        const draft = JSON.parse(raw) as Partial<TargetSummary>;
+        const targetUrl = (draft.targetUrl ?? '').trim();
+        if (targetUrl === '') return null;
+        return {
+            targetSystemName: (draft.targetSystemName ?? '').trim() || 'Unnamed target',
+            targetUrl,
+            environment: (draft.environment ?? 'staging').trim(),
+        };
+    } catch {
+        return null;
     }
+}
+
+/**
+ * Surfaces the configured run target (URL or repository) on the console, plus a
+ * direct path to /onboarding. Resolves the "nowhere to link a repo / no
+ * onboarding nudge" gap without touching the run engine. Static-export safe:
+ * all browser-state reads are deferred to a microtask after hydration.
+ */
+export default function TargetConfigPanel() {
+    const [target, setTarget] = useState<TargetSummary | null>(null);
+    const [hydrated, setHydrated] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        const sync = () => {
+            if (cancelled) return;
+            setTarget(readTarget());
+            setHydrated(true);
+        };
+        queueMicrotask(sync);
+        // Reflect edits made in another tab (e.g. user reconfigures in /onboarding).
+        globalThis.addEventListener('storage', sync);
+        return () => {
+            cancelled = true;
+            globalThis.removeEventListener('storage', sync);
+        };
+    }, []);
+
+    // Avoid a hydration flash: render nothing until the client read completes.
+    if (!hydrated) return null;
+
+    const configured = target !== null;
 
     return (
-        <section className="mt-8 border border-white/10 bg-black/40 p-4 rounded-sm text-left" aria-label="Target configuration">
-            <p className="mono-small text-signal/60 tracking-widest uppercase">{labels.stepLabel}</p>
-            <dl className="mt-3 space-y-3">
-                <div>
-                    <dt className="mono-small text-zinc-500 uppercase">{labels.targetNameLabel}</dt>
-                    <dd className="mono-data text-signal">{target.label}</dd>
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mx-auto w-full max-w-2xl mb-8 text-left"
+        >
+            <h3 className="mono-data text-signal/70 text-sm mb-3 tracking-wider text-center">
+                STEP 1 — TARGET CONFIGURATION
+            </h3>
+
+            {configured ? (
+                <div className="border border-[var(--safe)]/40 bg-[var(--safe)]/5 rounded-sm p-4 shadow-[0_0_18px_rgba(0,255,136,0.1)]">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse shrink-0" />
+                            <span className="mono-small tracking-widest text-[var(--safe)] shrink-0">
+                                TARGET LOCKED
+                            </span>
+                            <span className="mono-small text-signal/50 uppercase shrink-0">
+                                · {target.environment}
+                            </span>
+                        </div>
+                        <Link
+                            href="/onboarding"
+                            className="mono-small tracking-widest text-[var(--aerospace)] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                        >
+                            EDIT →
+                        </Link>
+                    </div>
+                    <p className="mono-data text-signal text-sm mt-3 truncate">{target.targetSystemName}</p>
+                    <p className="mono-small text-signal/60 mt-1 break-all">{target.targetUrl}</p>
                 </div>
-                <div>
-                    <dt className="mono-small text-zinc-500 uppercase">{labels.targetUrlLabel}</dt>
-                    <dd className="mono-data text-signal break-all">{target.endpointUrl}</dd>
+            ) : (
+                <div className="border border-[var(--aerospace)]/50 bg-black/60 rounded-sm p-5 text-center shadow-[0_0_24px_rgba(255,51,0,0.12)]">
+                    <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-2">
+                        NO TARGET CONFIGURED
+                    </p>
+                    <p className="mono-data text-signal text-sm">
+                        Link the system or repository you are authorized to test.
+                    </p>
+                    <p className="mono-small text-signal/60 mt-1">
+                        A run cannot start until a target URL or repository is set.
+                    </p>
+                    <Link
+                        href="/onboarding"
+                        className="btn-primary inline-block mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+                    >
+                        Configure target
+                    </Link>
                 </div>
-                <div>
-                    <dt className="mono-small text-zinc-500 uppercase">{labels.environmentLabel}</dt>
-                    <dd className="mono-data text-signal uppercase">{draft?.environment ?? 'staging'}</dd>
-                </div>
-                <div>
-                    <dt className="mono-small text-zinc-500 uppercase">{labels.authorizationStatusLabel}</dt>
-                    <dd className={draft?.authorizationConfirmed ? 'mono-data text-[var(--safe)]' : 'mono-data text-amber-300'}>
-                        {draft?.authorizationConfirmed ? labels.authorizedConfirmed : labels.authorizationRequired}
-                    </dd>
-                </div>
-            </dl>
-            <Link href={href} className="btn-secondary inline-block mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
-                {labels.editTarget}
-            </Link>
-        </section>
+            )}
+        </motion.div>
     );
 }

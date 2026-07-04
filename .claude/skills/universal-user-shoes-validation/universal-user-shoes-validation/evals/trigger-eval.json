@@ -1,0 +1,22 @@
+[
+  {"query": "Can you validate this new checkout modal the way a real first-time user would before we ship it?", "should_trigger": true},
+  {"query": "We need a go/no-go report on the onboarding flow before tomorrow's release deadline.", "should_trigger": true},
+  {"query": "Audit this API endpoint and tell me if the error responses actually make sense to a developer.", "should_trigger": true},
+  {"query": "Test this CLI tool like a real user, not like a linter, and tell me exactly what breaks.", "should_trigger": true},
+  {"query": "Certify the new dashboard widget is ready to show in front of the customer on Friday.", "should_trigger": true},
+  {"query": "Harden this support agent's conversation flow so it never fires a broken backend call.", "should_trigger": true},
+  {"query": "Review this redesigned settings page and make sure we didn't quietly lose any visual quality.", "should_trigger": true},
+  {"query": "I need an evidence-backed validation pack before we rescue this broken feature in production.", "should_trigger": true},
+  {"query": "Walk through the signup screen as if you'd never seen it before and flag anything confusing.", "should_trigger": true},
+  {"query": "Does this pricing page modal actually do what it claims, or is it just decoration that looks nice?", "should_trigger": true},
+  {"query": "Can you write unit tests for this isolated math utility function that has no UI at all?", "should_trigger": false},
+  {"query": "Refactor this database migration script so every step is idempotent on rerun.", "should_trigger": false},
+  {"query": "What shoe size should I order if I normally wear a size 10 men's sneaker in EU sizing?", "should_trigger": false},
+  {"query": "Write me a product requirements doc for a feature we haven't started building yet.", "should_trigger": false},
+  {"query": "Fix the failing TypeScript build error that's blocking our CI pipeline right now.", "should_trigger": false},
+  {"query": "Summarize the latest round of user research interview transcripts into three themes.", "should_trigger": false},
+  {"query": "Generate a list of SEO keywords we should target for our next blog post.", "should_trigger": false},
+  {"query": "Optimize this slow SQL query that's running behind the reporting dashboard backend.", "should_trigger": false},
+  {"query": "Draft a plain-language privacy disclaimer for our terms of service page.", "should_trigger": false},
+  {"query": "Explain how the OAuth2 authorization code flow works at a conceptual level.", "should_trigger": false}
+]

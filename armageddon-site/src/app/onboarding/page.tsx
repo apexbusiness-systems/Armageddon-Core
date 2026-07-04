@@ -10,9 +10,7 @@ import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import { useT } from '@/i18n/useT';
 import {
     DRAFT_KEY,
-    createEndpointTarget,
     saveCodebaseTarget,
-    validateTargetEndpointUrl,
     type CodebaseTarget,
     type OnboardingDraft,
     type TargetEnv,
@@ -88,17 +86,12 @@ export default function OnboardingPage() {
 
     const validate = (d: OnboardingDraft): readonly string[] => {
         const found: string[] = [];
-        if (d.orgName.trim() === '') found.push(t.errors.orgName);
-        if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push(t.errors.contactEmail);
-        if (d.targetSystemName.trim() === '') found.push(t.errors.targetSystemName);
-        if (d.codebaseTarget) {
-            const targetError = validateTargetEndpointUrl(d.codebaseTarget.endpointUrl);
-            if (targetError) found.push(targetError);
-        } else {
-            found.push(t.errors.targetUrl);
-        }
-        if (!d.authorizationConfirmed) found.push(t.errors.authorization);
-        if (!d.acceptableUseAck) found.push(t.errors.acceptableUse);
+        if (d.orgName.trim() === '') found.push('Organization name is required.');
+        if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
+        if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
+        if (d.targetUrl.trim() === '') found.push('Target endpoint URL is required.');
+        if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
+        if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');
         return found;
     };
 
@@ -239,20 +232,10 @@ export default function OnboardingPage() {
                         <p className="mono-small text-signal/60 mt-2">{t.help.targetSystemName}</p>
                     </Field>
 
-                    <div className="space-y-3" id="target-config">
-                        <span className="block text-sm font-mono text-zinc-400 uppercase tracking-wide">System under test</span>
-                        <p className="mono-small text-signal/70">{t.help.targetUrl}</p>
-                        <p className="mono-small text-signal/60">{t.help.targetExamples}</p>
-                        <p className="mono-small text-amber-300">{t.help.repositoryWarning}</p>
-                        <Field id="targetUrl" label={t.fields.targetUrl}>
-                            <input id="targetUrl" type="url" required value={draft.codebaseTarget?.endpointUrl ?? draft.targetUrl}
-                                onChange={(e) => {
-                                    const target = createEndpointTarget(e.target.value, draft.targetSystemName || 'System under test');
-                                    update('targetUrl', e.target.value);
-                                    update('codebaseTarget', target);
-                                }} className={inputClass} placeholder="https://app.example.com or https://api.example.com/v1/chat" />
-                        </Field>
-                    </div>
+                    <Field id="targetUrl" label="Target endpoint URL">
+                        <input id="targetUrl" type="text" required value={draft.targetUrl}
+                            onChange={(e) => update('targetUrl', e.target.value)} className={inputClass} placeholder="https://your-system.example.com/endpoint" />
+                    </Field>
 
                     <Field id="environment" label={t.fields.environment}>
                         <select id="environment" value={draft.environment}

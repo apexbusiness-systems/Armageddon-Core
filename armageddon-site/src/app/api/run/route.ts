@@ -1,4 +1,3 @@
-import { DEFAULT_BATTERIES } from '@armageddon/shared';
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * ARMAGEDDON LEVEL 7 — API ROUTE
@@ -9,10 +8,10 @@ import { DEFAULT_BATTERIES } from '@armageddon/shared';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { checkRunEligibility, normalizeIterations } from '@armageddon/shared';
+import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES, type OrganizationTier } from '@armageddon/shared';
 import { dbRateLimit } from '@/lib/db-rate-limit';
 import { getTemporalClient } from '@/lib/temporal';
-import { checkMembershipResponse, getRunAndVerifyAccess } from '@/lib/auth';
+import { authenticateRequest, verifyOrganizationMembership, getRunAndVerifyAccess } from '@/lib/auth';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -35,7 +34,6 @@ interface RunResponse {
     upgradeUrl?: string;
 }
 
-type OrganizationTier = 'free_dry' | 'verified' | 'certified';
 type WorkflowTier = 'FREE' | 'CERTIFIED';
 
 // Tier→level access is enforced by `checkRunEligibility` from @armageddon/shared
@@ -108,9 +106,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
 
         // 4. Authenticate Request & Verify Membership
-        const auth = await checkMembershipResponse(request, organizationId);
-        if (auth instanceof NextResponse) return auth;
-        const { supabase } = auth;
+        // ADMIN_EMAIL bypass: skip org membership + eligibility DB checks entirely.
+        const baseAuth = await authenticateRequest(request);
+        if (baseAuth instanceof NextResponse) return baseAuth;
+        const { user: authedUser, supabase } = baseAuth;
+
+        const isAdmin = !!(
+            process.env.ADMIN_EMAIL &&
+            authedUser.email &&
+            authedUser.email === process.env.ADMIN_EMAIL
+        );
+
+        if (!isAdmin) {
+            // Non-admin: verify org membership
+            const isMember = await verifyOrganizationMembership(supabase, authedUser.id, organizationId);
+            if (!isMember) {
+                console.warn(`[Security] User ${authedUser.id} attempted unauthorized access to org ${organizationId}`);
+                return NextResponse.json(
+                    { success: false, error: 'Forbidden: You are not a member of this organization' },
+                    { status: 403 }
+                );
+            }
+        }
 
         // Validate and sanitize batteries
         let validatedBatteries: string[] = DEFAULT_BATTERIES;
@@ -137,30 +154,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 1: Check eligibility (including battery customization)
+        // Admin receives certified tier unconditionally; non-admins go through DB gate.
         // ═══════════════════════════════════════════════════════════════════
 
-        // Pass injected client for performance
-        const eligibility = await checkRunEligibility(
-            organizationId,
-            level,
-            validatedBatteries,
-            supabase
-        );
+        let eligibility: { eligible: boolean; tier: OrganizationTier; reason?: string; upsellMessage?: string; upgradeUrl?: string };
 
-        if (!eligibility.eligible) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: eligibility.reason || 'ACCESS_DENIED',
-                    upsellMessage: eligibility.upsellMessage,
-                    upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
-                },
-                { status: 403 }
+        if (isAdmin) {
+            eligibility = { eligible: true, tier: 'certified' };
+        } else {
+            // Pass injected client for performance
+            eligibility = await checkRunEligibility(
+                organizationId,
+                level,
+                validatedBatteries,
+                supabase
             );
+
+            if (!eligibility.eligible) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: eligibility.reason || 'ACCESS_DENIED',
+                        upsellMessage: eligibility.upsellMessage,
+                        upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
+                    },
+                    { status: 403 }
+                );
+            }
         }
 
         const defaultIterations = eligibility.tier === 'certified' && level >= 7 ? 10000 : 2500;
         const iterations = normalizeIterations(body.iterations ?? defaultIterations);
+
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 2: Create run record

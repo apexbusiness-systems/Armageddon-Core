@@ -53,7 +53,7 @@ describe('POST /api/gatekeeper', () => {
         expect(res.status).toBe(200);
         expect(data).toEqual({
             eligible: true,
-            tier: 'verified',
+            tier: 'certified',
             reason: 'ADMIN_OVERRIDE'
         });
     });

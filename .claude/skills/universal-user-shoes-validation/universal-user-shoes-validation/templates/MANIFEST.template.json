@@ -1,0 +1,18 @@
+{
+  "name": "{{SKILL_NAME}}",
+  "version": "1.0.0",
+  "description": "{{mirror of frontmatter description}}",
+  "author": "APEX Business Systems Ltd.",
+  "license": "Proprietary",
+  "spec": "agent-skills-open-format",
+  "runtime": "{{RUNTIME}}",
+  "install": {
+    "skills_sh": "npx skills add {{REPO_URL}} --skill {{SKILL_NAME}}",
+    "claude_code": "/plugin marketplace add {{ORG}}/{{MARKETPLACE_REPO}}",
+    "claude_ai": "upload dist/{{SKILL_NAME}}-<version>.skill"
+  },
+  "evidence": {
+    "scorecard": "scorecard.json",
+    "trigger_eval": "evals/trigger-eval.json"
+  }
+}

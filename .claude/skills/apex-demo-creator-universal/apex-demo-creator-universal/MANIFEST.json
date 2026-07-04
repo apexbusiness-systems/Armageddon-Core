@@ -1,0 +1,57 @@
+{
+  "name": "apex-demo-creator-universal",
+  "version": "1.0.0",
+  "edition": "universal",
+  "description": "Omniscient Remotion Determinism Engine — vendor-agnostic, instantly digestible for any LLM or agent platform",
+  "author": "APEX Business Systems Ltd.",
+  "license": "Proprietary",
+  "archetype": "Workflow+Guardian",
+  "domain": "video-rendering",
+  "created": "2026-03-12",
+
+  "compatibility": {
+    "platforms": ["OpenAI GPT-4/GPT-4o", "Google Gemini", "Anthropic Claude", "Meta Llama", "Mistral", "Grok", "Cohere Command", "Any instruction-following LLM"],
+    "mode": "prompt_only",
+    "requires_tool_access": false,
+    "requires_file_system": false,
+    "requires_code_execution": false
+  },
+
+  "triggers": [
+    "remotion", "demo video", "create video", "render scene", "video component",
+    "useCurrentFrame", "getInputProps", "spring animation", "interpolate",
+    "FFmpeg render", "Puppeteer render", "video pipeline", "deterministic render",
+    "OmniHub render", "APEX video", "telemetry animation"
+  ],
+
+  "iron_laws": [
+    "Video is a pure function of time — f(frame) → pixels",
+    "No async operations in the render path",
+    "No CSS-owned animations",
+    "getInputProps() is the only external data source",
+    "Always clamp interpolate() output",
+    "Use Remotion asset components exclusively",
+    "Validate before every render"
+  ],
+
+  "forbidden_patterns": [
+    "useState", "useReducer", "useEffect", "useLayoutEffect",
+    "setTimeout", "setInterval", "requestAnimationFrame",
+    "fetch", "axios", "XMLHttpRequest",
+    "CSS transition:", "CSS animation:",
+    "<img>", "<video>", "<audio>", "<iframe>"
+  ],
+
+  "required_patterns": [
+    "useCurrentFrame()",
+    "useVideoConfig()",
+    "getInputProps()",
+    "spring() or interpolate()",
+    "extrapolate: 'clamp'"
+  ],
+
+  "quality_target": {
+    "score": 9.8,
+    "minimum": 9.5
+  }
+}
