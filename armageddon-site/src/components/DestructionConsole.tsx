@@ -15,7 +15,7 @@ import TargetConfigPanel from './TargetConfigPanel';
 import AttestationBadge, { useAttestationPubKey } from './AttestationBadge';
 import LeaderboardWidget, { type Status } from './social/LeaderboardWidget';
 import RunTelemetryDeck, { type DeckConnection } from './RunTelemetryDeck';
-import RunReadinessChecklist, { remainingReadinessBlockers, type ReadinessItem } from './RunReadinessChecklist';
+import { remainingReadinessBlockers, type ReadinessItem } from './RunReadinessChecklist';
 import {
     telemetryReducer,
     EMPTY_TELEMETRY,
