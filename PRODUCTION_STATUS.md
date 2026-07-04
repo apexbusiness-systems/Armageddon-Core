@@ -80,6 +80,7 @@ docker compose -f docker-compose.moat.yml --env-file .env.moat up -d --build
 
 | Date | Decision | Evidence |
 | --- | --- | --- |
+| 2026-07-04 | Confirmed `npm run build` succeeds end-to-end (Next.js production build) on an unrestricted-network environment; closes the sandbox-network-only build-verification gap from the 2026-06-24 release-gate audit. | `docs/audits/BUILD_VERIFICATION_2026-07-04.log`, exit code 0. |
 | 2026-06-24 | Added ATLAS support-chat agent (`/api/support-chat`) with injection-hardened Cloudflare Worker backend; added privacy policy page. | PR #143, `armageddon-site/src/intake-handler.ts`, `armageddon-site/src/app/support/page.tsx`, `armageddon-site/src/app/privacy/page.tsx`. |
 | 2026-06-24 | Fixed two security bugs in `validateSupportInput` (empty-string code and over-broad base64 pattern); exported security functions for test coverage. | PR #143, `armageddon-site/tests/unit/worker-support-chat-security.test.ts`. |
 | 2026-06-24 | Created `CLAUDE.md` as the frozen canonical security invariants and guardrails document. | `CLAUDE.md`. |
