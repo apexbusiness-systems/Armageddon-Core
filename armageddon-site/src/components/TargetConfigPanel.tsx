@@ -51,10 +51,10 @@ export default function TargetConfigPanel() {
         };
         queueMicrotask(sync);
         // Reflect edits made in another tab (e.g. user reconfigures in /onboarding).
-        window.addEventListener('storage', sync);
+        globalThis.addEventListener('storage', sync);
         return () => {
             cancelled = true;
-            window.removeEventListener('storage', sync);
+            globalThis.removeEventListener('storage', sync);
         };
     }, []);
 
