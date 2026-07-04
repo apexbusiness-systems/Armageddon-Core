@@ -787,7 +787,7 @@ export default function DestructionConsole({
         runsChannel.subscribe();
         subscriptionRefs.current.push(runsChannel);
 
-    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion, t]);
+    }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion, t, userTier]);
 
     const handleLogout = useCallback(async () => {
         const sb = getRequiredSupabase('Supabase not initialized');
