@@ -362,21 +362,18 @@ Issued by: APEX Business Systems Ltd.
         startY: number,
         rowHeight: number,
         rows: Array<{ xLabel: number; label: string; xVal: number; val: string; valFont?: any; valColor?: any; valSize?: number }>,
-        fontBold: any,
-        labelColor: any,
-        defaultFont: any,
-        defaultColor: any
+        style: { fontBold: any; labelColor: any; defaultFont: any; defaultColor: any }
     ): void {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const y = startY - (i * rowHeight);
-            page.drawText(row.label, { x: row.xLabel, y, size: 9, font: fontBold, color: labelColor });
+            page.drawText(row.label, { x: row.xLabel, y, size: 9, font: style.fontBold, color: style.labelColor });
             page.drawText(row.val, {
                 x: row.xVal,
                 y,
                 size: row.valSize ?? 9,
-                font: row.valFont ?? defaultFont,
-                color: row.valColor ?? defaultColor
+                font: row.valFont ?? style.defaultFont,
+                color: row.valColor ?? style.defaultColor
             });
         }
     }
@@ -386,15 +383,13 @@ Issued by: APEX Business Systems Ltd.
         footerY: number,
         width: number,
         expiryStr: string,
-        font: any,
-        fontBold: any,
-        rgb: any
+        style: { font: any; fontBold: any; rgb: any }
     ): void {
         page.drawLine({
             start: { x: 60, y: footerY },
             end: { x: width - 60, y: footerY },
             thickness: 1,
-            color: rgb(0.8, 0.8, 0.8)
+            color: style.rgb(0.8, 0.8, 0.8)
         });
 
         const disclaimerLines = [
@@ -412,8 +407,8 @@ Issued by: APEX Business Systems Ltd.
                 x: 60,
                 y,
                 size: line.isDis ? 7.5 : 8,
-                font: line.isDis ? font : fontBold,
-                color: line.isDis ? rgb(0.5, 0.5, 0.5) : rgb(0.2, 0.2, 0.2)
+                font: line.isDis ? style.font : style.fontBold,
+                color: line.isDis ? style.rgb(0.5, 0.5, 0.5) : style.rgb(0.2, 0.2, 0.2)
             });
         }
     }
@@ -434,6 +429,7 @@ Issued by: APEX Business Systems Ltd.
         const verdictColor = isCert ? rgb(0.12, 0.58, 0.28) : rgb(0.8, 0.15, 0.15);
         const labelColor = rgb(0.4, 0.4, 0.4);
         const valueColor = rgb(0.1, 0.1, 0.1);
+        const tableStyle = { fontBold, labelColor, defaultFont: font, defaultColor: valueColor };
 
         page.drawText('ARMAGEDDON CERTIFICATION', { x: 60, y: height - 120, size: 20, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
         page.drawText(verdict, { x: 60, y: height - 165, size: 32, font: fontBold, color: verdictColor });
@@ -450,7 +446,7 @@ Issued by: APEX Business Systems Ltd.
             { xLabel: 340, label: 'Failed:', xVal: 440, val: String(failedCount) },
             { xLabel: 340, label: 'Aggregate Score:', xVal: 440, val: `${this.report.score}/100`, valFont: fontBold, valColor: isCert ? rgb(0.12, 0.58, 0.28) : valueColor }
         ];
-        this.renderPdfTable(page, height - 210, 16, metaRows, fontBold, labelColor, font, valueColor);
+        this.renderPdfTable(page, height - 210, 16, metaRows, tableStyle);
 
         page.drawText(`LEVEL ${this.report.level ?? 7} GOD MODE PERFORMANCE:`, { x: 60, y: height - 315, size: 11, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
         const godRows = [
@@ -460,7 +456,7 @@ Issued by: APEX Business Systems Ltd.
             { xLabel: 60, label: 'Threshold:', xVal: 150, val: '0.01%' },
             { xLabel: 60, label: 'Status:', xVal: 150, val: verdict, valFont: fontBold, valColor: isCert ? rgb(0.12, 0.58, 0.28) : valueColor }
         ];
-        this.renderPdfTable(page, height - 333, 15, godRows, fontBold, labelColor, font, valueColor);
+        this.renderPdfTable(page, height - 333, 15, godRows, tableStyle);
 
         page.drawText('TAMPER-EVIDENT ATTESTATION:', { x: 60, y: height - 425, size: 11, font: fontBold, color: rgb(0.08, 0.18, 0.36) });
         const attestRows = [
@@ -471,9 +467,9 @@ Issued by: APEX Business Systems Ltd.
             { xLabel: 60, label: 'Merkle Root:', xVal: 150, val: attestation.merkleRoot, valFont: fontMono, valSize: 8 },
             { xLabel: 60, label: 'Digest:', xVal: 150, val: attestation.digest, valFont: fontMono, valSize: 8 }
         ];
-        this.renderPdfTable(page, height - 443, 15, attestRows, fontBold, labelColor, font, valueColor);
+        this.renderPdfTable(page, height - 443, 15, attestRows, tableStyle);
 
-        this.renderPdfFooter(page, height - 565, width, expiryStr, font, fontBold, rgb);
+        this.renderPdfFooter(page, height - 565, width, expiryStr, { font, fontBold, rgb });
 
         return await pdfDoc.save();
     }
