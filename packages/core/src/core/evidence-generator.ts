@@ -430,6 +430,15 @@ export class EvidenceGenerator {
         field(368, 110.88, 536, this.runId.substring(0, 8).toUpperCase(), ID_SIZE);
         field(368, 103.68, 536, issuedOn, ID_SIZE);
 
+        // Legal disclaimer — required on every issued certificate; lives in
+        // the clear margin below the lowest template field (y=103.68) with
+        // no overlap. Kept as a single compact line to fit the template's
+        // bottom whitespace at A4 (595.5 x 841.92 pt).
+        page.drawText(
+            'This certification is valid only for the build, configuration, and environment tested at the time of this run. It does not constitute SOC 2, ISO, or compliance certification, nor does it guarantee breach prevention.',
+            { x: 60, y: 50, size: 6, font, color: rgb(0.45, 0.45, 0.45), maxWidth: 476, lineHeight: 8 }
+        );
+
         return await pdfDoc.save();
     }
 
