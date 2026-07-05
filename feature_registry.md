@@ -70,6 +70,18 @@
 | UI display grid | `packages/shared/src/batteries.ts` exports thirteen presentation batteries with IDs `01` through `13`. |
 | Battery activity coverage | Temporal activities expose handlers for `B1` through `B14`. |
 
+## Domain: Core Certification Engine
+
+- **Feature:** PAIR Adversarial Engine & Iteration Caps
+  - **Scope:** Defines the iteration boundaries and model selection for adversarial tests.
+  - **Status:** Implemented. Simulated GOD MODE evaluates up to 10,000 iterations. CERTIFIED live-fire evaluations are cost-capped at 50 real-LLM vectors using `claude-sonnet-4-6`.
+
+- **Feature:** Administrative Access Control
+  - **Location:** `armageddon-site/src/app/api/run/route.ts`, `armageddon-site/src/app/api/gatekeeper/route.ts`, `armageddon-site/src/intake-handler.ts`
+  - **Scope:** Administrator overrides for testing, tier access, and intake handling.
+  - **Security invariants:** MUST use exact, case-sensitive match against `process.env.ADMIN_EMAIL`. The use of `.includes()` or any substring matching is strictly prohibited to prevent arbitrary domain registration bypasses.
+  - **Status:** Implemented and enforced as of 2026-07-05.
+
 ## Domain: Chaos & Stress
 
 - **Feature:** Battery 1 — Chaos Stress

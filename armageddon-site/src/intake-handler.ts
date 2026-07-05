@@ -424,11 +424,7 @@ async function evaluateRunAccess(env: IntakeEnv, user: SupabaseUser, input: RunI
   const { organizationId, level, requestedBatteries } = input;
   const userId = user.id;
 
-  const isAdmin = Boolean(user.email && (
-    (env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL) ||
-    user.email.toLowerCase().includes('armageddon.test.suite.cert') ||
-    user.email.toLowerCase().includes('apex')
-  ));
+  const isAdmin = Boolean(user.email && env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL);
 
   // Verify user is member of the org (skip for admin/test accounts)
   if (!isAdmin) {

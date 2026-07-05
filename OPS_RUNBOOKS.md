@@ -116,6 +116,14 @@ Handled by validated operator runbooks and repository scripts only; no `admin-to
 1. Edit `.env.moat` -> `SANDBOX_TENANT`.
 2. Redeploy.
 
+### 4.3 PROVISION_ADMIN_EMAIL
+
+**Context**: Setting the `ADMIN_EMAIL` authorizes a specific account to bypass standard organizational access checks and run simulated or live-fire tests.
+**Protocol**:
+1. Edit `.env.moat` (or production environment secrets) to set `ADMIN_EMAIL` to the exact email address of the authorized operator.
+2. Note: Substrings or wildcard domains are strictly prohibited by architecture invariant. The email must be an exact, case-sensitive match.
+3. Redeploy the core services or Cloudflare Pages environment variables.
+
 ---
 
 ---
@@ -143,6 +151,7 @@ Re-deploy the Worker after setting the secret.
 1. Create the namespace: `npx wrangler kv namespace create RATE_LIMIT_KV`
 2. Paste the returned `id` into `armageddon-site/wrangler.jsonc` `kv_namespaces[0].id`.
 3. Re-deploy.
+4. **Mandatory Dashboard Check**: An operator with real Cloudflare dashboard access must verify the binding under the production worker's bindings panel and update `PRODUCTION_STATUS.md`.
 
 **Note**: Rate limiting skipped gracefully — the endpoint remains functional, just unprotected by server-side rate limits. Client-side rate limits (5/min, 30/hr) remain active in the UI.
 

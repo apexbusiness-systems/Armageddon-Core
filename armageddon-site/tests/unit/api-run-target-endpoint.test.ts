@@ -24,6 +24,7 @@ vi.mock('@/lib/auth', () => ({
     verifyOrganizationMembership: vi.fn(),
 }));
 vi.mock('@/lib/temporal', () => ({ getTemporalClient: vi.fn() }));
+vi.mock('@/lib/omniport', () => ({ validateSSRF: vi.fn(async () => true) }));
 
 import { checkMembershipResponse, authenticateRequest, verifyOrganizationMembership } from '@/lib/auth';
 import { getTemporalClient } from '@/lib/temporal';
