@@ -9,11 +9,13 @@ import type {
     ProviderOptions,
     ModelIdentifier,
     AdversarialConfig,
+    HttpTargetConfig,
 } from './types';
 import { OpenAIProvider } from './openai';
 import { AnthropicProvider } from './anthropic';
 import { SimulationProvider } from './simulation';
 import { GroqProvider } from './groq';
+import { HttpTargetProvider } from './http-target';
 import { CircuitBreakerRegistry } from './circuit-breaker';
 
 // Re-export types
@@ -24,6 +26,16 @@ export { AnthropicProvider } from './anthropic';
 export { SimulationProvider } from './simulation';
 export { GroqProvider } from './groq';
 export { OpenAICompatibleProvider } from './openai-compatible-provider';
+export {
+    HttpTargetProvider,
+    createHttpTargetConfigFromEnv,
+    buildHttpTargetConfig,
+    interpolateBodyTemplate,
+    extractResponseByPath,
+    isHostAllowlisted,
+    isNonProductionLikeHost,
+} from './http-target';
+export type { RawHttpTargetInput, BodyTemplateVars } from './http-target';
 
 /**
  * Model to provider mapping
@@ -53,7 +65,18 @@ const MODEL_PROVIDER_MAP: Record<ModelIdentifier, ProviderName> = {
     'mixtral-8x7b-32768': 'groq',
     // Simulation
     'sim-001': 'simulation',
+    // Generic HTTP target — a real app/agent endpoint, not a named model
+    'http-target': 'http',
 };
+
+/**
+ * True for any real, named model identifier usable as a CERTIFIED target
+ * (excludes the 'sim-001' stub and the 'http-target' sentinel, which are
+ * selected via --target-provider simulation|http, not --target-model).
+ */
+export function isKnownTargetModel(value: string): value is Exclude<ModelIdentifier, 'sim-001' | 'http-target'> {
+    return value in MODEL_PROVIDER_MAP && value !== 'sim-001' && value !== 'http-target';
+}
 
 /**
  * Create a provider instance for the given model
@@ -70,6 +93,8 @@ export function createProvider(options: ProviderOptions): ILLMProvider {
             return new GroqProvider(options);
         case 'simulation':
             return new SimulationProvider(options);
+        case 'http':
+            return new HttpTargetProvider(options);
         case 'together':
             // @see https://github.com/apexbusiness-systems/Armageddon-Core/issues/42
             // Together provider planned for v2.0 release
@@ -98,6 +123,8 @@ export function createAdversarialConfig(
             anthropic?: string;
             groq?: string;
         };
+        /** Required when targetModel === 'http-target'. */
+        httpTarget?: HttpTargetConfig;
     }
 ): AdversarialConfig {
     const attackerModel = options?.attackerModel || 'gpt-4o-mini';
@@ -110,6 +137,12 @@ export function createAdversarialConfig(
         return undefined;
     };
 
+    if (targetModel === 'http-target' && !options?.httpTarget) {
+        throw new Error(
+            "[Providers] targetModel 'http-target' requires options.httpTarget. Refusing to silently fall back to simulation."
+        );
+    }
+
     return {
         attacker: createProvider({
             model: attackerModel,
@@ -120,6 +153,7 @@ export function createAdversarialConfig(
             model: targetModel,
             apiKey: getApiKey(MODEL_PROVIDER_MAP[targetModel]),
             circuitBreaker: { maxCostUSD: 3 }, // $3 limit for target
+            httpTarget: options?.httpTarget,
         }),
         judge: createProvider({
             model: judgeModel,

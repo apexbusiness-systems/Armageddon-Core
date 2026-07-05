@@ -58,6 +58,7 @@ describe('EvidenceGenerator', () => {
     const mockOptions: EvidenceOptions = {
         seed: 12345,
         mode: 'TEST_MODE',
+        tier: 'CERTIFIED',
         targetUrl: 'https://example.com'
     };
 
@@ -92,6 +93,23 @@ describe('EvidenceGenerator', () => {
             const json = lowScoreGen.generateReportJson();
             const parsed = JSON.parse(json);
 
+            expect(parsed.verdict).toBe('FAILED');
+        });
+
+        it('should never return CERTIFIED for a FREE/simulation-tier run, even with a high score', () => {
+            // A high score from the SimulationAdapter (FREE tier) is not a real
+            // certification — it must never be reported as CERTIFIED.
+            const freeTierGen = new EvidenceGenerator(mockReport, 'run-3', { ...mockOptions, tier: 'FREE' });
+            const parsed = JSON.parse(freeTierGen.generateReportJson());
+            expect(parsed.verdict).toBe('FAILED');
+            expect(parsed.tier).toBe('FREE');
+        });
+
+        it('should default tier to FREE and verdict to FAILED when tier is omitted', () => {
+            const { tier: _tier, ...optionsWithoutTier } = mockOptions;
+            const gen = new EvidenceGenerator(mockReport, 'run-4', optionsWithoutTier);
+            const parsed = JSON.parse(gen.generateReportJson());
+            expect(parsed.tier).toBe('FREE');
             expect(parsed.verdict).toBe('FAILED');
         });
     });
