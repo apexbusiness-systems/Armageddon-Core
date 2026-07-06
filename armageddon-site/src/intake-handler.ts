@@ -285,32 +285,38 @@ async function handleGatekeeper(request: Request, env: IntakeEnv, canonicalHost:
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
 
   const token = extractBearer(request);
-  if (token && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
-    const user = await getSupabaseUser(env, token);
-    if (user?.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL))) {
-      return jsonResponse({ eligible: true, tier: 'certified', reason: 'ADMIN_OVERRIDE' }, canonicalHost);
-    }
-    
-    if (user) {
-      const { data: memberships } = await supabaseQuery<OrgMembership>(
-        env,
-        'organization_members',
-        `select=organization_id,role&user_id=eq.${encodeURIComponent(user.id)}`
-      );
-      
-      const orgId = memberships?.[0]?.organization_id;
-      if (orgId) {
-        const { data: orgs } = await supabaseQuery<OrgRow>(
-          env,
-          'organizations',
-          `select=current_tier&id=eq.${encodeURIComponent(orgId)}`
-        );
-        const tier = orgs?.[0]?.current_tier ?? 'free_dry';
-        if (tier === 'verified' || tier === 'certified') {
-          return jsonResponse({ eligible: true, tier, reason: 'ACTIVE_SUBSCRIPTION' }, canonicalHost);
-        }
-      }
-    }
+  if (!token || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
+  }
+
+  const user = await getSupabaseUser(env, token);
+  if (!user) {
+    return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
+  }
+
+  if (user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL))) {
+    return jsonResponse({ eligible: true, tier: 'certified', reason: 'ADMIN_OVERRIDE' }, canonicalHost);
+  }
+
+  const { data: memberships } = await supabaseQuery<OrgMembership>(
+    env,
+    'organization_members',
+    `select=organization_id,role&user_id=eq.${encodeURIComponent(user.id)}`
+  );
+
+  const orgId = memberships?.[0]?.organization_id;
+  if (!orgId) {
+    return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
+  }
+
+  const { data: orgs } = await supabaseQuery<OrgRow>(
+    env,
+    'organizations',
+    `select=current_tier&id=eq.${encodeURIComponent(orgId)}`
+  );
+  const tier = orgs?.[0]?.current_tier ?? 'free_dry';
+  if (tier === 'verified' || tier === 'certified') {
+    return jsonResponse({ eligible: true, tier, reason: 'ACTIVE_SUBSCRIPTION' }, canonicalHost);
   }
 
   return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);

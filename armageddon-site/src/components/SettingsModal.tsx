@@ -36,8 +36,18 @@ interface PanelProps {
 
 function SettingsModalPanel({ user, onClose }: PanelProps) {
     const [activeTab, setActiveTab] = useState<TabId>('profile');
-    const [tier, setTier] = useState<string>('loading');
-    const [target, setTarget] = useState<CodebaseTarget | null>(null);
+    const [tier, setTier] = useState<string>(() => {
+        if (!user) return 'unauthenticated';
+        if (!isApiConfigured()) return 'free_dry';
+        return 'loading';
+    });
+    const [target, setTarget] = useState<CodebaseTarget | null>(() => {
+        try {
+            return readSavedCodebaseTarget();
+        } catch {
+            return null;
+        }
+    });
 
     // Escape key listener to close modal
     useEffect(() => {
@@ -48,19 +58,9 @@ function SettingsModalPanel({ user, onClose }: PanelProps) {
         return () => globalThis.removeEventListener('keydown', onKey);
     }, [onClose]);
 
-    // Fetch active tier & target configuration on mount
+    // Fetch active tier on mount
     useEffect(() => {
-        setTarget(readSavedCodebaseTarget());
-
-        if (!user) {
-            setTier('unauthenticated');
-            return;
-        }
-
-        if (!isApiConfigured()) {
-            setTier('free_dry');
-            return;
-        }
+        if (!user || !isApiConfigured()) return;
 
         let cancelled = false;
         apiFetch('/api/gatekeeper', {
