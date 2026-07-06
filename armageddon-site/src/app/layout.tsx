@@ -79,7 +79,7 @@ export default function RootLayout({
                     not spend the critical path fetching both AVIF and WebP before
                     painting the hero wordmark. The <picture> fallback still serves
                     WebP/PNG to older browsers during normal discovery. */}
-                <link rel="preload" as="image" href="/wordmark.avif" type="image/avif" fetchPriority="high" />
+                <link rel="preload" as="image" href="/wordmark.avif" type="image/avif" fetchpriority="high" />
             </head>
             <body className={`${bebasNeue.variable} ${spaceMono.variable} ${syne.variable} bg-[var(--void)] text-[var(--signal)] antialiased`}>
                 <AppProviders>
