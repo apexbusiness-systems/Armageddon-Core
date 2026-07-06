@@ -8,6 +8,7 @@ import AuthIdentityBadge from './AuthIdentityBadge';
 import AuthModal, { type AuthMode } from './AuthModal';
 import SettingsModal from './SettingsModal';
 import { useT } from '@/i18n/useT';
+import { getSupabase } from '@/lib/supabase';
 
 interface AuthHeaderProps {
     readonly user: User | null;
@@ -64,7 +65,18 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
     useEffect(() => {
         if (!user) return;
         let cancelled = false;
-        fetch('/api/gatekeeper', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+
+        async function fetchClearanceTier() {
+            const { data: { session } } = await getSupabase()?.auth.getSession() ?? { data: { session: null } };
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
+            if (session?.access_token) {
+                headers.Authorization = `Bearer ${session.access_token}`;
+            }
+
+            return fetch('/api/gatekeeper', { method: 'POST', headers });
+        }
+
+        fetchClearanceTier()
             .then(res => res.json())
             .then(data => {
                 if (cancelled) return;

@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js';
 import { Settings, User as UserIcon, CreditCard, HelpCircle, ChevronRight } from 'lucide-react';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import { readSavedCodebaseTarget, type CodebaseTarget } from '@/lib/codebase-target';
+import { getSupabase } from '@/lib/supabase';
 
 interface SettingsModalProps {
     readonly open: boolean;
@@ -63,10 +64,21 @@ function SettingsModalPanel({ user, onClose }: PanelProps) {
         if (!user || !isApiConfigured()) return;
 
         let cancelled = false;
-        apiFetch('/api/gatekeeper', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-        })
+
+        async function fetchActiveTier() {
+            const { data: { session } } = await getSupabase()?.auth.getSession() ?? { data: { session: null } };
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
+            if (session?.access_token) {
+                headers.Authorization = `Bearer ${session.access_token}`;
+            }
+
+            return apiFetch('/api/gatekeeper', {
+                method: 'POST',
+                headers,
+            });
+        }
+
+        fetchActiveTier()
             .then((res) => res.json())
             .then((data) => {
                 if (cancelled) return;
