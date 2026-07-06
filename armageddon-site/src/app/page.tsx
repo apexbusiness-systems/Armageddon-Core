@@ -11,18 +11,14 @@ import { getSupabase } from '@/lib/supabase';
 
 export default function Home() {
     const [simStatus, setSimStatus] = useState<Status>('idle');
-    const [authState, setAuthState] = useState<'loading' | 'anonymous' | 'authenticated'>('loading');
+    const [authState, setAuthState] = useState<'anonymous' | 'authenticated'>('anonymous');
     const router = useRouter();
 
     useEffect(() => {
         let cancelled = false;
         const sb = getSupabase();
-        if (!sb) {
-            queueMicrotask(() => {
-                if (!cancelled) setAuthState('anonymous');
-            });
-            return;
-        }
+        if (!sb) return;
+
         sb.auth.getUser().then(({ data }) => {
             if (cancelled) return;
             const next = data.user ? 'authenticated' : 'anonymous';
@@ -40,7 +36,7 @@ export default function Home() {
         };
     }, [router]);
 
-    if (authState === 'loading' || authState === 'authenticated') {
+    if (authState === 'authenticated') {
         return (
             <main className="relative bg-[var(--void)] min-h-screen grid-bg flex items-center justify-center">
                 <p className="mono-small text-signal/70 tracking-widest uppercase">Loading Armageddon workspace…</p>

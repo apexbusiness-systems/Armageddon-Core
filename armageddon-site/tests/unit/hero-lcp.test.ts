@@ -24,7 +24,7 @@ describe('hero LCP asset contract', () => {
         expect(consoleComponent).toContain('<source srcSet="/wordmark.webp" type="image/webp" />');
         expect(consoleComponent).toContain('width={824}');
         expect(consoleComponent).toContain('height={315}');
-        expect(consoleComponent).toContain('fetchPriority="high"');
+        expect(consoleComponent).toContain('fetchpriority="high"');
         expect(consoleComponent).toContain('loading="eager"');
     });
 });
