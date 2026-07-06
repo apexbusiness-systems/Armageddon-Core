@@ -41,7 +41,7 @@ function SettingsModalPanel({ user, onClose }: PanelProps) {
         if (!isApiConfigured()) return 'free_dry';
         return 'loading';
     });
-    const [target, setTarget] = useState<CodebaseTarget | null>(() => {
+    const [target] = useState<CodebaseTarget | null>(() => {
         try {
             return readSavedCodebaseTarget();
         } catch {
