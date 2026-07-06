@@ -660,7 +660,7 @@ export default function DestructionConsole({
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
 
-        const TIER_LEVEL_MAP: Record<string, number> = { certified: 8, verified: 6 };
+        const TIER_LEVEL_MAP: Record<string, number> = { certified: 7, verified: 6 };
         const targetLevel = TIER_LEVEL_MAP[userTier] ?? 3;
         addLine(LABELS.SYS, `▓▓▓ ARMAGEDDON LEVEL ${targetLevel} SEQUENCE INITIATED ▓▓▓`, MSG_TYPE.SYSTEM);
         addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);

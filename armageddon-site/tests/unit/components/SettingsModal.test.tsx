@@ -47,7 +47,7 @@ beforeEach(() => {
     vi.mocked(getSupabase).mockReturnValue({
         auth: {
             getSession: vi.fn().mockResolvedValue({
-                data: { session: { access_token: 'test-access-token' } },
+                data: { session: { access_token: 'settings-access-token' } },
             }),
         },
     } as any);
@@ -96,7 +96,7 @@ describe('SettingsModal Panel', () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: 'Bearer test-access-token',
+                Authorization: 'Bearer settings-access-token',
             },
         });
     });
