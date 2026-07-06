@@ -62,5 +62,6 @@ describe('OnboardingPage target endpoint flow', () => {
 
         expect(await screen.findByText(/Live runs aren't connected/)).toBeInTheDocument();
         expect(localStorage.getItem(DRAFT_KEY)).toContain('https://app.example.com');
+        expect(localStorage.getItem(CODEBASE_TARGET_KEY)).toContain('https://app.example.com');
     });
 });

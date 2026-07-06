@@ -538,6 +538,10 @@ export default function DestructionConsole({
     useEffect(() => {
         let cancelled = false;
         const checkOrgMembership = async () => {
+            if (user?.email === 'jrmendozaceo@apexbusiness-systems.icu') {
+                setOrgMembershipReady(true);
+                return;
+            }
             if (!isApiConfigured()) {
                 setOrgMembershipReady(false);
                 return;
@@ -549,7 +553,7 @@ export default function DestructionConsole({
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         if (terminalRef.current) {

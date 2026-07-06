@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import AuthIdentityBadge from './AuthIdentityBadge';
 import AuthModal, { type AuthMode } from './AuthModal';
+import SettingsModal from './SettingsModal';
 import { useT } from '@/i18n/useT';
 
 interface AuthHeaderProps {
@@ -55,6 +56,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
     const isLoggedIn = !!user;
     const [hovered, setHovered] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [mode, setMode] = useState<AuthMode>('signin');
     const [initialError, setInitialError] = useState<string | null>(null);
     const [clearanceLevel, setClearanceLevel] = useState<number>(8);
@@ -115,6 +117,27 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                 >
                     {dictionary.common.nav.pricing}
                 </Link>
+                <Link
+                    href="/support"
+                    className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
+                >
+                    Support
+                </Link>
+                <Link
+                    href="/privacy"
+                    className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
+                >
+                    Privacy
+                </Link>
+                {isLoggedIn && (
+                    <button
+                        type="button"
+                        onClick={() => setSettingsOpen(true)}
+                        className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
+                    >
+                        Settings
+                    </button>
+                )}
                 {isLoggedIn ? (
                     <>
                         <AnimatePresence>
@@ -175,6 +198,12 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                 initialError={initialError}
                 onClose={() => setModalOpen(false)}
                 onModeChange={setMode}
+            />
+
+            <SettingsModal
+                open={settingsOpen}
+                user={user}
+                onClose={() => setSettingsOpen(false)}
             />
         </>
     );
