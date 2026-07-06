@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import SettingsModal from '@/components/SettingsModal';
 import { I18nProvider } from '@/i18n/I18nProvider';
+import { getSupabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
 vi.mock('framer-motion', () => ({
@@ -12,6 +13,10 @@ vi.mock('framer-motion', () => ({
         return ({ children, animate: _animate, initial: _initial, exit: _exit, transition: _transition, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <Tag {...props}>{children}</Tag>;
     } }),
     AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('@/lib/supabase', () => ({
+    getSupabase: vi.fn(),
 }));
 
 vi.mock('@/lib/codebase-target', () => ({
@@ -39,6 +44,13 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
     process.env.NEXT_PUBLIC_ARMAGEDDON_API_BASE = 'https://api.test.local';
+    vi.mocked(getSupabase).mockReturnValue({
+        auth: {
+            getSession: vi.fn().mockResolvedValue({
+                data: { session: { access_token: 'test-access-token' } },
+            }),
+        },
+    } as any);
     globalThis.fetch = vi.fn().mockImplementation(async () => {
         return new Response(JSON.stringify({ tier: 'certified' }), {
             status: 200,
@@ -73,6 +85,20 @@ describe('SettingsModal Panel', () => {
         expect(screen.getByText(/CONTROL CENTER/i)).toBeInTheDocument();
         expect(screen.getByText('operator@apexbusiness.systems')).toBeInTheDocument();
         expect(screen.getByText('My Test Endpoint')).toBeInTheDocument();
+    });
+
+    it('forwards the Supabase bearer token to gatekeeper', async () => {
+        renderModal();
+
+        await screen.findByText('LEVEL 7 / CERTIFIED RUNS');
+
+        expect(globalThis.fetch).toHaveBeenCalledWith('https://api.test.local/api/gatekeeper', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer test-access-token',
+            },
+        });
     });
 
     it('switches to billing tab on click', async () => {
