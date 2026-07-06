@@ -10,6 +10,7 @@ import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import { useT } from '@/i18n/useT';
 import {
     DRAFT_KEY,
+    createEndpointTarget,
     saveCodebaseTarget,
     type CodebaseTarget,
     type OnboardingDraft,
@@ -124,11 +125,13 @@ export default function OnboardingPage() {
         if (found.length > 0) return;
 
         let persistedDraft = draft;
-        if (draft.codebaseTarget) {
-            const target = await prepareBackendIntake(draft.codebaseTarget);
-            persistedDraft = { ...draft, codebaseTarget: target, targetUrl: target.endpointUrl };
+        const targetUrl = draft.targetUrl.trim();
+        if (targetUrl) {
+            const target = draft.codebaseTarget ?? createEndpointTarget(targetUrl, draft.targetSystemName || 'System under test');
+            const updatedTarget = await prepareBackendIntake(target);
+            persistedDraft = { ...draft, codebaseTarget: updatedTarget, targetUrl: updatedTarget.endpointUrl };
             try {
-                saveCodebaseTarget(target);
+                saveCodebaseTarget(updatedTarget);
             } catch {
                 /* ignore */
             }
