@@ -34,7 +34,7 @@ beforeEach(() => {
     vi.mocked(getSupabase).mockReturnValue({
         auth: {
             getSession: vi.fn().mockResolvedValue({
-                data: { session: { access_token: 'test-access-token' } },
+                data: { session: { access_token: 'header-access-token' } },
             }),
         },
     } as any);
@@ -66,7 +66,7 @@ describe('AuthHeader', () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: 'Bearer test-access-token',
+                Authorization: 'Bearer header-access-token',
             },
         }));
     });
