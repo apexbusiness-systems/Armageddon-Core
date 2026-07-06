@@ -15,6 +15,8 @@ type IntakeEnv = {
     put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   };
   ANTHROPIC_API_KEY?: string;
+  // Attestation — Ed25519 seed for /api/attestation/pubkey (Wrangler secret)
+  ARMAGEDDON_ATTESTATION_SEED?: string;
   MAX_MSGS_PER_MIN?: string;
   MAX_MSGS_PER_HOUR?: string;
   MAX_INPUT_CHARS?: string;
@@ -187,11 +189,13 @@ async function handleMeOrganizations(request: Request, env: IntakeEnv, canonical
   const user = await getSupabaseUser(env, token);
   if (!user) return jsonResponse({ success: false, error: 'Unauthorized: Invalid token' }, canonicalHost, 401);
 
-  if (user.email === 'jrmendozaceo@apexbusiness-systems.icu') {
-    const mockMemberships = [{ organization_id: 'apex-corporate-org-id', role: 'owner' }];
-    return jsonResponse({ success: true, organizations: mockMemberships, active: mockMemberships[0] }, canonicalHost);
-  }
-
+  // NOTE (2026-07-06, root-cause fix): a hard-coded fake membership with a
+  // non-UUID organization id previously short-circuited here for the admin
+  // account. That fabricated id flowed into POST /api/run and made
+  // every armageddon_runs insert fail with a 500 (Postgres 22P02 uuid parse).
+  // Admin privileges are tier overrides (handleGatekeeper / evaluateRunAccess),
+  // NOT identity fabrication — the admin must resolve real memberships like
+  // everyone else. DO NOT reintroduce mock organization rows here.
   const { data, error } = await supabaseQuery<OrgMembership>(
     env,
     'organization_members',
@@ -344,6 +348,14 @@ const TIER_CAN_CUSTOMIZE: Record<string, boolean> = {
 const ALLOWED_BATTERIES = new Set(['B10', 'B11', 'B12', 'B13', 'B14']);
 const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
 
+/**
+ * Statistical iteration count for simulation-tier runs. This is a load-bearing
+ * marketing claim ("Simulation tier runs 10,000 statistical iterations") and
+ * MUST equal the figure rendered in every i18n dictionary. Changing one
+ * without the other ships an unvalidated claim — see Invariant 15 in CLAUDE.md.
+ */
+const SIM_STATISTICAL_ITERATIONS = 10000;
+
 // ── Temporal Cloud HTTP API helper ────────────────────────────────────────────
 
 function temporalHost(env: IntakeEnv): string {
@@ -414,6 +426,11 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
     : null;
 
   if (!organizationId) return { error: 'organizationId is required.' };
+  // Defensive: organization_id is a Postgres UUID FK. Reject malformed ids at
+  // the edge with a 400 instead of letting the insert fail opaquely with 500.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(organizationId)) {
+    return { error: 'organizationId must be a valid UUID.' };
+  }
   if (level < 1 || level > 7) return { error: 'level must be 1–7.' };
   return { organizationId, level, requestedBatteries };
 }
@@ -524,7 +541,13 @@ async function createRunRecord(
 ): Promise<Response> {
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
-  const iterations = 2500;
+  // Public marketing claim (all locales): "Simulation tier runs 10,000
+  // statistical iterations with <0.01% escape threshold." Every run created on
+  // this edge path is sim_mode:true, so the shipped iteration count MUST match
+  // the advertised figure — we ship validated claims, not aspirational ones.
+  // Single source: SIM_STATISTICAL_ITERATIONS. Regression shield:
+  // tests/unit/marketing-claim-integrity.test.ts.
+  const iterations = SIM_STATISTICAL_ITERATIONS;
   const seed = secureSeed();
 
   const { error: insertError } = await supabaseInsert(env, 'armageddon_runs', {
@@ -541,7 +564,12 @@ async function createRunRecord(
   });
 
   if (insertError) {
-    return jsonResponse({ success: false, error: 'Failed to create run record.' }, canonicalHost, 500);
+    // Surface the PostgREST error code (never the full message — it can leak
+    // schema details) so operators can diagnose from the client response, and
+    // log the sanitized detail for `wrangler tail`.
+    const dbCode = /"code"\s*:\s*"([0-9A-Za-z]{5})"/.exec(insertError)?.[1] ?? 'UNKNOWN';
+    console.error(`[api/run] armageddon_runs insert failed (db code ${dbCode}): ${insertError}`);
+    return jsonResponse({ success: false, error: 'Failed to create run record.', dbCode }, canonicalHost, 500);
   }
 
   // Run is now 'pending' — the Node.js api-server polls Supabase for pending runs and
@@ -959,6 +987,105 @@ async function handleSupportChat(request: Request, env: IntakeEnv, canonicalHost
   );
 }
 
+// ── /api/attestation/pubkey (edge) ────────────────────────────────────────────
+//
+// The Next.js route at src/app/api/attestation/pubkey/route.ts is the
+// reference implementation but is NOT reachable on the static-export
+// Cloudflare deployment (see CLAUDE.md). This edge port mirrors the exact
+// derivation formula in packages/shared/src/attestation-key.ts using
+// WebCrypto (Workers has no node:crypto Ed25519 KeyObject): same PKCS#8
+// prefix, same keyId = sha256(raw pubkey) first 16 hex — so the published
+// key is byte-identical to what the signer emits. Fail-closed: 503 when the
+// seed is missing/malformed; never synthesizes a key.
+
+/** PKCS#8 DER prefix for a raw 32-byte Ed25519 seed (RFC 8410 §7). */
+const ED25519_PKCS8_PREFIX_EDGE = new Uint8Array([
+  0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
+  0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+]);
+
+/** Decode 32-byte seed from 64-char hex or base64/base64url. Throws on any other shape. */
+export function decodeAttestationSeedEdge(envValue: string): Uint8Array {
+  const trimmed = envValue.trim();
+  if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+    const out = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) out[i] = Number.parseInt(trimmed.slice(i * 2, i * 2 + 2), 16);
+    return out;
+  }
+  const b64 = trimmed.replaceAll('-', '+').replaceAll('_', '/')
+    .padEnd(Math.ceil(trimmed.length / 4) * 4, '=');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) {
+    throw new Error('Invalid ARMAGEDDON_ATTESTATION_SEED: expected 32-byte hex or base64');
+  }
+  const bin = atob(b64);
+  if (bin.length !== 32) {
+    throw new Error(`Invalid ARMAGEDDON_ATTESTATION_SEED length: expected 32 bytes, got ${bin.length}`);
+  }
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) out[i] = bin.codePointAt(i) ?? 0;
+  return out;
+}
+
+function bytesToB64(bytes: Uint8Array): string {
+  let s = '';
+  for (const b of bytes) s += String.fromCodePoint(b);
+  return btoa(s);
+}
+
+/** Per-isolate cache — key only changes on explicit seed rotation. */
+let attestationCacheEdge: { seed: string; body: string } | null = null;
+
+async function handleAttestationPubkey(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+
+  const seed = env.ARMAGEDDON_ATTESTATION_SEED;
+  if (!seed || seed.trim().length === 0) {
+    return jsonResponse({
+      error: 'ATTESTATION_KEY_NOT_CONFIGURED',
+      message: 'Set ARMAGEDDON_ATTESTATION_SEED to publish a stable verification key.',
+      spec: 'armageddon-attestation/1.0',
+      algorithm: 'ed25519',
+    }, canonicalHost, 503);
+  }
+
+  try {
+    if (attestationCacheEdge?.seed !== seed) {
+      const seedBytes = decodeAttestationSeedEdge(seed);
+      const der = new Uint8Array(ED25519_PKCS8_PREFIX_EDGE.length + 32);
+      der.set(ED25519_PKCS8_PREFIX_EDGE);
+      der.set(seedBytes, ED25519_PKCS8_PREFIX_EDGE.length);
+      const privateKey = await crypto.subtle.importKey('pkcs8', der, { name: 'Ed25519' }, true, ['sign']);
+      const jwk = await crypto.subtle.exportKey('jwk', privateKey) as { x?: string };
+      if (!jwk.x) throw new Error('Failed to derive Ed25519 public key (no JWK x parameter)');
+      const rawB64 = jwk.x.replaceAll('-', '+').replaceAll('_', '/')
+        .padEnd(Math.ceil(jwk.x.length / 4) * 4, '=');
+      const rawBin = atob(rawB64);
+      const raw = new Uint8Array(rawBin.length);
+      for (let i = 0; i < rawBin.length; i++) raw[i] = rawBin.codePointAt(i) ?? 0;
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', raw));
+      const keyId = Array.from(digest.slice(0, 8), (b) => b.toString(16).padStart(2, '0')).join('');
+      attestationCacheEdge = {
+        seed,
+        body: JSON.stringify({
+          spec: 'armageddon-attestation/1.0',
+          algorithm: 'ed25519',
+          keyId,
+          publicKey: bytesToB64(raw),
+        }),
+      };
+    }
+    const parsed = JSON.parse(attestationCacheEdge.body) as Record<string, unknown>;
+    const res = jsonResponse({ ...parsed, issuedAt: new Date().toISOString() }, canonicalHost, 200);
+    // Public, stable-until-rotation content — allow a day of caching.
+    res.headers.set('cache-control', 'public, max-age=86400, s-maxage=86400');
+    return res;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`[api/attestation/pubkey] derivation failed: ${message}`);
+    return jsonResponse({ error: 'ATTESTATION_KEY_DERIVATION_FAILED', message }, canonicalHost, 500);
+  }
+}
+
 // ── Worker entry point ────────────────────────────────────────────────────────
 
 const intakeWorker = {
@@ -979,6 +1106,8 @@ const intakeWorker = {
         return handleOmniportHealth(request, env, canonicalHost);
       case '/api/gatekeeper':
         return handleGatekeeper(request, env, canonicalHost);
+      case '/api/attestation/pubkey':
+        return handleAttestationPubkey(request, env, canonicalHost);
       case '/api/run':
         return handleRun(request, env, canonicalHost);
       case '/api/support-chat':
@@ -996,3 +1125,4 @@ const intakeWorker = {
 };
 
 export default intakeWorker;
+// release-gate: edge worker surface validated 2026-07-06 (see CLAUDE.md invariants 12–15)
