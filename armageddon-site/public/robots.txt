@@ -1,0 +1,47 @@
+# ARMAGEDDON Test Suite — armageddontest.icu
+# Canonical crawl policy. Marketing surfaces indexable; app/auth surfaces are not.
+
+User-agent: *
+Allow: /
+Disallow: /console
+Disallow: /onboarding
+Disallow: /auth/
+Disallow: /api/
+
+# AI / answer-engine crawlers (GEO) — explicitly allowed on public surfaces
+User-agent: GPTBot
+Allow: /
+Disallow: /console
+Disallow: /auth/
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://armageddontest.icu/sitemap.xml

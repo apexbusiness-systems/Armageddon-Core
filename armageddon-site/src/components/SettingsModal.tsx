@@ -6,7 +6,19 @@ import type { User } from '@supabase/supabase-js';
 import { Settings, User as UserIcon, CreditCard, HelpCircle, ChevronRight } from 'lucide-react';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 import { readSavedCodebaseTarget, type CodebaseTarget } from '@/lib/codebase-target';
+import { PLANS, PLAN_ORDER, type PlanId } from '@/lib/pricing';
 import { getSupabase } from '@/lib/supabase';
+
+// Map org tier (gatekeeper) → its equivalent plan in the canonical pricing
+// catalog (src/lib/pricing.ts — single source of truth; NEVER hard-code
+// prices in this component). Ranks follow PLAN_ORDER.
+const TIER_TO_PLAN: Record<string, PlanId> = {
+    free_dry: 'self-serve',
+    pro: 'pro',
+    team: 'team',
+    verified: 'verified',
+    certified: 'certified',
+};
 
 interface SettingsModalProps {
     readonly open: boolean;
@@ -101,6 +113,16 @@ function SettingsModalPanel({ user, onClose }: PanelProps) {
         if (tier === 'verified') return 'LEVEL 6 / VERIFIED RUNS';
         return 'FREE DRY RUNS';
     }, [tier]);
+
+    const currentPlanId: PlanId | null = TIER_TO_PLAN[tier] ?? null;
+
+    // Tiers strictly below the user's active plan are redundant in a billing
+    // profile — show only the active plan and upgrade paths. Guests and
+    // free-tier users see the full catalog.
+    const visiblePlans = useMemo(() => {
+        const rank = currentPlanId ? PLAN_ORDER.indexOf(currentPlanId) : 0;
+        return PLAN_ORDER.filter((id) => PLAN_ORDER.indexOf(id) >= rank);
+    }, [currentPlanId]);
 
     return (
         <motion.div
@@ -298,24 +320,28 @@ function SettingsModalPanel({ user, onClose }: PanelProps) {
                                     </div>
 
                                     <div className="border border-white/10 bg-black/40 p-4 rounded-sm space-y-3">
-                                        <h3 className="mono-small text-[var(--signal)] font-bold uppercase tracking-wider">Subscription Tiers</h3>
+                                        <h3 className="mono-small text-[var(--signal)] font-bold uppercase tracking-wider">
+                                            {visiblePlans.length === PLAN_ORDER.length ? 'Subscription Tiers' : 'Available Upgrades'}
+                                        </h3>
                                         <div className="space-y-2 text-xs font-mono">
-                                            <div className="flex justify-between py-1.5 border-b border-white/5">
-                                                <span className="text-[var(--signal)]">Self-Serve Dry Run</span>
-                                                <span className="text-[var(--signal-dim)]">Free ($0/mo)</span>
-                                            </div>
-                                            <div className="flex justify-between py-1.5 border-b border-white/5">
-                                                <span className="text-[var(--signal)]">Pro Tier</span>
-                                                <span className="text-[var(--signal-dim)]">$49/mo</span>
-                                            </div>
-                                            <div className="flex justify-between py-1.5 border-b border-white/5">
-                                                <span className="text-[var(--signal)]">Team Tier</span>
-                                                <span className="text-[var(--signal-dim)]">$199/mo</span>
-                                            </div>
-                                            <div className="flex justify-between py-1.5">
-                                                <span className="text-[var(--signal)]">Level 7 / 8 Certified</span>
-                                                <span className="text-[var(--aerospace)]">Custom scoping</span>
-                                            </div>
+                                            {visiblePlans.map((planId, i) => {
+                                                const plan = PLANS[planId];
+                                                const isCurrent = planId === currentPlanId;
+                                                return (
+                                                    <div
+                                                        key={planId}
+                                                        className={`flex justify-between py-1.5 ${i < visiblePlans.length - 1 ? 'border-b border-white/5' : ''}`}
+                                                    >
+                                                        <span className="text-[var(--signal)]">
+                                                            {plan.name}
+                                                            {isCurrent && <span className="ml-2 text-[var(--safe)]">● ACTIVE</span>}
+                                                        </span>
+                                                        <span className={isCurrent ? 'text-[var(--aerospace)]' : 'text-[var(--signal-dim)]'}>
+                                                            {plan.price}{plan.cadenceLabel ? ` ${plan.cadenceLabel}` : ''}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>

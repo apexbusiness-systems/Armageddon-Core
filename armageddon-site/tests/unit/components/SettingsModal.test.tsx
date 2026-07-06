@@ -108,8 +108,12 @@ describe('SettingsModal Panel', () => {
         const billingBtn = screen.getByRole('button', { name: /BILLING/i });
         fireEvent.click(billingBtn);
 
-        expect(await screen.findByText('Subscription Tiers')).toBeInTheDocument();
-        expect(screen.getByText('Self-Serve Dry Run')).toBeInTheDocument();
+        // Billing tab renders tier-independent markers. For a certified user the
+        // tier list is headed "Available Upgrades" (lower tiers are hidden by
+        // design), so assert on the always-present Active Plan / Billing Portal.
+        expect(await screen.findByText('Active Plan')).toBeInTheDocument();
+        expect(screen.getByText('Billing Portal (Stripe)')).toBeInTheDocument();
+        expect(screen.getByText('Available Upgrades')).toBeInTheDocument();
     });
 
     it('switches to faq tab on click', async () => {

@@ -1,0 +1,22 @@
+# ARMAGEDDON Test Suite Certification
+
+> Sandboxed adversarial certification for AI and software systems by APEX Business Systems Ltd. Destruction-grade testing across 13 concurrent adversarial batteries, producing evidence-based, machine-verifiable certification artifacts — not compliance checklists.
+
+ARMAGEDDON runs 13 adversarial batteries concurrently against a target system inside a locked sandbox: chaos stress, chaos engine (idempotency/dedupe), prompt injection (direct, obfuscated, multilingual), security & auth (CSRF, auth churn), full unit/module, unsafe-gate sandbox enforcement, Playwright E2E, asset smoke, integration (OAuth, webhooks, audit events), goal hijack (multi-turn adaptive jailbreaks via real PAIR adversarial engine), tool misuse (SQL injection, API privilege escalation), memory poisoning (vector DB corruption), and supply chain (dependency injection attacks).
+
+Simulation tier runs 10,000 statistical iterations with a <0.01% escape threshold. Certified tier executes real PAIR adversarial attacks with live LLM attacker, target, and judge. Every run produces a signed artifact set: armageddon-report.json (machine-readable), armageddon-report.md (executive + engineering summary), and certificate.pdf (signed verification certificate) with run ID, grade, escape rate, and timestamp.
+
+Tiers: Self-serve (free) → Verified (evidence review) → Certified (release-readiness gate).
+
+## Pages
+
+- [Home](https://armageddontest.icu/): Product overview, the 13 batteries, certification artifact
+- [Pricing](https://armageddontest.icu/pricing): Tier comparison — free, Verified, Certified
+- [Support](https://armageddontest.icu/support): Support terminal
+- [Privacy](https://armageddontest.icu/privacy): Privacy policy
+
+## Notes
+
+- Designed for controlled sandbox testing; does not guarantee breach prevention.
+- Not a substitute for SOC 2 / ISO 27001 compliance certification or professional penetration testing.
+- Operated by APEX Business Systems Ltd., powered by APEX-OmniHub.
