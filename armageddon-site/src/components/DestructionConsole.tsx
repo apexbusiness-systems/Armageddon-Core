@@ -906,7 +906,7 @@ export default function DestructionConsole({
                                 alt="ARMAGEDDON LEVEL 8"
                                 width={824}
                                 height={315}
-                                fetchpriority="high"
+                                fetchPriority="high"
                                 loading="eager"
                                 decoding="sync"
                                 className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)] animate-pulse-slow"
