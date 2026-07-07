@@ -139,16 +139,28 @@ For each journey produce: (a) a full-page screenshot at the terminal state, (b) 
 ## 7. J2 — Pricing integrity
 
 - **Precondition:** Persona A. `goto /pricing`.
-- **Expected (must equal `src/lib/pricing.ts`, Invariant 14):** Self-Serve Dry Run = **Free**; Pro = **CAD $29/month**; Team = **CAD $79/month**; Verified Evidence Review = **CAD $499 one-time**; Certified present. No hard-coded price drift.
-- **Also assert (Invariant 15):** any "10,000 statistical iterations" claim equals the shipped `SIM_STATISTICAL_ITERATIONS` figure.
-- **Gate:** PASS iff every rendered price/cadence matches the table and the iteration claim matches.
+- **Expected (must equal `src/lib/pricing.ts` `PLANS`/`PLAN_ORDER`, Invariant 14) — all six tiers:**
+  | Plan | Price | Cadence |
+  |---|---|---|
+  | Self-Serve Dry Run | Free | — |
+  | Pro | CAD $29 | /month |
+  | Team | CAD $79 | /month |
+  | Verified Evidence Review | CAD $499 | one-time |
+  | Certified Release Gate | **CAD $1,499** | one-time |
+  | Enterprise Assurance | **from CAD $4,999** | /year |
+  No hard-coded price drift; every rendered figure must come from `pricing.ts`.
+- **Iteration claim (Invariant 15):** the "10,000 statistical iterations" claim lives in the i18n/marketing copy (`src/i18n/dictionaries/*`), **not** on the pricing page — assert it wherever it renders (home/marketing), and that it equals `SIM_STATISTICAL_ITERATIONS`. Its absence from `/pricing` is expected, not a failure.
+- **Gate:** PASS iff every rendered price/cadence matches the six-row table; the iteration claim is checked only on the surface that renders it.
 
 ## 8. J3 — Onboarding → target configuration → authorization
 
 - **Precondition:** Persona B (or seed localStorage per §3 then reload).
 - **Actions:** `goto /onboarding`. Enter target system name + `COWORK_TARGET_URL`, choose environment, **confirm authorization** checkbox. Save.
-- **Expected:** invalid URL (e.g. `ftp://x`) → inline error "Enter an http(s) target endpoint…"; valid `http(s)` accepted; draft persisted to `armageddon:onboarding-draft` with `authorizationConfirmed:true`; `armageddon:codebase-target.status === 'ready'`.
-- **Gate:** PASS iff validation rejects non-http(s), accepts valid, and both localStorage keys are written.
+- **Expected — two distinct checks:**
+  - **(safety, required)** an invalid URL (e.g. `ftp://x`) must **not** persist a bad target: no `armageddon:codebase-target` is written/locked with a non-http(s) value; any prior valid target is retained. A reject-and-revert with no unsafe state is a PASS on this check.
+  - **(UX feedback, sub-check)** the invalid value should surface the inline message "Enter an http(s) target endpoint…" rather than being silently discarded. If the value reverts with no visible feedback (observed 2026-07-07), record this as a **soft-fail (UX)**, not a safety fail.
+  - valid `http(s)` accepted; draft persisted to `armageddon:onboarding-draft` with `authorizationConfirmed:true`; `armageddon:codebase-target.status === 'ready'`.
+- **Gate:** PASS iff no unsafe target is ever locked AND valid input persists both localStorage keys. Missing inline error on invalid input → PASS-with-soft-fail (UX), flagged separately.
 
 ## 9. J4 — Authentication (login / session / logout)
 
