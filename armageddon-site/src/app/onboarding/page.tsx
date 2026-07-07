@@ -13,6 +13,7 @@ import {
     DRAFT_KEY,
     createEndpointTarget,
     saveCodebaseTarget,
+    validateTargetEndpointUrl,
     type CodebaseTarget,
     type OnboardingDraft,
     type TargetEnv,
@@ -91,7 +92,12 @@ export default function OnboardingPage() {
         if (d.orgName.trim() === '') found.push('Organization name is required.');
         if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
         if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
-        if (d.targetUrl.trim() === '') found.push('Target endpoint URL is required.');
+        if (d.targetUrl.trim() === '') {
+            found.push('Target endpoint URL is required.');
+        } else {
+            const targetUrlError = validateTargetEndpointUrl(d.targetUrl);
+            if (targetUrlError !== null) found.push(targetUrlError);
+        }
         if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
         if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');
         return found;
@@ -128,7 +134,13 @@ export default function OnboardingPage() {
         let persistedDraft = draft;
         const targetUrl = draft.targetUrl.trim();
         if (targetUrl) {
-            const target = draft.codebaseTarget ?? createEndpointTarget(targetUrl, draft.targetSystemName || 'System under test');
+            // Reuse the saved target only when it still matches what the user
+            // typed — otherwise an edited URL would be silently dropped in
+            // favor of the stale, previously-locked target.
+            const existing = draft.codebaseTarget;
+            const target = existing && existing.endpointUrl === targetUrl
+                ? existing
+                : createEndpointTarget(targetUrl, draft.targetSystemName || 'System under test');
             const updatedTarget = await prepareBackendIntake(target);
             persistedDraft = { ...draft, codebaseTarget: updatedTarget, targetUrl: updatedTarget.endpointUrl };
             try {
