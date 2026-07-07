@@ -1,6 +1,6 @@
 import { proxyActivities, defineSignal, setHandler, executeChild } from '@temporalio/workflow';
-import type * as activities from './activities';
-import { BatteryConfig, WorkflowState, ArmageddonReport, BatteryResult } from './activities';
+import type * as activities from './activities.js';
+import { BatteryConfig, WorkflowState, ArmageddonReport, BatteryResult } from './activities.js';
 import { normalizeIterations } from '@armageddon/shared';
 
 // ═══════════════════════════════════════════════════════════════════════════

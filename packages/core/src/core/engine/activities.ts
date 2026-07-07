@@ -6,8 +6,8 @@
  */
 
 import { Context } from '@temporalio/activity';
-import { enforceSafetyGuard } from './safety';
-import { secureRandom, SeedableRNG } from '../utils';
+import { enforceSafetyGuard } from './safety.js';
+import { secureRandom, SeedableRNG } from '../utils.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES

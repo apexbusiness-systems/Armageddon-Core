@@ -3,7 +3,7 @@
 // APEX Business Systems Ltd. - Proprietary IP
 
 import { createServer, IncomingMessage, ServerResponse, Server } from 'node:http';
-import { safetyGuard } from '../core/safety';
+import { safetyGuard } from '../core/safety.js';
 
 type WorkerState = 'STARTING' | 'RUNNING' | 'STOPPED' | 'DRAINING';
 

@@ -13,7 +13,7 @@ export {
     createSafetyGuard,
     getSafetyConfig,
     type SafetyConfig,
-} from './safety';
+} from './safety.js';
 
 // Activities
 export {
@@ -25,6 +25,6 @@ export {
     type BatteryConfig,
     type BatteryResult,
     type BatteryEvent,
-} from './activities';
+} from './activities.js';
 
 // Workflow exports removed - workflow logic centralized in src/temporal/workflows.ts

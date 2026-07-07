@@ -3,7 +3,7 @@
 // Fail-silent: a network error here must NEVER crash a running battery.
 
 import { createHmac } from 'node:crypto';
-import type { OmniPortTelemetryEvent } from './types';
+import type { OmniPortTelemetryEvent } from './types.js';
 
 export async function pushTelemetry(event: OmniPortTelemetryEvent): Promise<void> {
     if (process.env.OMNIPORT_ENABLED !== 'true') return;

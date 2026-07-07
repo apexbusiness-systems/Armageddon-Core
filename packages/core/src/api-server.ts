@@ -52,7 +52,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
-import { getAttestationPublicKey } from './core/attestation';
+import { getAttestationPublicKey } from './core/attestation.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Client, Connection } from '@temporalio/client';
 import { v4 as uuidv4 } from 'uuid';

@@ -5,8 +5,8 @@
 //
 // Implements real load/stress testing using Artillery/k6 or native HTTP.
 
-import type { OrganizationTier } from './types';
-import { SeedableRNG, hashString } from './utils';
+import type { OrganizationTier } from './types.js';
+import { SeedableRNG, hashString } from './utils.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES

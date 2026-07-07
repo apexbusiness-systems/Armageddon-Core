@@ -1,8 +1,8 @@
 import { Worker, NativeConnection } from '@temporalio/worker';
-import * as activities from './temporal/activities';
-import { safetyGuard } from './core/safety';
-import { getAttestationPublicKey } from './core/attestation';
-import { HealthServer } from './infrastructure/health';
+import * as activities from './temporal/activities.js';
+import { safetyGuard } from './core/safety.js';
+import { getAttestationPublicKey } from './core/attestation.js';
+import { HealthServer } from './infrastructure/health.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION

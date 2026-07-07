@@ -3,9 +3,9 @@
 // APEX Business Systems Ltd.
 // DATE: 2026-06-26
 
-import type { LLMRequest } from './types';
-import { BaseProvider, type ProviderExecutionResult } from './base-provider';
-import { assertJsonResponse, mapStopFinishReason } from './provider-utils';
+import type { LLMRequest } from './types.js';
+import { BaseProvider, type ProviderExecutionResult } from './base-provider.js';
+import { assertJsonResponse, mapStopFinishReason } from './provider-utils.js';
 
 export interface OpenAICompatibleResponse {
     choices: Array<{

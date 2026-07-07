@@ -4,8 +4,8 @@
 // DATE: 2026-02-06
 // REFACTORED: Extends OpenAICompatibleProvider to eliminate code duplication (SonarQube)
 
-import type { CostConfig, LLMRequest, OpenAIModel, ProviderOptions } from './types';
-import { OpenAICompatibleProvider } from './openai-compatible-provider';
+import type { CostConfig, LLMRequest, OpenAIModel, ProviderOptions } from './types.js';
+import { OpenAICompatibleProvider } from './openai-compatible-provider.js';
 
 /**
  * OpenAI pricing per 1M tokens (as of 2026)
