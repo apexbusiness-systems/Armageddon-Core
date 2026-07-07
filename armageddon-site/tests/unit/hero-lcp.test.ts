@@ -27,4 +27,11 @@ describe('hero LCP asset contract', () => {
         expect(consoleComponent).toContain('fetchPriority="high"');
         expect(consoleComponent).toContain('loading="eager"');
     });
+
+    it('does not gate the LCP hero behind an opacity fade-in (delays LCP until hydration)', () => {
+        // The hero block must render immediately. An initial opacity:0 entrance
+        // animation makes the browser record LCP only after JS hydrates and the
+        // 0.8s fade completes — the root cause of poor field LCP (P75/P90).
+        expect(consoleComponent).not.toContain('initial={{ opacity: 0, y: 40 }}');
+    });
 });

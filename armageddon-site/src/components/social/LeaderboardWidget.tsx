@@ -197,7 +197,7 @@ export default function LeaderboardWidget({ status }: { readonly status: Status 
     };
 
     const containerClass = cn(
-        "relative font-mono border bg-black/80 backdrop-blur-md overflow-hidden transition-all duration-500",
+        "relative font-mono border bg-black/85 backdrop-blur-sm overflow-hidden transition-all duration-500",
         isRejected ? "border-red-600 bg-red-950/20" : "border-white/10",
         isCertified ? "border-yellow-500/50" : ""
     );
