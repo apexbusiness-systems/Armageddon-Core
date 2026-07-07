@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import type { PlanId } from '@/lib/pricing';
 import { PLANS, PLAN_ORDER } from '@/lib/pricing';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { getSupabase } from '@/lib/supabase';
 import { useT } from '@/i18n/useT';
 import {
     DRAFT_KEY,
@@ -145,13 +146,34 @@ export default function OnboardingPage() {
 
         const { tier } = draft;
 
+        // Enterprise is always a scoped-program contact request.
         if (tier === 'enterprise') {
             router.push('/intake?tier=enterprise');
             return;
         }
 
+        // An already-authenticated operator is *editing their target config*,
+        // not making a new purchase. Route them back to the console to run —
+        // the gatekeeper enforces real tier entitlement there. Bouncing an
+        // authenticated user to the pre-purchase /intake page renders the
+        // signed-out marketing view, which looks exactly like a forced logout
+        // (the reported bug). Only unauthenticated prospects go through /intake.
+        if (isApiConfigured()) {
+            let signedIn = false;
+            try {
+                const { data } = await (getSupabase()?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
+                signedIn = Boolean(data?.session);
+            } catch {
+                signedIn = false;
+            }
+            if (signedIn) {
+                router.push('/console');
+                return;
+            }
+        }
+
         if (tier === 'verified' || tier === 'certified') {
-            // Paid review tiers: never pretend payment is captured.
+            // Paid review tiers (unauthenticated prospect): never pretend payment is captured.
             router.push(`/intake?tier=${tier}&payment=pending`);
             return;
         }
