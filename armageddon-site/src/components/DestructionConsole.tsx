@@ -888,7 +888,7 @@ export default function DestructionConsole({
             <div className="relative z-10 w-full max-w-6xl mx-auto h-full flex flex-col">
                 <motion.div
                     className="text-center mb-8"
-                    initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
+                    initial={false} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-4 relative z-20">
@@ -909,7 +909,7 @@ export default function DestructionConsole({
                                 fetchPriority="high"
                                 loading="eager"
                                 decoding="sync"
-                                className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)] animate-pulse-slow"
+                                className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)]"
                             />
                         </picture>
                     </div>

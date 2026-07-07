@@ -136,7 +136,7 @@ function SettingsModalPanel({ user, onClose }: PanelProps) {
             aria-label="Settings, Profile & FAQ Control Center"
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+            <div className="absolute inset-0 bg-black/90" />
 
             {/* Panel */}
             <motion.div
