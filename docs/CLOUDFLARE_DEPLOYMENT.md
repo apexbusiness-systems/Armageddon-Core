@@ -57,7 +57,7 @@ shell as a nonexistent path**, not a 404 and not JSON.
 | `/api/gatekeeper` | Yes — `handleGatekeeper` |
 | `/api/run` | Yes — `handleRun` (creates a `pending` row; does **not** call Temporal itself — see below) |
 | `/api/support-chat` | Yes — `handleSupportChat` (ATLAS) |
-| `/api/attestation/pubkey` | **No.** Confirmed live 2026-07-04: returns HTTP 200 with the SPA shell, identical to hitting a nonexistent path — not the JSON attestation response, not a 503. The Next.js route at `armageddon-site/src/app/api/attestation/pubkey/route.ts` is never invoked in this deployment. |
+| `/api/attestation/pubkey` | **Yes — since PR #184 (2026-07-06)** — `handleAttestationPubkey` in `intake-handler.ts` (CLAUDE.md Invariant 13). WebCrypto Ed25519 derivation, formula-identical to `packages/shared/src/attestation-key.ts`; fail-closed 503 when `ARMAGEDDON_ATTESTATION_SEED` is missing/malformed. (Before 2026-07-06 this route was NOT served: it returned the SPA shell, confirmed live 2026-07-04. The Next.js route at `armageddon-site/src/app/api/attestation/pubkey/route.ts` remains unreachable on the static export — the Worker is the production surface.) |
 | `/api/omniport/execute`, `/api/omniport/live-fire`, `/api/omniport/control`, `/api/omniport/waiver`, `/api/omniport/telemetry` | **No.** Same as above — the Next.js route files under `armageddon-site/src/app/api/omniport/` are static-export-only and never served here. |
 
 The routes marked "No" above are only implemented in
