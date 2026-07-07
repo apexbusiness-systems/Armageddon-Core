@@ -1,7 +1,7 @@
 # ARMAGEDDON AGENT GUARDRAILS — CLAUDE.md
 
-**Canonical version**: 2026-07-04
-**Last reviewed**: 2026-07-04
+**Canonical version**: 2026-07-07
+**Last reviewed**: 2026-07-07
 **Authority**: This file is the frozen canonical state reference. It supersedes conversational memory. All agents and contributors must read this before modifying any file listed here.
 
 ---
@@ -77,6 +77,18 @@ const DEFAULT_CANONICAL_HOST = 'armageddontest.icu';
 const DEFAULT_CANONICAL_HOST = 'armageddon.icu';  // stale domain — all routes and CORS will break
 ```
 This constant seeds the CORS header, the rate-limit KV key prefix, and the intake response origin. Using the stale domain breaks every security boundary that is origin-locked.
+
+**Invariant 12 — No fabricated organization identities (added 2026-07-06)**
+`handleMeOrganizations` (and the reference route `src/app/api/me/organizations/route.ts`) must resolve real `organization_members` rows for every user, including the admin account. A hard-coded fake membership with a non-UUID organization id previously caused every `POST /api/run` insert to fail (Postgres uuid parse → opaque 500 "Failed to create run record"). Admin privilege is a tier override in `handleGatekeeper`/`evaluateRunAccess`, never identity fabrication. `parseRunInput` also validates `organizationId` as a UUID (400, not 500). Regression shield: `tests/unit/worker-run-integrity.test.ts`.
+
+**Invariant 13 — `/api/attestation/pubkey` is served by the edge worker (added 2026-07-06)**
+The Next.js attestation route is unreachable on the static-export deployment; `handleAttestationPubkey` in `intake-handler.ts` is the production surface. Its WebCrypto derivation must stay formula-identical to `packages/shared/src/attestation-key.ts` (same PKCS#8 prefix, keyId = first 16 hex of sha256(raw pubkey)). Fail-closed on missing/malformed `ARMAGEDDON_ATTESTATION_SEED` (503) — never synthesize a key.
+
+**Invariant 14 — UI surfaces never hard-code prices (added 2026-07-06)**
+`src/lib/pricing.ts` is the single source of truth for plan names, prices, and cadences. Components (e.g. `SettingsModal.tsx`) must render from `PLANS`/`PLAN_ORDER`. Regression shield: `tests/unit/pricing-display-consistency.test.ts`. SEO/GEO discoverability assets (`public/robots.txt`, `public/sitemap.xml`, `public/llms.txt`, `public/og-image.png`, layout JSON-LD) are load-bearing and shielded by `tests/unit/seo-discoverability.test.ts` — update them together with page/positioning changes.
+
+**Invariant 15 — Marketing claims must match shipped behavior (added 2026-07-06)**
+Quantitative claims rendered on the marketing site must equal the values the code actually uses. `SIM_STATISTICAL_ITERATIONS` (=10000) in `intake-handler.ts` is the single source for the "Simulation tier runs 10,000 statistical iterations" claim and must match the figure in every `src/i18n/dictionaries/*` entry. The homepage leaderboard (`LeaderboardWidget.tsx`) renders a static `TOP_AGENTS` sample and must NOT be labeled "LIVE" — it is labeled "SAMPLE" until wired to a real aggregated endpoint over `armageddon_runs`. Regression shield: `tests/unit/marketing-claim-integrity.test.ts`. We ship validated, evidenced claims — not aspirational ones.
 
 **Invariant 5 — History truncation**
 Only the last 8 messages are forwarded to Anthropic. Do not increase this limit without a security review.
@@ -170,23 +182,4 @@ Before ending any session that touches this repo, verify:
 - [ ] `npm run typecheck` exits 0
 - [ ] `npm run lint` exits 0
 - [ ] No secret values have been committed
-- [ ] The `REPLACE_WITH_KV_NAMESPACE_ID` placeholder has not been replaced with a real ID in a committed file (the real ID goes in Wrangler dashboard or a gitignored `.env`)
-- [ ] `docs/README.md` still accurately lists all canonical documents
-- [ ] This file (`CLAUDE.md`) was updated if any invariant changed
-
----
-
-## Canonical docs index (quick reference)
-
-| Need | Document |
-| --- | --- |
-| Agent/contributor guardrails | `AGENTS.md` |
-| Security layer invariants (this file) | `CLAUDE.md` |
-| Documentation hub | `docs/README.md` |
-| Cloudflare deployment | `docs/CLOUDFLARE_DEPLOYMENT.md` |
-| Local Moat deployment | `DEPLOYMENT.md` |
-| Incident runbooks | `OPS_RUNBOOKS.md` |
-| Production release posture | `PRODUCTION_STATUS.md` |
-| Feature inventory | `feature_registry.md` |
-| Privacy policy | `PRIVACY.md` |
-| Security policy | `SECURITY.md` |
+- [ ] The `REPLACE_WITH_KV_NAMESPACE_ID` placeholder has not been replaced with a real ID in a committed file (the real ID goes in 

@@ -1,7 +1,7 @@
 # Armageddon Documentation Hub
 
-**Docs version**: 2026.06.25<br>
-**Last reviewed**: 2026-06-25<br>
+**Docs version**: 2026.07.07<br>
+**Last reviewed**: 2026-07-07<br>
 **Primary package manager**: npm<br>
 **Runtime baseline**: Node.js 22 in CI, Node.js >=20 for workspaces
 
@@ -23,6 +23,12 @@ This hub is the canonical entry point for onboarding engineers and agents. If a 
 | Sonar quality gate | [`docs/compliance/SONAR_GATE_POLICY.md`](./compliance/SONAR_GATE_POLICY.md) | Duplication and quality-gate expectations. |
 | Documentation audit | [`docs/DOCUMENTATION_AUDIT_2026-05-15.md`](./DOCUMENTATION_AUDIT_2026-05-15.md) | Inventory of reviewed Markdown, text, HTML, README, runbook, status, audit, and map documents. |
 | Local worker credential blocker | [`docs/audits/LOCAL_WORKER_CREDENTIALS_REQUIRED_2026-07-04.md`](./audits/LOCAL_WORKER_CREDENTIALS_REQUIRED_2026-07-04.md) | File-based blocker for cloud-connected Docker Desktop worker deployment credentials and host-side inventory prerequisites. |
+| Deploy the execution engine (api-server + worker) | [`../RUNBOOK_EXECUTION_ENGINE_2026-07-06.md`](../RUNBOOK_EXECUTION_ENGINE_2026-07-06.md) | Full runbook for deploying the two Node processes that drain `pending` runs (fixes "stuck at EXECUTING 0/13"). |
+| Turnkey executor deploy (~15 min) | [`docs/EXECUTOR_DEPLOY_TURNKEY.md`](./EXECUTOR_DEPLOY_TURNKEY.md) | Copy-paste path from the 0/13 stall to executing runs, leading with the Temporal-topology trap in `.env.moat.example` vs `docker-compose.exec.yml`. |
+| Execution-path verification evidence | [`docs/EXECUTION_ENGINE_VERIFICATION_2026-07-07.md`](./EXECUTION_ENGINE_VERIFICATION_2026-07-07.md) | Proof the certification pipeline code path completes start→certification; establishes the 0/13 stall as a deployment gap, not a code defect. |
+| Live UI/UX execution contract | [`docs/COWORK_UI_UX_EXECUTION_CONTRACT.md`](./COWORK_UI_UX_EXECUTION_CONTRACT.md) | Journey-by-journey live validation contract for the production site (Cowork execution). |
+| Release gate 2026-07-06 | [`../RELEASE_GATE_2026-07-06.md`](../RELEASE_GATE_2026-07-06.md) | Audit behind PR #184: /api/run 500 root cause, attestation edge endpoint, claim-integrity and SEO shields (CLAUDE.md Invariants 12–15). |
+| Durable agent memory | [`../omni-recall/start-here.md`](../omni-recall/start-here.md) | Omni-Recall entry point: continuity, correction memory, and durable operating preferences. |
 
 ## Verified root commands
 

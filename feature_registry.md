@@ -1,8 +1,40 @@
 # Feature Registry — ARMAGEDDON Test Suite
 
-**Docs version**: 2026.07.04<br>
-**Last updated**: 2026-07-04<br>
+**Docs version**: 2026.07.07<br>
+**Last updated**: 2026-07-07<br>
 **Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts`, the standalone API runtime in `packages/core/src/api-server.ts`, and site pages in `armageddon-site/src/app/`.
+
+## Domain: Release Gate & Execution Engine (NEW — PRs #181–#189, 2026-07-06/07)
+
+- **Feature:** Attestation public-key endpoint on the edge worker
+  - **Location:** `armageddon-site/src/intake-handler.ts` → `handleAttestationPubkey` (`/api/attestation/pubkey`)
+  - **Scope:** WebCrypto Ed25519 derivation formula-identical to `packages/shared/src/attestation-key.ts`; fail-closed 503 without `ARMAGEDDON_ATTESTATION_SEED`. The Next.js route remains a static-export-unreachable reference implementation. Shielded by `tests/unit/api-attestation-pubkey.test.ts`. (CLAUDE.md Invariant 13.)
+  - **Status:** Implemented (PR #184). Live behavior UNVERIFIED until the worker deploy is confirmed by the operator.
+
+- **Feature:** Run-record integrity (no fabricated org identities)
+  - **Location:** `armageddon-site/src/intake-handler.ts` → `handleMeOrganizations`, `parseRunInput`; reference route `src/app/api/me/organizations/route.ts`
+  - **Scope:** Admin resolves real `organization_members` rows; `organizationId` UUID-validated (400, not 500); admin privilege is a tier override in the gatekeeper, never identity fabrication. Shielded by `tests/unit/worker-run-integrity.test.ts`. (CLAUDE.md Invariant 12.)
+  - **Status:** Implemented (PR #184).
+
+- **Feature:** Pricing single source of truth + marketing claim integrity
+  - **Location:** `armageddon-site/src/lib/pricing.ts`; `SettingsModal.tsx`; `LeaderboardWidget.tsx`; `SIM_STATISTICAL_ITERATIONS` in `intake-handler.ts`
+  - **Scope:** UI surfaces render from `PLANS`/`PLAN_ORDER`; iteration claim (10,000) matches code; static leaderboard labeled SAMPLE. Shielded by `pricing-display-consistency`, `marketing-claim-integrity`, and `seo-discoverability` tests. (CLAUDE.md Invariants 14–15.)
+  - **Status:** Implemented (PR #184).
+
+- **Feature:** Execution-engine deployment path (fixes "EXECUTING 0/13")
+  - **Location:** `docker-compose.exec.yml`; `packages/core/src/api-server.ts` (pending-run dispatcher) + `packages/core/src/worker.ts`
+  - **Scope:** The edge `/api/run` only inserts a `pending` row; these two Node processes drain it and stream progress. Runbook: `RUNBOOK_EXECUTION_ENGINE_2026-07-06.md`; turnkey guide: `docs/EXECUTOR_DEPLOY_TURNKEY.md`; code-path proof: `packages/core/tests/integration/certification-pipeline.test.ts`. api-server CORS locked to the site origin via `CORS_ALLOW_ORIGIN`.
+  - **Status:** Committed deploy path (PRs #187–#189). Production deployment UNVERIFIED (operator action).
+
+- **Feature:** Settings control panel + compliance navigation
+  - **Location:** `armageddon-site/src/components/SettingsModal.tsx`; `AuthHeader.tsx`; `Footer.tsx`
+  - **Scope:** Tabbed operator info/billing/FAQ modal; Support & Privacy links in header and footer; gatekeeper calls forward the Supabase bearer token; certified-tier client execution capped at Level 7.
+  - **Status:** Implemented (PRs #181–#183).
+
+- **Feature:** Onboarding target validation & auth-aware routing
+  - **Location:** `armageddon-site/src/app/onboarding/page.tsx`
+  - **Scope:** Authenticated operators editing target config route to `/console` instead of the pre-purchase intake (PR #186). Target endpoint URL is format-validated via `validateTargetEndpointUrl`, and an edited URL replaces the previously saved target instead of silently reverting (PR #190). Shielded by `tests/unit/app-onboarding-codebase-target.test.tsx`.
+  - **Status:** PR #186 merged; PR #190 open at time of writing.
 
 ## Domain: Support & Privacy (NEW — PR #143)
 

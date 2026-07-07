@@ -1,7 +1,7 @@
 # ARMAGEDDON AGENT GUARDRAILS — CLAUDE.md
 
-**Canonical version**: 2026-07-04
-**Last reviewed**: 2026-07-04
+**Canonical version**: 2026-07-07
+**Last reviewed**: 2026-07-07
 **Authority**: This file is the frozen canonical state reference. It supersedes conversational memory. All agents and contributors must read this before modifying any file listed here.
 
 ---
