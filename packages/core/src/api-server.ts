@@ -70,6 +70,11 @@ import {
 
 const PORT = Number(process.env.API_PORT ?? '8081');
 
+// Browser CORS origin for the dynamic API. Locked to the public site by default;
+// override with CORS_ALLOW_ORIGIN for staging/local. OmniPort routes are
+// server-to-server (bearer-auth) and do not rely on CORS.
+const CORS_ALLOW_ORIGIN = process.env.CORS_ALLOW_ORIGIN?.trim() || 'https://armageddontest.icu';
+
 // Deterministic (linear-time) trimming — avoids regex backtracking on attacker-
 // influenced env values while stripping the same characters as before.
 function trimChar(value: string, ch: string): string {
@@ -147,9 +152,10 @@ function json(res: ServerResponse, status: number, body: unknown): void {
     res.writeHead(status, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': CORS_ALLOW_ORIGIN,
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Vary': 'Origin',
     });
     res.end(payload);
 }
@@ -1025,9 +1031,10 @@ const ROUTES: Record<string, RouteHandler> = {
 
 function writeCorsPreflight(res: ServerResponse): void {
     res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': CORS_ALLOW_ORIGIN,
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Vary': 'Origin',
     });
     res.end();
 }
