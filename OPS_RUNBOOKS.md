@@ -180,3 +180,17 @@ Re-deploy the Worker after setting the secret.
 
 > **REMEMBER**: "Compliance is a checklist. Armageddon is a guarantee."
 > **DO NOT** disable safety guards to "just make it work".
+### Supabase environment aliases (2026-07-08)
+
+GitHub/Cloudflare/local/container envs may continue using `SUPABASE_*`. Supabase dashboard secrets must use `ARMAGEDDON_DB_*` aliases when `SUPABASE_*` is rejected. `ADMIN_EMAIL` does not need to change; `ARMAGEDDON_ADMIN_EMAIL` is only an optional alias.
+
+Use this mapping consistently:
+
+| Canonical name | Optional alias |
+| --- | --- |
+| `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL` | `ARMAGEDDON_DB_URL` |
+| `SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `ARMAGEDDON_DB_ANON_KEY` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `ARMAGEDDON_DB_SERVICE_ROLE_KEY` |
+| `ADMIN_EMAIL` | `ARMAGEDDON_ADMIN_EMAIL` |
+
+`ARMAGEDDON_ATTESTATION_SEED` is unchanged.

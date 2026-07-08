@@ -24,6 +24,14 @@
 
 const CANONICAL_PRODUCTION_URL = 'https://armageddontest.icu';
 
+function firstEnv(...names) {
+    for (const name of names) {
+        const value = process.env[name]?.trim();
+        if (value) return { name, value };
+    }
+    return undefined;
+}
+
 const BANNED_HOSTS = [
     'localhost',
     '127.0.0.1',
@@ -84,15 +92,16 @@ function checkSiteUrl() {
 // ── Guard 2: NEXT_PUBLIC_SUPABASE_URL ─────────────────────────────────────────
 // CRITICAL: if this is localhost, Supabase verification emails will link to localhost.
 function checkSupabaseUrl() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) return fail('NEXT_PUBLIC_SUPABASE_URL is missing. Auth and DB are non-functional without it.');
+    const resolved = firstEnv('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL', 'ARMAGEDDON_DB_URL');
+    if (!resolved) return fail('NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL or ARMAGEDDON_DB_URL) is missing. Auth and DB are non-functional without it.');
+    const { name, value: supabaseUrl } = resolved;
 
-    const parsed = parseUrl(supabaseUrl, 'NEXT_PUBLIC_SUPABASE_URL');
+    const parsed = parseUrl(supabaseUrl, name);
     if (!parsed) return undefined;
 
     if (isBannedHost(parsed.hostname)) {
         return fail(
-            `NEXT_PUBLIC_SUPABASE_URL hostname "${parsed.hostname}" is localhost or banned. ` +
+            `${name} hostname "${parsed.hostname}" is localhost or banned. ` +
             'This causes verification emails to redirect to localhost in production. ' +
             'Set this to your Supabase project URL (https://<ref>.supabase.co) and ' +
             'update the Supabase dashboard Site URL to https://armageddontest.icu.'
@@ -100,23 +109,24 @@ function checkSupabaseUrl() {
     }
     if (!isSupabaseHost(parsed.hostname)) {
         return fail(
-            `NEXT_PUBLIC_SUPABASE_URL hostname "${parsed.hostname}" does not look like a Supabase project URL. ` +
+            `${name} hostname "${parsed.hostname}" does not look like a Supabase project URL. ` +
             'Expected *.supabase.co or *.supabase.in.'
         );
     }
-    return pass(`NEXT_PUBLIC_SUPABASE_URL = ${supabaseUrl}`);
+    return pass(`${name} = ${supabaseUrl}`);
 }
 
 // ── Guard 3: NEXT_PUBLIC_SUPABASE_ANON_KEY ────────────────────────────────────
 function checkAnonKey() {
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const resolved = firstEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'ARMAGEDDON_DB_ANON_KEY');
+    const anonKey = resolved?.value;
     if (!anonKey || anonKey.trim() === '') {
-        return fail('NEXT_PUBLIC_SUPABASE_ANON_KEY is missing or empty. Client-side auth will not work.');
+        return fail('NEXT_PUBLIC_SUPABASE_ANON_KEY (or SUPABASE_ANON_KEY or ARMAGEDDON_DB_ANON_KEY) is missing or empty. Client-side auth will not work.');
     }
     if (!anonKey.startsWith('eyJ')) {
         return fail('NEXT_PUBLIC_SUPABASE_ANON_KEY does not look like a valid JWT (expected "eyJ..." prefix).');
     }
-    return pass(`NEXT_PUBLIC_SUPABASE_ANON_KEY is set (${anonKey.length} chars).`);
+    return pass(`${resolved.name} is set (${anonKey.length} chars).`);
 }
 
 // ── Guard 4: NEXT_PUBLIC_ARMAGEDDON_API_BASE (optional, but validated if present) ─

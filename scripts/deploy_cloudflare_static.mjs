@@ -380,8 +380,8 @@ async function main() {
     : path.join(repoRoot, 'armageddon-site', 'src', 'intake-handler.ts');
   const zoneName = process.env.CLOUDFLARE_ZONE_NAME?.trim() || 'armageddontest.icu';
   const canonicalHost = process.env.CLOUDFLARE_CANONICAL_HOST?.trim() || zoneName;
-  const supabaseUrl = requiredEnv('SUPABASE_URL');
-  const supabaseServiceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_SECRET');
+  const supabaseUrl = requiredEnv('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'ARMAGEDDON_DB_URL');
+  const supabaseServiceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_SECRET', 'ARMAGEDDON_DB_SERVICE_ROLE_KEY');
 
   if (process.env.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED !== 'true'
     && process.env.CLOUDFLARE_SKIP_MIGRATION_CHECK !== 'true') {

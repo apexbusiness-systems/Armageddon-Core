@@ -147,3 +147,17 @@ The site's `POST /api/run` (Cloudflare edge worker → `createRunRecord`) alread
 - `SIM_MODE=true` is the only supported posture here (Invariant 10). Do **not** flip it to run live-fire — that's a separate, waiver-gated decision.
 - `.env.moat` is git-ignored — never commit it. Rotate the Supabase service-role and Temporal keys if ever exposed.
 - The two containers are **outbound-only** in the poller topology; don't publish the api port unless you deliberately move to the `NEXT_PUBLIC_ARMAGEDDON_API_BASE` path (§5), and if you do, front it with TLS + keep CORS locked to `https://armageddontest.icu` (`CORS_ALLOW_ORIGIN`).
+### Supabase environment aliases (2026-07-08)
+
+GitHub/Cloudflare/local/container envs may continue using `SUPABASE_*`. Supabase dashboard secrets must use `ARMAGEDDON_DB_*` aliases when `SUPABASE_*` is rejected. `ADMIN_EMAIL` does not need to change; `ARMAGEDDON_ADMIN_EMAIL` is only an optional alias.
+
+Use this mapping consistently:
+
+| Canonical name | Optional alias |
+| --- | --- |
+| `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL` | `ARMAGEDDON_DB_URL` |
+| `SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `ARMAGEDDON_DB_ANON_KEY` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `ARMAGEDDON_DB_SERVICE_ROLE_KEY` |
+| `ADMIN_EMAIL` | `ARMAGEDDON_ADMIN_EMAIL` |
+
+`ARMAGEDDON_ATTESTATION_SEED` is unchanged.

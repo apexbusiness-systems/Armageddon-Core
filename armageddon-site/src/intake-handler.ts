@@ -1,9 +1,13 @@
 type IntakeEnv = {
   ASSETS: { fetch(request: Request): Promise<Response> };
   SUPABASE_URL?: string;
+  NEXT_PUBLIC_SUPABASE_URL?: string;
+  ARMAGEDDON_DB_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  ARMAGEDDON_DB_SERVICE_ROLE_KEY?: string;
   CANONICAL_HOST?: string;
   ADMIN_EMAIL?: string;
+  ARMAGEDDON_ADMIN_EMAIL?: string;
   // Temporal Cloud — used by /api/run to start workflows via HTTP API
   TEMPORAL_ADDRESS?: string;   // e.g. armageddon-prod.smvtx.tmprl.cloud:7233
   TEMPORAL_API_KEY?: string;
@@ -56,6 +60,53 @@ const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   source: 240,
 };
 
+
+type EnvKey = keyof IntakeEnv;
+
+const SUPABASE_URL_KEYS: EnvKey[] = ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'ARMAGEDDON_DB_URL'];
+const SUPABASE_SERVICE_ROLE_KEY_KEYS: EnvKey[] = ['SUPABASE_SERVICE_ROLE_KEY', 'ARMAGEDDON_DB_SERVICE_ROLE_KEY'];
+const ADMIN_EMAIL_KEYS: EnvKey[] = ['ADMIN_EMAIL', 'ARMAGEDDON_ADMIN_EMAIL'];
+
+function normalizeBinding(raw: string | undefined): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  const hasWrappingQuotes = trimmed.length >= 2 && first === last && (first === '"' || first === "'");
+  const unwrapped = hasWrappingQuotes ? trimmed.slice(1, -1).trim() : trimmed;
+
+  return unwrapped || undefined;
+}
+
+function firstBinding(env: IntakeEnv, keys: EnvKey[]): string | undefined {
+  for (const key of keys) {
+    const value = env[key];
+    if (typeof value !== 'string') continue;
+
+    const normalized = normalizeBinding(value);
+    if (normalized) return normalized;
+  }
+  return undefined;
+}
+
+function supabaseUrl(env: IntakeEnv): string | undefined {
+  return firstBinding(env, SUPABASE_URL_KEYS);
+}
+
+function supabaseServiceRoleKey(env: IntakeEnv): string | undefined {
+  return firstBinding(env, SUPABASE_SERVICE_ROLE_KEY_KEYS);
+}
+
+function adminEmail(env: IntakeEnv): string | undefined {
+  return firstBinding(env, ADMIN_EMAIL_KEYS);
+}
+
+function isAdminEmail(email: string | undefined, env: IntakeEnv): boolean {
+  const configuredAdmin = adminEmail(env);
+  return Boolean(email && (email === 'jrmendozaceo@apexbusiness-systems.icu' || email === configuredAdmin));
+}
+
 // ── Shared response helpers ───────────────────────────────────────────────────
 
 function withProductionHeaders(response: Response, canonicalHost: string): Response {
@@ -89,7 +140,7 @@ function jsonResponse(body: unknown, canonicalHost: string, status = 200): Respo
 // ── Supabase REST helpers (no SDK import — pure fetch) ───────────────────────
 
 function supabaseBase(env: IntakeEnv): string {
-  let url = env.SUPABASE_URL ?? '';
+  let url = supabaseUrl(env) ?? '';
   while (url.endsWith('/')) url = url.slice(0, -1);
   return url;
 }
@@ -97,7 +148,7 @@ function supabaseBase(env: IntakeEnv): string {
 async function getSupabaseUser(env: IntakeEnv, token: string): Promise<SupabaseUser | null> {
   const res = await fetch(`${supabaseBase(env)}/auth/v1/user`, {
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+      apikey: supabaseServiceRoleKey(env) ?? '',
       Authorization: `Bearer ${token}`,
     },
   });
@@ -112,8 +163,8 @@ async function supabaseQuery<T>(
 ): Promise<{ data: T[] | null; error: string | null }> {
   const res = await fetch(`${supabaseBase(env)}/rest/v1/${table}?${params}`, {
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      Authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
     },
   });
   if (!res.ok) {
@@ -131,8 +182,8 @@ async function supabaseInsert(
   const res = await fetch(`${supabaseBase(env)}/rest/v1/${table}`, {
     method: 'POST',
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      Authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
@@ -154,8 +205,8 @@ async function supabaseUpdate(
   const res = await fetch(`${supabaseBase(env)}/rest/v1/${table}?${filter}`, {
     method: 'PATCH',
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      Authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
@@ -177,9 +228,12 @@ function extractBearer(request: Request): string | null {
 
 // ── API Handlers ──────────────────────────────────────────────────────────────
 
-async function handleMeOrganizations(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
-  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+async function requireAuthenticatedUser(
+  request: Request,
+  env: IntakeEnv,
+  canonicalHost: string,
+): Promise<SupabaseUser | Response> {
+  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
   }
 
@@ -188,6 +242,16 @@ async function handleMeOrganizations(request: Request, env: IntakeEnv, canonical
 
   const user = await getSupabaseUser(env, token);
   if (!user) return jsonResponse({ success: false, error: 'Unauthorized: Invalid token' }, canonicalHost, 401);
+
+  return user;
+}
+
+async function handleMeOrganizations(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+
+  const userOrResponse = await requireAuthenticatedUser(request, env, canonicalHost);
+  if (userOrResponse instanceof Response) return userOrResponse;
+  const user = userOrResponse;
 
   // NOTE (2026-07-06, root-cause fix): a hard-coded fake membership with a
   // non-UUID organization id previously short-circuited here for the admin
@@ -218,7 +282,7 @@ interface HealthProbe {
 }
 
 async function checkSupabaseHealth(env: IntakeEnv): Promise<HealthProbe> {
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return { connected: false, error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured' };
   }
   const { error } = await supabaseQuery(env, 'armageddon_runs', 'select=id&limit=1');
@@ -289,7 +353,7 @@ async function handleGatekeeper(request: Request, env: IntakeEnv, canonicalHost:
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
 
   const token = extractBearer(request);
-  if (!token || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!token || !supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
   }
 
@@ -298,7 +362,7 @@ async function handleGatekeeper(request: Request, env: IntakeEnv, canonicalHost:
     return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
   }
 
-  if (user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL))) {
+  if (isAdminEmail(user.email, env)) {
     return jsonResponse({ eligible: true, tier: 'certified', reason: 'ADMIN_OVERRIDE' }, canonicalHost);
   }
 
@@ -452,7 +516,7 @@ async function evaluateRunAccess(env: IntakeEnv, user: SupabaseUser, input: RunI
   const { organizationId, level, requestedBatteries } = input;
   const userId = user.id;
 
-  const isAdmin = Boolean(user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL)));
+  const isAdmin = isAdminEmail(user.email, env);
 
   // Verify user is member of the org (skip for admin/test accounts)
   if (!isAdmin) {
@@ -579,15 +643,10 @@ async function createRunRecord(
 
 async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
-  }
 
-  const token = extractBearer(request);
-  if (!token) return jsonResponse({ success: false, error: 'Unauthorized: Missing token' }, canonicalHost, 401);
-
-  const user = await getSupabaseUser(env, token);
-  if (!user) return jsonResponse({ success: false, error: 'Unauthorized: Invalid token' }, canonicalHost, 401);
+  const userOrResponse = await requireAuthenticatedUser(request, env, canonicalHost);
+  if (userOrResponse instanceof Response) return userOrResponse;
+  const user = userOrResponse;
 
   let body: Record<string, unknown>;
   try {
@@ -658,7 +717,7 @@ async function parseJson(request: Request): Promise<IntakePayload | null> {
 
 async function handleIntake(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ error: 'Intake service is not configured.' }, canonicalHost, 500);
   }
 
@@ -673,8 +732,8 @@ async function handleIntake(request: Request, env: IntakeEnv, canonicalHost: str
   const response = await fetch(`${supabaseBase(env)}/rest/v1/armageddon_intake`, {
     method: 'POST',
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
       'content-type': 'application/json',
       prefer: 'return=minimal',
     },

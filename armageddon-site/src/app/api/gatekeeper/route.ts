@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readAdminEmail } from '@armageddon/shared';
 import { authenticateRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
         const { user, supabase } = auth;
         
         // Secure Admin Verification via Environment Variable or Test Accounts
-        if (user && user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL))) {
+        if (user && user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || user.email === readAdminEmail())) {
              return NextResponse.json({
                 eligible: true,
                 tier: 'certified',

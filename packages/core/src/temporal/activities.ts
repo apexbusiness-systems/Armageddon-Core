@@ -8,7 +8,7 @@
 import { execFile } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { createClient } from '@supabase/supabase-js';
+import { readSupabaseServiceRoleKey, readSupabaseUrl } from '@armageddon/shared';
 import {
     INJECTION_PATTERNS,
     ADVERSARIAL_PROMPTS,
@@ -19,6 +19,7 @@ import {
 
 import { safetyGuard, SafetyGuard, SystemLockdownError } from '../core/safety.js';
 import { createReporter, EventType } from '../core/reporter.js';
+import { createServerSupabaseClient } from '../core/supabase-client.js';
 import { hashString, SeedableRNG } from '../core/utils.js';
 import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial.js';
 import { runStressTest, StressTestConfig } from '../core/stress.js';
@@ -787,11 +788,11 @@ export async function runBattery9_IntegrationHandshake(config: BatteryConfig): P
 
     try {
         // Check Supabase / Database Access
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = readSupabaseUrl();
+        const supabaseKey = readSupabaseServiceRoleKey();
 
         if (supabaseUrl && supabaseKey) {
-            const client = createClient(supabaseUrl, supabaseKey);
+            const client = createServerSupabaseClient(supabaseUrl, supabaseKey);
 
             // Validate table existence/access by doing a limit 0 query
             const { error } = await client
@@ -903,12 +904,12 @@ export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void
         return;
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = readSupabaseUrl();
+    const supabaseKey = readSupabaseServiceRoleKey();
     if (!supabaseUrl || !supabaseKey) {
-        throw new Error('[FinalizeRun] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
+        throw new Error('[FinalizeRun] SUPABASE_URL (or ARMAGEDDON_DB_URL) and SUPABASE_SERVICE_ROLE_KEY (or ARMAGEDDON_DB_SERVICE_ROLE_KEY) required');
     }
-    const client = createClient(supabaseUrl, supabaseKey);
+    const client = createServerSupabaseClient(supabaseUrl, supabaseKey);
 
     const batteries = input.report.batteries ?? [];
     const totalIterations = batteries.reduce((sum, b) => sum + (b.iterations || 0), 0);

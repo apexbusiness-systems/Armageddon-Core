@@ -34,6 +34,7 @@ The system should:
 - Audit date: 2026-07-07 (git-history reconciliation — see `2026-07-07-git-history-reconciliation.md`)
 - Key facts: Release gate PR #184 landed CLAUDE.md Invariants 12–15 (run-record integrity, edge attestation endpoint, pricing SoT, marketing claim integrity). Execution-engine gap ("EXECUTING 0/13") root-caused as a deployment gap, not a code defect; deploy path merged via PRs #187–#189 (`docker-compose.exec.yml`, runbook, certification-pipeline integration test). Production deployment of api-server + worker remains UNVERIFIED (operator action). J3 onboarding validation defect fixed in PR #190.
 - Docs synced this session: `PRODUCTION_STATUS.md`, `feature_registry.md`, `docs/README.md`, `docs/CLOUDFLARE_DEPLOYMENT.md`, `omni-recall/CLAUDE.md` (re-synced from root — it had drifted, missing Invariants 12–15).
+- 2026-07-08: Env alias resolver added for Supabase/Admin variables; see `2026-07-08-env-alias-resolver.md`.
 
 ## Previous Verified Session (2026-07-05)
 
