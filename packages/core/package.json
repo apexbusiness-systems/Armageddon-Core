@@ -2,6 +2,7 @@
   "name": "armageddon-core",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Armageddon Level 7 Certification Engine - Adversarial AI Testing Microservice",
   "main": "dist/index.js",
   "bin": "./bin/armageddon.ts",

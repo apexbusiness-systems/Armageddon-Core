@@ -1,4 +1,5 @@
 import { Worker, NativeConnection } from '@temporalio/worker';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as activities from './temporal/activities.js';
 import { safetyGuard } from './core/safety.js';
 import { getAttestationPublicKey } from './core/attestation.js';
@@ -100,7 +101,7 @@ export async function createArmageddonWorker(): Promise<Worker> {
         connection,
         namespace: process.env.TEMPORAL_NAMESPACE || 'default',
         taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7',
-        workflowsPath: require.resolve('./temporal/workflows'),
+        workflowsPath: fileURLToPath(new URL('./temporal/workflows.js', import.meta.url)),
         activities: activities.activities,
     });
 
@@ -124,8 +125,12 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
-// Run if executed directly (ESM top-level await replaced with IIFE for CJS compat)
-if (require.main === module) {
+// Run if executed directly. ESM has no require.main/module; compare this module's
+// URL to the invoked entrypoint (node dist/worker.js) instead.
+const isDirectRun = process.argv[1]
+    ? import.meta.url === pathToFileURL(process.argv[1]).href
+    : false;
+if (isDirectRun) {
    runWorker().catch((err) => {
        console.error(err);
        process.exit(1);

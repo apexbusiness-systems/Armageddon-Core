@@ -5,6 +5,7 @@ import * as crypto from 'node:crypto';
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ArmageddonReport } from '../temporal/activities.js';
 import {
     Attestation,
@@ -12,6 +13,11 @@ import {
     createAttestation,
     renderStandaloneVerifier,
 } from './attestation.js';
+
+// ESM has no CommonJS __dirname; derive it from this module's URL so the
+// package.json / cert-template lookups below resolve the same way they did
+// under CJS. (packages/core compiles to ESM — module: es2022 + type: module.)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export interface EvidenceOptions {
     seed: number;
