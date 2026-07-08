@@ -19,7 +19,11 @@ import {
     type TargetEnv,
 } from '@/lib/codebase-target';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Domain label excludes '.' ([^\s@.]) so the literal '.' separator is
+// unambiguous — the previous [^\s@]+\.[^\s@]+ let the class also match the dot,
+// giving overlapping quantifiers and super-linear backtracking (Sonar S8786).
+// Behavior is identical for accept/reject; only the runtime is now linear.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
 
 function isPlanId(value: string | null): value is PlanId {
     return value !== null && (PLAN_ORDER as readonly string[]).includes(value);
