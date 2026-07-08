@@ -6,8 +6,8 @@
 // Implements PAIR (Prompt Automatic Iterative Refinement) and
 // Tree-of-Attacks architectures for real LLM adversarial testing.
 
-import type { AdversarialConfig, ModelIdentifier } from '../providers/types.js';
-import { createAdversarialConfig, createSimulationConfig } from '../providers/index.js';
+import type { AdversarialConfig, ModelIdentifier, HttpTargetConfig } from '../providers/types.js';
+import { createAdversarialConfig, createSimulationConfig, createHttpTargetConfigFromEnv } from '../providers/index.js';
 import type { OrganizationTier, AdversarialModel } from './types.js';
 
 // Map short model names to full provider model identifiers
@@ -21,6 +21,8 @@ const MODEL_MAP: Record<AdversarialModel, string> = {
     'claude-3-opus': 'claude-opus-4-6',
     'gpt-4-turbo': 'gpt-4o',
     'llama-3-70b': 'meta-llama/Llama-3-70b-chat-hf',
+    // Generic real app/agent HTTP endpoint — passes through unchanged
+    'http-target': 'http-target',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -63,6 +65,14 @@ export interface AdversarialEngineConfig {
     maxIterations?: number;
     maxCostUSD?: number;
     runId: string;
+    /**
+     * Only used when targetModel === 'http-target'. Overrides reading
+     * ARMAGEDDON_TARGET_* from the environment — mainly for tests. When
+     * omitted, resolved via createHttpTargetConfigFromEnv() at construction
+     * time, and construction throws (does NOT fall back to simulation) if
+     * that resolution fails.
+     */
+    httpTarget?: HttpTargetConfig;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -120,7 +130,21 @@ export class AdversarialEngine {
         if (config.tier === 'CERTIFIED' && config.targetModel) {
             // Real LLM adversarial testing - map short name to full identifier
             const fullModelName = MODEL_MAP[config.targetModel] as ModelIdentifier;
-            this.config = createAdversarialConfig(fullModelName);
+
+            if (config.targetModel === 'http-target') {
+                const httpTarget = config.httpTarget ?? createHttpTargetConfigFromEnv();
+                if (!httpTarget) {
+                    throw new Error(
+                        "[AdversarialEngine] targetModel is 'http-target' but no HTTP target is configured " +
+                        '(ARMAGEDDON_TARGET_PROVIDER must be \'http\' with ARMAGEDDON_TARGET_ENDPOINT/' +
+                        'ARMAGEDDON_TARGET_BODY_TEMPLATE/ARMAGEDDON_TARGET_ALLOWLIST_HOSTS set). ' +
+                        'Refusing to silently fall back to sim-001.'
+                    );
+                }
+                this.config = createAdversarialConfig(fullModelName, { httpTarget });
+            } else {
+                this.config = createAdversarialConfig(fullModelName);
+            }
         } else {
             // Simulation mode for FREE tier
             this.config = createSimulationConfig(config.runId);
