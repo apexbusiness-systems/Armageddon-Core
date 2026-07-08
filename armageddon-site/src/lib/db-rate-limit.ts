@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { readEnv } from '@armageddon/shared';
+import { readSupabaseServiceRoleKey, readSupabaseUrl } from '@armageddon/shared';
 
 // Requires service role to call the RPC securely.
 // Lazy singleton: constructing the client at module scope crashes
@@ -11,8 +11,8 @@ let cachedClient: SupabaseClient | null = null;
 function getRateLimitClient(): SupabaseClient {
     if (cachedClient) return cachedClient;
 
-    const supabaseUrl = readEnv('SUPABASE_URL') ?? readEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const supabaseServiceKey = readEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = readSupabaseUrl();
+    const supabaseServiceKey = readSupabaseServiceRoleKey();
 
     if (!supabaseUrl || !supabaseServiceKey) {
         console.warn('Missing Supabase credentials for rate limiting');

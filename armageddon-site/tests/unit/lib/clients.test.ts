@@ -53,6 +53,11 @@ beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.ARMAGEDDON_DB_URL;
+    delete process.env.ARMAGEDDON_DB_ANON_KEY;
+    delete process.env.ARMAGEDDON_DB_SERVICE_ROLE_KEY;
     process.env.TEMPORAL_ADDRESS = 'localhost:7233';
     process.env.TEMPORAL_NAMESPACE = 'test';
 });
@@ -109,8 +114,26 @@ describe('Supabase Client Singletons', () => {
             }
         });
 
+        test('uses ARMAGEDDON_DB_URL and ARMAGEDDON_DB_SERVICE_ROLE_KEY aliases', () => {
+            delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+            delete process.env.SUPABASE_URL;
+            delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+            process.env.ARMAGEDDON_DB_URL = 'https://alias.supabase.co';
+            process.env.ARMAGEDDON_DB_SERVICE_ROLE_KEY = 'alias-service-key';
+            __resetSupabaseClients();
+
+            getSupabaseServiceRole();
+
+            expect(mocks.createClient).toHaveBeenCalledWith(
+                'https://alias.supabase.co',
+                'alias-service-key',
+                expect.anything()
+            );
+        });
+
         test('throws when credentials are missing', () => {
             delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+            delete process.env.ARMAGEDDON_DB_SERVICE_ROLE_KEY;
             __resetSupabaseClients();
 
             expect(() => getSupabaseServiceRole()).toThrow(/missing.*credentials/i);
@@ -126,8 +149,27 @@ describe('Supabase Client Singletons', () => {
             expect(client1).toBeTruthy();
         });
 
+        test('uses ARMAGEDDON_DB_URL and ARMAGEDDON_DB_ANON_KEY aliases', () => {
+            delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+            delete process.env.SUPABASE_URL;
+            delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+            delete process.env.SUPABASE_ANON_KEY;
+            process.env.ARMAGEDDON_DB_URL = 'https://alias.supabase.co';
+            process.env.ARMAGEDDON_DB_ANON_KEY = 'alias-anon-key';
+            __resetSupabaseClients();
+
+            getSupabaseAnon();
+
+            expect(mocks.createClient).toHaveBeenCalledWith(
+                'https://alias.supabase.co',
+                'alias-anon-key',
+                expect.anything()
+            );
+        });
+
         test('throws when credentials are missing', () => {
             delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+            delete process.env.ARMAGEDDON_DB_ANON_KEY;
             __resetSupabaseClients();
 
             expect(() => getSupabaseAnon()).toThrow(/missing.*credentials/i);

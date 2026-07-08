@@ -8,7 +8,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { cleanEnvValue } from '@armageddon/shared';
+import { cleanEnvValue, readSupabaseAnonKey, readSupabaseServiceRoleKey, readSupabaseUrl } from '@armageddon/shared';
 
 // Singleton instance
 let supabaseClient: SupabaseClient | null = null;
@@ -27,8 +27,8 @@ export function getSupabase(): SupabaseClient | null {
     // Check for required environment variables (literal access keeps the
     // NEXT_PUBLIC_* values inlinable in the client bundle; cleanEnvValue
     // strips stray quotes/whitespace from dashboard-pasted values)
-    const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
-    const anonKey = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL) ?? cleanEnvValue(process.env.ARMAGEDDON_DB_URL);
+    const anonKey = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ?? cleanEnvValue(process.env.ARMAGEDDON_DB_ANON_KEY);
 
     if (!url || !anonKey) {
         console.warn('Supabase environment variables not configured');
@@ -104,13 +104,13 @@ export function getSupabaseServiceRole(): SupabaseClient {
     }
 
     // Get credentials
-    const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL) ?? cleanEnvValue(process.env.SUPABASE_URL);
-    const key = cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const url = readSupabaseUrl();
+    const key = readSupabaseServiceRoleKey();
 
     if (!url || !key) {
         throw new Error(
             'Missing Supabase service role credentials. ' +
-            'Required: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY'
+            'Required: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL or ARMAGEDDON_DB_URL, SUPABASE_SERVICE_ROLE_KEY or ARMAGEDDON_DB_SERVICE_ROLE_KEY'
         );
     }
 
@@ -154,13 +154,13 @@ export function getSupabaseAnon(): SupabaseClient {
     }
 
     // Get credentials
-    const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
-    const key = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    const url = readSupabaseUrl();
+    const key = readSupabaseAnonKey();
 
     if (!url || !key) {
         throw new Error(
             'Missing Supabase anon credentials. ' +
-            'Required: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY'
+            'Required: NEXT_PUBLIC_SUPABASE_URL (or ARMAGEDDON_DB_URL), NEXT_PUBLIC_SUPABASE_ANON_KEY (or ARMAGEDDON_DB_ANON_KEY)'
         );
     }
 

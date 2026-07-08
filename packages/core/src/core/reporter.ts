@@ -3,6 +3,7 @@
 // APEX Business Systems Ltd.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { readSupabaseServiceRoleKey, readSupabaseUrl } from '@armageddon/shared';
 
 export type EventType =
     | 'RUN_STARTED'
@@ -94,8 +95,8 @@ export class SupabaseReporter {
     private readonly runId: string;
 
     constructor(runId: string) {
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = readSupabaseUrl();
+        const supabaseKey = readSupabaseServiceRoleKey();
 
         if (process.env.DISABLE_REPORTER === 'true') {
             console.log('[Reporter] Reporter disabled via DISABLE_REPORTER env variable.');
@@ -106,7 +107,7 @@ export class SupabaseReporter {
         }
 
         if (!supabaseUrl || !supabaseKey) {
-            throw new Error('[Reporter] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
+            throw new Error('[Reporter] SUPABASE_URL (or ARMAGEDDON_DB_URL) and SUPABASE_SERVICE_ROLE_KEY (or ARMAGEDDON_DB_SERVICE_ROLE_KEY) required');
         }
 
         this.client = createClient(supabaseUrl, supabaseKey);

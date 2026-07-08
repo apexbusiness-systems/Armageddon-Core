@@ -38,6 +38,8 @@ describe('finalizeRunActivity — durable terminal persistence', () => {
         vi.clearAllMocks();
         process.env.SUPABASE_URL = 'http://localhost';
         process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
+        delete process.env.ARMAGEDDON_DB_URL;
+        delete process.env.ARMAGEDDON_DB_SERVICE_ROLE_KEY;
         singleMock.mockResolvedValue({ data: { id: 'run-xyz' }, error: null });
     });
 
@@ -62,6 +64,24 @@ describe('finalizeRunActivity — durable terminal persistence', () => {
         expect(update.batteries_failed).toEqual(['B11']);
         expect(eqMock).toHaveBeenCalledWith('id', 'run-xyz');
         expect(selectMock).toHaveBeenCalledWith('id'); // proves the row was returned
+    });
+
+
+
+    it('uses ARMAGEDDON_DB_URL and ARMAGEDDON_DB_SERVICE_ROLE_KEY aliases for terminal persistence', async () => {
+        delete process.env.SUPABASE_URL;
+        delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+        process.env.ARMAGEDDON_DB_URL = 'http://alias-localhost';
+        process.env.ARMAGEDDON_DB_SERVICE_ROLE_KEY = 'alias-service-key';
+
+        await finalizeRunActivity({
+            runId: 'run-alias',
+            status: 'passed',
+            startedAt: Date.now() - 5000,
+            report: makeReport(),
+        });
+
+        expect(fromMock).toHaveBeenCalledWith('armageddon_runs');
     });
 
     it('throws when the terminal persistence write returns an error', async () => {

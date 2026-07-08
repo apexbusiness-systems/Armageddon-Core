@@ -18,6 +18,8 @@ describe('SupabaseReporter — armageddon_events schema alignment', () => {
         vi.clearAllMocks();
         process.env.SUPABASE_URL = 'http://localhost';
         process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
+        delete process.env.ARMAGEDDON_DB_URL;
+        delete process.env.ARMAGEDDON_DB_SERVICE_ROLE_KEY;
         insertMock.mockResolvedValue({ error: null });
         sendMock.mockResolvedValue(undefined);
     });
@@ -51,6 +53,20 @@ describe('SupabaseReporter — armageddon_events schema alignment', () => {
         const row = insertMock.mock.calls[0][0];
         expect(row.iteration).toBe(42);
         expect(row.severity).toBe('blocked'); // ATTACK_BLOCKED → blocked enum value
+    });
+
+
+
+    it('uses ARMAGEDDON_DB_URL and ARMAGEDDON_DB_SERVICE_ROLE_KEY aliases', async () => {
+        delete process.env.SUPABASE_URL;
+        delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+        process.env.ARMAGEDDON_DB_URL = 'http://alias-localhost';
+        process.env.ARMAGEDDON_DB_SERVICE_ROLE_KEY = 'alias-service-key';
+
+        const reporter = new SupabaseReporter('run-alias');
+        await reporter.pushEvent('B10', 'BREACH', { prompt: 'x' });
+
+        expect(insertMock).toHaveBeenCalledTimes(1);
     });
 
     // T2

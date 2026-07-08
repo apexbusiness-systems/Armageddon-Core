@@ -1,9 +1,13 @@
 type IntakeEnv = {
   ASSETS: { fetch(request: Request): Promise<Response> };
   SUPABASE_URL?: string;
+  NEXT_PUBLIC_SUPABASE_URL?: string;
+  ARMAGEDDON_DB_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  ARMAGEDDON_DB_SERVICE_ROLE_KEY?: string;
   CANONICAL_HOST?: string;
   ADMIN_EMAIL?: string;
+  ARMAGEDDON_ADMIN_EMAIL?: string;
   // Temporal Cloud — used by /api/run to start workflows via HTTP API
   TEMPORAL_ADDRESS?: string;   // e.g. armageddon-prod.smvtx.tmprl.cloud:7233
   TEMPORAL_API_KEY?: string;
@@ -56,6 +60,36 @@ const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
   source: 240,
 };
 
+
+function cleanEnvValue(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  let value = raw.trim();
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      value = value.slice(1, -1).trim();
+    }
+  }
+  return value.length > 0 ? value : undefined;
+}
+
+function supabaseUrl(env: IntakeEnv): string | undefined {
+  return cleanEnvValue(env.SUPABASE_URL) ?? cleanEnvValue(env.NEXT_PUBLIC_SUPABASE_URL) ?? cleanEnvValue(env.ARMAGEDDON_DB_URL);
+}
+
+function supabaseServiceRoleKey(env: IntakeEnv): string | undefined {
+  return cleanEnvValue(env.SUPABASE_SERVICE_ROLE_KEY) ?? cleanEnvValue(env.ARMAGEDDON_DB_SERVICE_ROLE_KEY);
+}
+
+function adminEmail(env: IntakeEnv): string | undefined {
+  return cleanEnvValue(env.ADMIN_EMAIL) ?? cleanEnvValue(env.ARMAGEDDON_ADMIN_EMAIL);
+}
+
+function isAdminEmail(email: string | undefined, env: IntakeEnv): boolean {
+  return Boolean(email && (email === 'jrmendozaceo@apexbusiness-systems.icu' || email === adminEmail(env)));
+}
+
 // ── Shared response helpers ───────────────────────────────────────────────────
 
 function withProductionHeaders(response: Response, canonicalHost: string): Response {
@@ -89,7 +123,7 @@ function jsonResponse(body: unknown, canonicalHost: string, status = 200): Respo
 // ── Supabase REST helpers (no SDK import — pure fetch) ───────────────────────
 
 function supabaseBase(env: IntakeEnv): string {
-  let url = env.SUPABASE_URL ?? '';
+  let url = supabaseUrl(env) ?? '';
   while (url.endsWith('/')) url = url.slice(0, -1);
   return url;
 }
@@ -97,7 +131,7 @@ function supabaseBase(env: IntakeEnv): string {
 async function getSupabaseUser(env: IntakeEnv, token: string): Promise<SupabaseUser | null> {
   const res = await fetch(`${supabaseBase(env)}/auth/v1/user`, {
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+      apikey: supabaseServiceRoleKey(env) ?? '',
       Authorization: `Bearer ${token}`,
     },
   });
@@ -112,8 +146,8 @@ async function supabaseQuery<T>(
 ): Promise<{ data: T[] | null; error: string | null }> {
   const res = await fetch(`${supabaseBase(env)}/rest/v1/${table}?${params}`, {
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      Authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
     },
   });
   if (!res.ok) {
@@ -131,8 +165,8 @@ async function supabaseInsert(
   const res = await fetch(`${supabaseBase(env)}/rest/v1/${table}`, {
     method: 'POST',
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      Authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
@@ -154,8 +188,8 @@ async function supabaseUpdate(
   const res = await fetch(`${supabaseBase(env)}/rest/v1/${table}?${filter}`, {
     method: 'PATCH',
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      Authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
@@ -179,7 +213,7 @@ function extractBearer(request: Request): string | null {
 
 async function handleMeOrganizations(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
   }
 
@@ -218,7 +252,7 @@ interface HealthProbe {
 }
 
 async function checkSupabaseHealth(env: IntakeEnv): Promise<HealthProbe> {
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return { connected: false, error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured' };
   }
   const { error } = await supabaseQuery(env, 'armageddon_runs', 'select=id&limit=1');
@@ -289,7 +323,7 @@ async function handleGatekeeper(request: Request, env: IntakeEnv, canonicalHost:
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
 
   const token = extractBearer(request);
-  if (!token || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!token || !supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
   }
 
@@ -298,7 +332,7 @@ async function handleGatekeeper(request: Request, env: IntakeEnv, canonicalHost:
     return jsonResponse({ eligible: false, tier: 'free', reason: 'LEVEL_7_ACCESS_REQUIRED' }, canonicalHost);
   }
 
-  if (user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL))) {
+  if (isAdminEmail(user.email, env)) {
     return jsonResponse({ eligible: true, tier: 'certified', reason: 'ADMIN_OVERRIDE' }, canonicalHost);
   }
 
@@ -452,7 +486,7 @@ async function evaluateRunAccess(env: IntakeEnv, user: SupabaseUser, input: RunI
   const { organizationId, level, requestedBatteries } = input;
   const userId = user.id;
 
-  const isAdmin = Boolean(user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (env.ADMIN_EMAIL && user.email === env.ADMIN_EMAIL)));
+  const isAdmin = isAdminEmail(user.email, env);
 
   // Verify user is member of the org (skip for admin/test accounts)
   if (!isAdmin) {
@@ -579,7 +613,7 @@ async function createRunRecord(
 
 async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
   }
 
@@ -658,7 +692,7 @@ async function parseJson(request: Request): Promise<IntakePayload | null> {
 
 async function handleIntake(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ error: 'Intake service is not configured.' }, canonicalHost, 500);
   }
 
@@ -673,8 +707,8 @@ async function handleIntake(request: Request, env: IntakeEnv, canonicalHost: str
   const response = await fetch(`${supabaseBase(env)}/rest/v1/armageddon_intake`, {
     method: 'POST',
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: supabaseServiceRoleKey(env) ?? '',
+      authorization: `Bearer ${supabaseServiceRoleKey(env) ?? ''}`,
       'content-type': 'application/json',
       prefer: 'return=minimal',
     },
