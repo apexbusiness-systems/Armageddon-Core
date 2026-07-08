@@ -56,7 +56,8 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
 import { getAttestationPublicKey } from './core/attestation.js';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from './core/supabase-client.js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { Client, Connection } from '@temporalio/client';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES, readAdminEmail, readSupabaseServiceRoleKey, readSupabaseUrl } from '@armageddon/shared';
@@ -106,9 +107,7 @@ function getServiceRole(): SupabaseClient {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
         throw new Error('Missing SUPABASE_URL (or ARMAGEDDON_DB_URL) or SUPABASE_SERVICE_ROLE_KEY (or ARMAGEDDON_DB_SERVICE_ROLE_KEY)');
     }
-    _serviceRole = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-        auth: { persistSession: false },
-    });
+    _serviceRole = createServerSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     return _serviceRole;
 }
 

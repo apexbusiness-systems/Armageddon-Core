@@ -61,33 +61,50 @@ const MAX_LENGTHS: Record<keyof Required<IntakePayload>, number> = {
 };
 
 
-function cleanEnvValue(raw: string | undefined): string | undefined {
-  if (raw === undefined) return undefined;
-  let value = raw.trim();
-  if (value.length >= 2) {
-    const first = value[0];
-    const last = value[value.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      value = value.slice(1, -1).trim();
-    }
+type EnvKey = keyof IntakeEnv;
+
+const SUPABASE_URL_KEYS: EnvKey[] = ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'ARMAGEDDON_DB_URL'];
+const SUPABASE_SERVICE_ROLE_KEY_KEYS: EnvKey[] = ['SUPABASE_SERVICE_ROLE_KEY', 'ARMAGEDDON_DB_SERVICE_ROLE_KEY'];
+const ADMIN_EMAIL_KEYS: EnvKey[] = ['ADMIN_EMAIL', 'ARMAGEDDON_ADMIN_EMAIL'];
+
+function normalizeBinding(raw: string | undefined): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  const hasWrappingQuotes = trimmed.length >= 2 && first === last && (first === '"' || first === "'");
+  const unwrapped = hasWrappingQuotes ? trimmed.slice(1, -1).trim() : trimmed;
+
+  return unwrapped || undefined;
+}
+
+function firstBinding(env: IntakeEnv, keys: EnvKey[]): string | undefined {
+  for (const key of keys) {
+    const value = env[key];
+    if (typeof value !== 'string') continue;
+
+    const normalized = normalizeBinding(value);
+    if (normalized) return normalized;
   }
-  return value.length > 0 ? value : undefined;
+  return undefined;
 }
 
 function supabaseUrl(env: IntakeEnv): string | undefined {
-  return cleanEnvValue(env.SUPABASE_URL) ?? cleanEnvValue(env.NEXT_PUBLIC_SUPABASE_URL) ?? cleanEnvValue(env.ARMAGEDDON_DB_URL);
+  return firstBinding(env, SUPABASE_URL_KEYS);
 }
 
 function supabaseServiceRoleKey(env: IntakeEnv): string | undefined {
-  return cleanEnvValue(env.SUPABASE_SERVICE_ROLE_KEY) ?? cleanEnvValue(env.ARMAGEDDON_DB_SERVICE_ROLE_KEY);
+  return firstBinding(env, SUPABASE_SERVICE_ROLE_KEY_KEYS);
 }
 
 function adminEmail(env: IntakeEnv): string | undefined {
-  return cleanEnvValue(env.ADMIN_EMAIL) ?? cleanEnvValue(env.ARMAGEDDON_ADMIN_EMAIL);
+  return firstBinding(env, ADMIN_EMAIL_KEYS);
 }
 
 function isAdminEmail(email: string | undefined, env: IntakeEnv): boolean {
-  return Boolean(email && (email === 'jrmendozaceo@apexbusiness-systems.icu' || email === adminEmail(env)));
+  const configuredAdmin = adminEmail(env);
+  return Boolean(email && (email === 'jrmendozaceo@apexbusiness-systems.icu' || email === configuredAdmin));
 }
 
 // ── Shared response helpers ───────────────────────────────────────────────────
@@ -211,8 +228,11 @@ function extractBearer(request: Request): string | null {
 
 // ── API Handlers ──────────────────────────────────────────────────────────────
 
-async function handleMeOrganizations(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
-  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+async function requireAuthenticatedUser(
+  request: Request,
+  env: IntakeEnv,
+  canonicalHost: string,
+): Promise<SupabaseUser | Response> {
   if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
     return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
   }
@@ -222,6 +242,16 @@ async function handleMeOrganizations(request: Request, env: IntakeEnv, canonical
 
   const user = await getSupabaseUser(env, token);
   if (!user) return jsonResponse({ success: false, error: 'Unauthorized: Invalid token' }, canonicalHost, 401);
+
+  return user;
+}
+
+async function handleMeOrganizations(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+
+  const userOrResponse = await requireAuthenticatedUser(request, env, canonicalHost);
+  if (userOrResponse instanceof Response) return userOrResponse;
+  const user = userOrResponse;
 
   // NOTE (2026-07-06, root-cause fix): a hard-coded fake membership with a
   // non-UUID organization id previously short-circuited here for the admin
@@ -613,15 +643,10 @@ async function createRunRecord(
 
 async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
-  if (!supabaseUrl(env) || !supabaseServiceRoleKey(env)) {
-    return jsonResponse({ error: 'Auth service not configured.' }, canonicalHost, 500);
-  }
 
-  const token = extractBearer(request);
-  if (!token) return jsonResponse({ success: false, error: 'Unauthorized: Missing token' }, canonicalHost, 401);
-
-  const user = await getSupabaseUser(env, token);
-  if (!user) return jsonResponse({ success: false, error: 'Unauthorized: Invalid token' }, canonicalHost, 401);
+  const userOrResponse = await requireAuthenticatedUser(request, env, canonicalHost);
+  if (userOrResponse instanceof Response) return userOrResponse;
+  const user = userOrResponse;
 
   let body: Record<string, unknown>;
   try {
