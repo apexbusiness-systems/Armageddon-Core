@@ -6,9 +6,9 @@
 // Implements PAIR (Prompt Automatic Iterative Refinement) and
 // Tree-of-Attacks architectures for real LLM adversarial testing.
 
-import type { AdversarialConfig, ModelIdentifier } from '../providers/types';
-import { createAdversarialConfig, createSimulationConfig } from '../providers';
-import type { OrganizationTier, AdversarialModel } from './types';
+import type { AdversarialConfig, ModelIdentifier } from '../providers/types.js';
+import { createAdversarialConfig, createSimulationConfig } from '../providers/index.js';
+import type { OrganizationTier, AdversarialModel } from './types.js';
 
 // Map short model names to full provider model identifiers
 const MODEL_MAP: Record<AdversarialModel, string> = {

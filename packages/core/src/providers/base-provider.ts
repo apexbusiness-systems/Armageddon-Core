@@ -15,8 +15,8 @@ import type {
     ProviderName,
     ModelIdentifier,
     CostConfig,
-} from './types';
-import { CircuitBreaker, CircuitBreakerRegistry } from './circuit-breaker';
+} from './types.js';
+import { CircuitBreaker, CircuitBreakerRegistry } from './circuit-breaker.js';
 
 /**
  * API response with token usage - common interface for normalization

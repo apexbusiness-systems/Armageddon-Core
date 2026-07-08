@@ -9,21 +9,21 @@ import type {
     ProviderOptions,
     ModelIdentifier,
     AdversarialConfig,
-} from './types';
-import { OpenAIProvider } from './openai';
-import { AnthropicProvider } from './anthropic';
-import { SimulationProvider } from './simulation';
-import { GroqProvider } from './groq';
-import { CircuitBreakerRegistry } from './circuit-breaker';
+} from './types.js';
+import { OpenAIProvider } from './openai.js';
+import { AnthropicProvider } from './anthropic.js';
+import { SimulationProvider } from './simulation.js';
+import { GroqProvider } from './groq.js';
+import { CircuitBreakerRegistry } from './circuit-breaker.js';
 
 // Re-export types
-export * from './types';
-export { CircuitBreaker, CircuitBreakerRegistry } from './circuit-breaker';
-export { OpenAIProvider } from './openai';
-export { AnthropicProvider } from './anthropic';
-export { SimulationProvider } from './simulation';
-export { GroqProvider } from './groq';
-export { OpenAICompatibleProvider } from './openai-compatible-provider';
+export * from './types.js';
+export { CircuitBreaker, CircuitBreakerRegistry } from './circuit-breaker.js';
+export { OpenAIProvider } from './openai.js';
+export { AnthropicProvider } from './anthropic.js';
+export { SimulationProvider } from './simulation.js';
+export { GroqProvider } from './groq.js';
+export { OpenAICompatibleProvider } from './openai-compatible-provider.js';
 
 /**
  * Model to provider mapping
@@ -165,7 +165,7 @@ export function hasExceededLimits(): boolean {
 }
 
 // Import hashString for seed generation
-import { hashString } from '../core/utils';
+import { hashString } from '../core/utils.js';
 
 /**
  * Default configurations for common use cases

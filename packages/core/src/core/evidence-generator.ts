@@ -5,13 +5,13 @@ import * as crypto from 'node:crypto';
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ArmageddonReport } from '../temporal/activities';
+import { ArmageddonReport } from '../temporal/activities.js';
 import {
     Attestation,
     AttestationInput,
     createAttestation,
     renderStandaloneVerifier,
-} from './attestation';
+} from './attestation.js';
 
 export interface EvidenceOptions {
     seed: number;

@@ -4,9 +4,9 @@
 // DATE: 2026-02-06
 // REFACTORED: Extends BaseProvider to eliminate code duplication (SonarQube)
 
-import type { AnthropicModel, CostConfig, LLMRequest, ProviderOptions } from './types';
-import { BaseProvider, type ProviderExecutionResult } from './base-provider';
-import { assertJsonResponse, mapStopFinishReason } from './provider-utils';
+import type { AnthropicModel, CostConfig, LLMRequest, ProviderOptions } from './types.js';
+import { BaseProvider, type ProviderExecutionResult } from './base-provider.js';
+import { assertJsonResponse, mapStopFinishReason } from './provider-utils.js';
 
 /**
  * Anthropic pricing per 1M tokens (as of 2026)

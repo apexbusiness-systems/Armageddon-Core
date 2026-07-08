@@ -4,8 +4,8 @@
 // DATE: 2026-06-26
 // REFACTORED: Extends OpenAICompatibleProvider to eliminate code duplication (SonarQube)
 
-import type { CostConfig, LLMRequest, GroqModel, ProviderOptions } from './types';
-import { OpenAICompatibleProvider } from './openai-compatible-provider';
+import type { CostConfig, LLMRequest, GroqModel, ProviderOptions } from './types.js';
+import { OpenAICompatibleProvider } from './openai-compatible-provider.js';
 
 /**
  * Groq pricing per 1M tokens (as of 2026)
