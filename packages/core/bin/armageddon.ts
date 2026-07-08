@@ -3,6 +3,8 @@ import { Command } from 'commander';
 import { Connection, Client } from '@temporalio/client';
 import { createArmageddonWorker } from '../src/worker';
 import { EvidenceGenerator } from '../src/core/evidence-generator';
+import { resolveTarget, describeResolvedTarget } from '../src/cli/resolve-target';
+import { configureRunModeEnv, applyHttpTargetEnv } from '../src/cli/run-setup';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
@@ -35,33 +37,51 @@ program
   .option('--target <url>', 'Target URL')
   .option('--level <number>', 'Certification level', '7')
   .option('--no-worker', 'Skip starting a local worker (use external)')
+  .option('--target-provider <kind>', 'CERTIFIED target for B10-B14: simulation|model|http')
+  .option('--target-model <model>', 'Named model to attack when --target-provider model')
+  .option('--target-endpoint <url>', 'Real app/agent endpoint to attack when --target-provider http')
+  .option('--target-body-template <json>', 'JSON body template with {{prompt}}/{{systemPrompt}}/{{uuid}} placeholders')
+  .option('--target-response-path <path>', 'Dot-path into the JSON response used as the target reply')
+  .option('--target-auth-header-env <envName>', 'Env var holding the bearer token sent to the HTTP target')
+  .option('--batteries <codes>', 'Comma-separated battery codes to run (default: B10-B14)')
   .action(async (options) => {
     const runId = uuidv4();
     const seed = Number.parseInt(options.seed, 10);
     const mode = options.mode;
     const iterations = Number.parseInt(options.iterations, 10);
     const level = Number.parseInt(options.level, 10);
+    const batteries = options.batteries
+        ? String(options.batteries).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : undefined;
 
     console.log(`[CLI] Starting Armageddon Run ${runId} (Level ${level})`);
     console.log(`[CLI] Mode: ${mode}, Seed: ${seed}`);
 
-    // Set Environment Variables for the run
-    if (mode === 'simulation') {
-        process.env.SIM_MODE = 'true';
-        process.env.SANDBOX_TENANT = process.env.SANDBOX_TENANT || 'cli-sim-tenant';
-        process.env.CHAOS_SEED = seed.toString();
-        // Ensure not destructive
-        delete process.env.ARMAGEDDON_DESTRUCTIVE;
-    } else if (mode === 'destructive') {
-        process.env.SIM_MODE = 'true'; // Required even for destructive (as per prompt: SIM_MODE=true + SANDBOX_TENANT + ARMAGEDDON_DESTRUCTIVE)
-        // Wait, prompt says: "Destructive batteries MUST refuse to run unless ALL of: (1) explicit non-prod config, (2) SIM_MODE=true + SANDBOX_TENANT set, (3) ARMAGEDDON_DESTRUCTIVE=true flag"
+    // Set Environment Variables for the run (exits process on invalid destructive-mode config)
+    configureRunModeEnv(mode, seed);
 
-        if (!process.env.SANDBOX_TENANT || !process.env.ARMAGEDDON_DESTRUCTIVE) {
-             console.error('[CLI] DESTRUCTIVE MODE BLOCKED: Missing required env vars (SANDBOX_TENANT, ARMAGEDDON_DESTRUCTIVE)');
-             console.error('Use: SANDBOX_TENANT=x ARMAGEDDON_DESTRUCTIVE=true armageddon run --mode=destructive ...');
-             process.exit(1);
-        }
+    // Resolve what B10-B14 will actually attack. Fails loudly (throws) rather
+    // than silently defaulting to the 'sim-001' stub for a CERTIFIED run.
+    let resolvedTarget;
+    try {
+        resolvedTarget = resolveTarget({
+            mode,
+            targetProvider: options.targetProvider,
+            targetModel: options.targetModel,
+            targetEndpoint: options.targetEndpoint,
+            targetBodyTemplate: options.targetBodyTemplate,
+            targetResponsePath: options.targetResponsePath,
+            targetAuthHeaderEnv: options.targetAuthHeaderEnv,
+        });
+    } catch (err) {
+        console.error('[CLI]', err instanceof Error ? err.message : String(err));
+        process.exit(1);
+        return;
     }
+    console.log(`[CLI] Target resolved: ${describeResolvedTarget(resolvedTarget)}`);
+    // Propagate to the worker process (in-process or external via its own
+    // env) so LiveFireAdapter's createHttpTargetConfigFromEnv() sees it.
+    applyHttpTargetEnv(resolvedTarget);
 
     let worker;
     let runPromise;
@@ -98,8 +118,9 @@ program
                 level,
                 tier,
                 targetEndpoint: options.target || process.env.TARGET_URL || 'http://localhost:3000',
-                targetModel: 'sim-001',
-                seed
+                targetModel: resolvedTarget.targetModel,
+                seed,
+                batteries
             }],
         });
 
@@ -115,6 +136,7 @@ program
         const generator = new EvidenceGenerator(report, runId, {
             seed,
             mode,
+            tier,
             targetUrl: options.target || process.env.TARGET_URL
         });
 
@@ -190,6 +212,10 @@ program
         const generator = new EvidenceGenerator(report, reportJson.run_id, {
             seed: reportJson.chaos_seed,
             mode: reportJson.mode,
+            // Older report.json files predate the `tier` field. Fall back to
+            // trusting the report's own already-decided verdict so existing
+            // evidence can still be re-certified; new reports always carry tier.
+            tier: reportJson.tier ?? (reportJson.verdict === 'CERTIFIED' ? 'CERTIFIED' : 'FREE'),
             targetUrl: reportJson.target_url
         });
 
@@ -200,6 +226,36 @@ program
         console.log(`[CERTIFY] Certificate generated at ${certPath}`);
     } catch (err) {
         console.error('[CERTIFY] Certification failed:', err);
+        process.exit(1);
+    }
+  });
+
+program
+  .command('target-check')
+  .description('Resolve and print the effective B10-B14 target without starting Temporal or making any network call')
+  .option('--mode <mode>', 'Operational mode (simulation|destructive)', 'simulation')
+  .option('--target-provider <kind>', 'CERTIFIED target for B10-B14: simulation|model|http')
+  .option('--target-model <model>', 'Named model to attack when --target-provider model')
+  .option('--target-endpoint <url>', 'Real app/agent endpoint to attack when --target-provider http')
+  .option('--target-body-template <json>', 'JSON body template with {{prompt}}/{{systemPrompt}}/{{uuid}} placeholders')
+  .option('--target-response-path <path>', 'Dot-path into the JSON response used as the target reply')
+  .option('--target-auth-header-env <envName>', 'Env var holding the bearer token sent to the HTTP target')
+  .action((options) => {
+    try {
+        const resolved = resolveTarget({
+            mode: options.mode,
+            targetProvider: options.targetProvider,
+            targetModel: options.targetModel,
+            targetEndpoint: options.targetEndpoint,
+            targetBodyTemplate: options.targetBodyTemplate,
+            targetResponsePath: options.targetResponsePath,
+            targetAuthHeaderEnv: options.targetAuthHeaderEnv,
+        });
+        console.log('[TARGET-CHECK] No network calls made. Resolved configuration:');
+        console.log(describeResolvedTarget(resolved));
+        process.exit(0);
+    } catch (err) {
+        console.error('[TARGET-CHECK] FAILED:', err instanceof Error ? err.message : String(err));
         process.exit(1);
     }
   });
