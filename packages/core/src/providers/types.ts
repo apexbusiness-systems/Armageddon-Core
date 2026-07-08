@@ -6,7 +6,7 @@
 /**
  * Supported LLM providers for adversarial testing
  */
-export type ProviderName = 'openai' | 'anthropic' | 'together' | 'groq' | 'simulation';
+export type ProviderName = 'openai' | 'anthropic' | 'together' | 'groq' | 'simulation' | 'http';
 
 /**
  * Model identifiers grouped by provider
@@ -29,7 +29,7 @@ export type GroqModel =
     | 'llama3-70b-8192' 
     | 'mixtral-8x7b-32768';
 
-export type ModelIdentifier = OpenAIModel | AnthropicModel | TogetherModel | GroqModel | 'sim-001';
+export type ModelIdentifier = OpenAIModel | AnthropicModel | TogetherModel | GroqModel | 'sim-001' | 'http-target';
 
 /**
  * Standard LLM request configuration
@@ -121,6 +121,47 @@ export interface ILLMProvider {
 }
 
 /**
+ * Configuration for the generic HTTP target provider (`http-target` model).
+ *
+ * Lets B10-B14 attack a real app/agent HTTP endpoint instead of the
+ * `sim-001` stub. Fully generic — no APEX-OmniHub-specific behavior lives
+ * here; a specific target's shape is described entirely by
+ * `bodyTemplate`/`responsePath`, supplied by the operator via env/CLI.
+ */
+export interface HttpTargetConfig {
+    /** Full URL of the target endpoint. Must appear in allowlistHosts. */
+    endpoint: string;
+    /** HTTP method. Default: POST. */
+    method?: string;
+    /** Request Content-Type header. Default: application/json. */
+    contentType?: string;
+    /**
+     * JSON body template. Supports `{{prompt}}`, `{{systemPrompt}}`, and
+     * `{{uuid}}` placeholders, substituted as JSON-escaped string content.
+     */
+    bodyTemplate: string;
+    /**
+     * Dot-path into the parsed JSON response used as the target's reply
+     * (e.g. `data.reply`). Falls back to the raw (bounded) response body
+     * when the path is absent or not found.
+     */
+    responsePath?: string;
+    /** Name of the env var holding the bearer token to send as `Authorization: Bearer <value>`. */
+    authHeaderEnv?: string;
+    /** Request timeout in milliseconds. Default: 30000. */
+    timeoutMs?: number;
+    /**
+     * Explicit hostname allowlist. Required and non-empty — this is the
+     * default-deny gate: no host is reachable unless listed here verbatim.
+     */
+    allowlistHosts: string[];
+    /** Max requests per minute against this target. Default: 10. */
+    maxRPM?: number;
+    /** Max characters kept from the target's response body. Default: 20000. */
+    maxResponseChars?: number;
+}
+
+/**
  * Provider factory options
  */
 export interface ProviderOptions {
@@ -129,6 +170,8 @@ export interface ProviderOptions {
     costConfig?: CostConfig;
     circuitBreaker?: Partial<CircuitBreakerConfig>;
     baseUrl?: string;
+    /** Only read when model === 'http-target' (provider 'http'). */
+    httpTarget?: HttpTargetConfig;
 }
 
 /**

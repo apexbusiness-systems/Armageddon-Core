@@ -18,7 +18,8 @@ export type AdversarialModel =
     | 'gpt-4o'                // primary OpenAI
     | 'claude-3-opus'         // backward compat alias
     | 'gpt-4-turbo'           // backward compat alias
-    | 'llama-3-70b';          // backward compat alias
+    | 'llama-3-70b'           // backward compat alias
+    | 'http-target';          // generic real app/agent HTTP endpoint (see providers/http-target.ts)
 
 /**
  * Battery result status

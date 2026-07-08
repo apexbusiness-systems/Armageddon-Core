@@ -7,6 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ArmageddonReport } from '../temporal/activities.js';
+import type { OrganizationTier } from './types.js';
 import {
     Attestation,
     AttestationInput,
@@ -23,6 +24,13 @@ export interface EvidenceOptions {
     seed: number;
     mode: string;
     targetUrl?: string;
+    /**
+     * Organization tier the run actually executed under. Required to claim
+     * a 'CERTIFIED' verdict — a high score alone is not enough, since FREE/
+     * simulation runs use the fake SimulationAdapter and must never be
+     * reported as certified regardless of their (meaningless) score.
+     */
+    tier?: OrganizationTier;
 }
 
 const LEGAL_HEADER_MD = `> **Legal Notice:** This certification is valid only for the specific build, configuration, and environment tested at the time of this run. It does not constitute SOC 2, ISO, or compliance certification, nor does it guarantee breach prevention.`;
@@ -40,7 +48,9 @@ export class EvidenceGenerator {
     }
 
     private computeVerdict(): 'CERTIFIED' | 'FAILED' {
-        return (this.report.status === 'COMPLETED' || this.report.status === 'PASSED') && this.report.score >= 90
+        return this.options.tier === 'CERTIFIED'
+            && (this.report.status === 'COMPLETED' || this.report.status === 'PASSED')
+            && this.report.score >= 90
             ? 'CERTIFIED'
             : 'FAILED';
     }
@@ -99,6 +109,7 @@ export class EvidenceGenerator {
             timestamp: this.report.meta.timestamp,
             chaos_seed: this.options.seed,
             mode: this.options.mode,
+            tier: this.options.tier ?? 'FREE',
             target_url: this.options.targetUrl,
             certification_level: this.report.level ?? 7,
             verdict: verdict,
