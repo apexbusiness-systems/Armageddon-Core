@@ -107,6 +107,32 @@ describe('dbRateLimit', () => {
         );
     });
 
+
+
+    it('uses ARMAGEDDON_DB_URL and ARMAGEDDON_DB_SERVICE_ROLE_KEY aliases', async () => {
+        vi.stubEnv('SUPABASE_URL', '');
+        vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+        vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+        vi.stubEnv('SUPABASE_SERVICE_ROLE_SECRET', '');
+        vi.stubEnv('ARMAGEDDON_DB_URL', 'https://alias.supabase.co');
+        vi.stubEnv('ARMAGEDDON_DB_SERVICE_ROLE_KEY', 'alias-service-key');
+        vi.resetModules();
+        const fresh = (await import('../src/lib/db-rate-limit')).dbRateLimit;
+        mockRpc.mockResolvedValue({
+            data: [{ allowed: true, remaining: 4, reset_at: new Date().toISOString() }],
+            error: null
+        });
+
+        const result = await fresh({ scope: 'ip', key: '127.0.0.1', limit: 5, windowMs: 60000 });
+
+        expect(result.allowed).toBe(true);
+        expect(supabaseJs.createClient).toHaveBeenCalledWith(
+            'https://alias.supabase.co',
+            'alias-service-key',
+            expect.anything()
+        );
+    });
+
     it('should still fail CLOSED for Org even if RATE_LIMIT_FAIL_OPEN=true', async () => {
         vi.stubEnv('RATE_LIMIT_FAIL_OPEN', 'true');
         mockRpc.mockResolvedValue({

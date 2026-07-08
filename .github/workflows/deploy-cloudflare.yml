@@ -62,8 +62,8 @@ jobs:
           # the static export; otherwise isApiConfigured() is false and the
           # console locks every backed action (runs, gatekeeper, attestation).
           NEXT_PUBLIC_ARMAGEDDON_API_BASE: https://armageddontest.icu
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.SUPABASE_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL || secrets.ARMAGEDDON_DB_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.ARMAGEDDON_DB_ANON_KEY || secrets.SUPABASE_TOKEN }}
         run: npm run validate:production-env
 
       - name: Verify shared lib build
@@ -83,10 +83,10 @@ jobs:
           # attestation badge reads KEY_UNAVAILABLE, regardless of Worker secrets.
           NEXT_PUBLIC_ARMAGEDDON_API_BASE: https://armageddontest.icu
           NEXT_TELEMETRY_DISABLED: "1"
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.SUPABASE_TOKEN }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL || secrets.ARMAGEDDON_DB_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.ARMAGEDDON_DB_ANON_KEY || secrets.SUPABASE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.ARMAGEDDON_DB_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.ARMAGEDDON_DB_SERVICE_ROLE_KEY }}
           SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED: ${{ secrets.SUPABASE_ARMAGEDDON_INTAKE_MIGRATION_APPLIED }}
           CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
           CLOUDFLARE_ID: ${{ secrets.CLOUDFLARE_ID }}

@@ -36,7 +36,7 @@ step):
 
 The gatekeeper admin-override and tier checks additionally require the **Worker**
 to have `ADMIN_EMAIL` (exact, case-sensitive match of the account email),
-`SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` set as dashboard secrets — but
+`SUPABASE_URL` (or `ARMAGEDDON_DB_URL`), and `SUPABASE_SERVICE_ROLE_KEY` (or `ARMAGEDDON_DB_SERVICE_ROLE_KEY`) set as dashboard secrets — but
 these only take effect once the frontend can actually reach the backend (above).
 
 ### Which routes the Worker itself serves (verified against `intake-handler.ts`, 2026-07-04)
@@ -166,4 +166,18 @@ Cloudflare Web Analytics loads `https://static.cloudflareinsights.com/beacon.min
 
 ### Build-time env parsing (2026-07-04)
 
-`checkRunEligibility` (via `packages/shared/src/gate.ts`) and `dbRateLimit` (`armageddon-site/src/lib/db-rate-limit.ts`) read Supabase credentials through `readEnv`/`cleanEnvValue` (`packages/shared/src/env.ts`), which strips stray surrounding quotes that dashboards sometimes paste around env values. Both Supabase clients are also lazily constructed on first use rather than at module scope — a malformed or absent `SUPABASE_URL` throws inside `supabase-js`'s constructor, and constructing that client at import time previously crashed `next build`'s page-data collection for `/api/run` with `Failed to collect page data for /api/run`. Keep client construction lazy; do not move it back to module scope.
+`checkRunEligibility` (via `packages/shared/src/gate.ts`) and `dbRateLimit` (`armageddon-site/src/lib/db-rate-limit.ts`) read Supabase credentials through `readEnv`/`cleanEnvValue` (`packages/shared/src/env.ts`), which strips stray surrounding quotes that dashboards sometimes paste around env values. Canonical `SUPABASE_*` names and `ARMAGEDDON_DB_*` aliases are both accepted. Both Supabase clients are also lazily constructed on first use rather than at module scope — a malformed or absent `SUPABASE_URL` throws inside `supabase-js`'s constructor, and constructing that client at import time previously crashed `next build`'s page-data collection for `/api/run` with `Failed to collect page data for /api/run`. Keep client construction lazy; do not move it back to module scope.
+### Supabase environment aliases (2026-07-08)
+
+GitHub/Cloudflare/local/container envs may continue using `SUPABASE_*`. Supabase dashboard secrets must use `ARMAGEDDON_DB_*` aliases when `SUPABASE_*` is rejected. `ADMIN_EMAIL` does not need to change; `ARMAGEDDON_ADMIN_EMAIL` is only an optional alias.
+
+Use this mapping consistently:
+
+| Canonical name | Optional alias |
+| --- | --- |
+| `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL` | `ARMAGEDDON_DB_URL` |
+| `SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `ARMAGEDDON_DB_ANON_KEY` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `ARMAGEDDON_DB_SERVICE_ROLE_KEY` |
+| `ADMIN_EMAIL` | `ARMAGEDDON_ADMIN_EMAIL` |
+
+`ARMAGEDDON_ATTESTATION_SEED` is unchanged.

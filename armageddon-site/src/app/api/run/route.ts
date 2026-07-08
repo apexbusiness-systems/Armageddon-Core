@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES, type OrganizationTier } from '@armageddon/shared';
+import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES, readAdminEmail, type OrganizationTier } from '@armageddon/shared';
 import { dbRateLimit } from '@/lib/db-rate-limit';
 import { getTemporalClient } from '@/lib/temporal';
 import { authenticateRequest, verifyOrganizationMembership, getRunAndVerifyAccess } from '@/lib/auth';
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { user: authedUser, supabase } = baseAuth;
 
         const isAdmin = Boolean(
-            authedUser.email && (authedUser.email === 'jrmendozaceo@apexbusiness-systems.icu' || (process.env.ADMIN_EMAIL && authedUser.email === process.env.ADMIN_EMAIL))
+            authedUser.email && (authedUser.email === 'jrmendozaceo@apexbusiness-systems.icu' || authedUser.email === readAdminEmail())
         );
 
         if (!isAdmin) {

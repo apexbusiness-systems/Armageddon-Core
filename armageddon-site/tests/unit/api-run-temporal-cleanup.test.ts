@@ -5,6 +5,7 @@ vi.mock('@armageddon/shared', () => ({
     DEFAULT_BATTERIES: ['B10', 'B11'],
     checkRunEligibility: vi.fn(async () => ({ eligible: true, tier: 'certified' })),
     normalizeIterations: vi.fn((value: number) => value),
+    readAdminEmail: vi.fn(() => undefined),
 }));
 vi.mock('@/lib/db-rate-limit', () => ({ dbRateLimit: vi.fn(async () => ({ allowed: true })) }));
 vi.mock('@/lib/auth', () => ({

@@ -7,7 +7,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { readEnv } from './env';
+import { readSupabaseServiceRoleKey, readSupabaseUrl } from './env';
 import {
     MIN_CERTIFICATION_LEVEL,
     MAX_CERTIFICATION_LEVEL,
@@ -88,12 +88,12 @@ function getSupabaseClient(): SupabaseClient {
     if (supabaseInstance) return supabaseInstance;
 
     // Attempt standard env var then Next.js public env var
-    const url = readEnv('SUPABASE_URL') ?? readEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const serviceKey = readEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const url = readSupabaseUrl();
+    const serviceKey = readSupabaseServiceRoleKey();
 
     if (!url || !serviceKey) {
         throw new Error(
-            'Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+            'Missing Supabase credentials. Set SUPABASE_URL (or ARMAGEDDON_DB_URL) and SUPABASE_SERVICE_ROLE_KEY (or ARMAGEDDON_DB_SERVICE_ROLE_KEY).'
         );
     }
 

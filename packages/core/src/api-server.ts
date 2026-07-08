@@ -27,8 +27,10 @@
  *
  * Env vars (canonical names; legacy aliases accepted):
  *   SUPABASE_URL | NEXT_PUBLIC_SUPABASE_URL   — Supabase project URL
+ *   ARMAGEDDON_DB_URL                          — Supabase URL alias for dashboards that reject SUPABASE_*
  *   SUPABASE_SERVICE_ROLE_KEY                  — service role key (preferred)
  *   SUPABASE_SERVICE_ROLE_SECRET               — accepted alias (deprecated)
+ *   ARMAGEDDON_DB_SERVICE_ROLE_KEY             — service-role alias for dashboards that reject SUPABASE_*
  *   TEMPORAL_ADDRESS                           — default: localhost:7233
  *   TEMPORAL_NAMESPACE                         — default: default
  *   TEMPORAL_TASK_QUEUE                        — default: armageddon-level-7 (fallback only;
@@ -37,6 +39,7 @@
  *   API_PORT                                   — default: 8081
  *   RATE_LIMIT_FAIL_OPEN                       — set true to bypass rate-limit on failure
  *   ADMIN_EMAIL                                — grants admin override in gatekeeper
+ *   ARMAGEDDON_ADMIN_EMAIL                     — optional ADMIN_EMAIL alias
  *   ARMAGEDDON_ATTESTATION_SEED               — Ed25519 seed (hex/base64)
  *   SIM_MODE                                   — set true for simulation mode
  *   SANDBOX_TENANT                             — tenant identifier
@@ -53,10 +56,11 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
 import { getAttestationPublicKey } from './core/attestation.js';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from './core/supabase-client.js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { Client, Connection } from '@temporalio/client';
 import { v4 as uuidv4 } from 'uuid';
-import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES } from '@armageddon/shared';
+import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES, readAdminEmail, readSupabaseServiceRoleKey, readSupabaseUrl } from '@armageddon/shared';
 import {
     validateSSRF,
     isOmniPortEnabled,
@@ -77,29 +81,15 @@ const CORS_ALLOW_ORIGIN = process.env.CORS_ALLOW_ORIGIN?.trim() || 'https://arma
 
 // Deterministic (linear-time) trimming — avoids regex backtracking on attacker-
 // influenced env values while stripping the same characters as before.
-function trimChar(value: string, ch: string): string {
-    let start = 0;
-    let end = value.length;
-    while (start < end && value[start] === ch) start += 1;
-    while (end > start && value[end - 1] === ch) end -= 1;
-    return value.slice(start, end);
-}
-
 function trimTrailingChar(value: string, ch: string): string {
     let end = value.length;
     while (end > 0 && value[end - 1] === ch) end -= 1;
     return value.slice(0, end);
 }
 
-// Canonical: SUPABASE_SERVICE_ROLE_KEY; alias: SUPABASE_SERVICE_ROLE_SECRET
-const SUPABASE_URL = trimTrailingChar(
-    trimChar(process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '', '"'),
-    '/',
-);
-const SUPABASE_SERVICE_ROLE_KEY = trimChar(
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_SECRET ?? '',
-    '"',
-);
+const SUPABASE_URL = trimTrailingChar(readSupabaseUrl() ?? '', '/');
+const SUPABASE_SERVICE_ROLE_KEY = readSupabaseServiceRoleKey() ?? '';
+const ADMIN_EMAIL = readAdminEmail();
 
 const TEMPORAL_ADDRESS = process.env.TEMPORAL_ADDRESS ?? 'localhost:7233';
 const TEMPORAL_NAMESPACE = process.env.TEMPORAL_NAMESPACE ?? 'default';
@@ -115,11 +105,9 @@ let _serviceRole: SupabaseClient | null = null;
 function getServiceRole(): SupabaseClient {
     if (_serviceRole) return _serviceRole;
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-        throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+        throw new Error('Missing SUPABASE_URL (or ARMAGEDDON_DB_URL) or SUPABASE_SERVICE_ROLE_KEY (or ARMAGEDDON_DB_SERVICE_ROLE_KEY)');
     }
-    _serviceRole = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-        auth: { persistSession: false },
-    });
+    _serviceRole = createServerSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     return _serviceRole;
 }
 
@@ -490,7 +478,7 @@ async function handleGatekeeper(req: IncomingMessage, res: ServerResponse): Prom
     const auth = await authenticate(req);
     if (!isAuthErr(auth)) {
         const { user } = auth;
-        if (user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL))) {
+        if (user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || user.email === ADMIN_EMAIL)) {
             json(res, 200, { eligible: true, tier: 'certified', reason: 'ADMIN_OVERRIDE' });
             return;
         }
