@@ -12,6 +12,7 @@ import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES, type Organ
 import { dbRateLimit } from '@/lib/db-rate-limit';
 import { getTemporalClient } from '@/lib/temporal';
 import { authenticateRequest, verifyOrganizationMembership, getRunAndVerifyAccess } from '@/lib/auth';
+import { validateSSRF } from '@/lib/omniport';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -85,18 +86,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const body: RunRequest = await request.json();
         const { organizationId, level = 7, batteries, targetEndpoint } = body;
 
-        // 3. Organization-based Rate Limiting
-        if (organizationId) {
-            const orgLimitResult = await dbRateLimit({ scope: 'org', key: organizationId, limit: 5, windowMs: 60 * 1000 });
-            if (!orgLimitResult.allowed) {
-                console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+        if (targetEndpoint) {
+            const isValid = await validateSSRF(targetEndpoint);
+            if (!isValid) {
                 return NextResponse.json(
-                    { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
-                    { status: 429 }
+                    { success: false, error: 'SSRF_BLOCKED' },
+                    { status: 400 }
                 );
             }
         }
-
 
         if (!organizationId) {
              return NextResponse.json(
@@ -112,11 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { user: authedUser, supabase } = baseAuth;
 
         const isAdmin = Boolean(
-            authedUser.email && (
-                (process.env.ADMIN_EMAIL && authedUser.email === process.env.ADMIN_EMAIL) ||
-                authedUser.email.toLowerCase().includes('armageddon.test.suite.cert') ||
-                authedUser.email.toLowerCase().includes('apex')
-            )
+            authedUser.email && (authedUser.email === 'jrmendozaceo@apexbusiness-systems.icu' || (process.env.ADMIN_EMAIL && authedUser.email === process.env.ADMIN_EMAIL))
         );
 
         if (!isAdmin) {
@@ -127,6 +121,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 return NextResponse.json(
                     { success: false, error: 'Forbidden: You are not a member of this organization' },
                     { status: 403 }
+                );
+            }
+        }
+
+        // 3. Organization-based Rate Limiting
+        if (organizationId) {
+            const orgLimitResult = await dbRateLimit({ scope: 'org', key: organizationId, limit: 5, windowMs: 60 * 1000 });
+            if (!orgLimitResult.allowed) {
+                console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+                return NextResponse.json(
+                    { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
+                    { status: 429 }
                 );
             }
         }

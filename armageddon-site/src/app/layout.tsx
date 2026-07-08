@@ -24,7 +24,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://armageddontest.icu'),
-    title: 'Armageddon Test',
+    title: {
+        default: 'ARMAGEDDON Test Suite — Adversarial AI Security Certification',
+        template: '%s | ARMAGEDDON Test Suite',
+    },
+    alternates: { canonical: '/' },
     description: 'Sandboxed adversarial certification for AI & software systems. Destruction-grade testing, evidence-based certification. Are you Armageddoned?',
     keywords: ['AI security', 'adversarial testing', 'prompt injection', 'LLM security', 'certification', 'sandbox testing', 'OWASP', 'AI red team'],
     authors: [{ name: 'APEX Business Systems Ltd.' }],
@@ -57,9 +61,59 @@ export const metadata: Metadata = {
             },
         ],
         locale: 'en_US',
+        // Multilingual SEO/GEO: the site serves all copy in these locales via
+        // the client-side dictionary system (src/i18n). Declaring alternates
+        // lets search + answer engines surface the localized experience.
+        // Kept in lockstep with SUPPORTED_LOCALES (i18n-dictionaries.test.ts).
+        alternateLocale: ['fr_FR', 'de_DE', 'it_IT', 'es_ES', 'zh_CN', 'pt_PT'],
     },
     robots: { index: true, follow: true },
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STRUCTURED DATA (JSON-LD) — SEO/GEO INVARIANT
+// Static, build-time constant. No user input flows into this string; safe for
+// dangerouslySetInnerHTML. Keep synchronized with public/llms.txt and
+// public/sitemap.xml when positioning or page inventory changes.
+// ═══════════════════════════════════════════════════════════════════════════
+const JSON_LD = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+        {
+            '@type': 'Organization',
+            '@id': 'https://armageddontest.icu/#org',
+            name: 'APEX Business Systems Ltd.',
+            url: 'https://armageddontest.icu',
+            logo: 'https://armageddontest.icu/icon.png',
+        },
+        {
+            '@type': 'WebSite',
+            '@id': 'https://armageddontest.icu/#website',
+            url: 'https://armageddontest.icu',
+            name: 'ARMAGEDDON Test Suite Certification',
+            publisher: { '@id': 'https://armageddontest.icu/#org' },
+        },
+        {
+            '@type': 'SoftwareApplication',
+            '@id': 'https://armageddontest.icu/#app',
+            name: 'ARMAGEDDON Test Suite',
+            applicationCategory: 'SecurityApplication',
+            operatingSystem: 'Web',
+            url: 'https://armageddontest.icu',
+            image: 'https://armageddontest.icu/og-image.png',
+            description:
+                'Sandboxed adversarial certification for AI and software systems. 13 concurrent adversarial batteries — prompt injection, goal hijack, tool misuse, memory poisoning, supply chain — producing signed, evidence-based certification artifacts.',
+            offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'CAD',
+                description: 'Self-serve tier is free; Verified and Certified tiers available.',
+                url: 'https://armageddontest.icu/pricing',
+            },
+            publisher: { '@id': 'https://armageddontest.icu/#org' },
+        },
+    ],
+});
 
 
 
@@ -80,6 +134,8 @@ export default function RootLayout({
                     painting the hero wordmark. The <picture> fallback still serves
                     WebP/PNG to older browsers during normal discovery. */}
                 <link rel="preload" as="image" href="/wordmark.avif" type="image/avif" fetchPriority="high" />
+                {/* JSON-LD structured data — static constant, no user input (see JSON_LD above) */}
+                <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD }} />
             </head>
             <body className={`${bebasNeue.variable} ${spaceMono.variable} ${syne.variable} bg-[var(--void)] text-[var(--signal)] antialiased`}>
                 <AppProviders>

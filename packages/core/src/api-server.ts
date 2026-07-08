@@ -52,7 +52,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
-import { getAttestationPublicKey } from './core/attestation';
+import { getAttestationPublicKey } from './core/attestation.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Client, Connection } from '@temporalio/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -69,6 +69,11 @@ import {
 // ── Env ────────────────────────────────────────────────────────────────────────
 
 const PORT = Number(process.env.API_PORT ?? '8081');
+
+// Browser CORS origin for the dynamic API. Locked to the public site by default;
+// override with CORS_ALLOW_ORIGIN for staging/local. OmniPort routes are
+// server-to-server (bearer-auth) and do not rely on CORS.
+const CORS_ALLOW_ORIGIN = process.env.CORS_ALLOW_ORIGIN?.trim() || 'https://armageddontest.icu';
 
 // Deterministic (linear-time) trimming — avoids regex backtracking on attacker-
 // influenced env values while stripping the same characters as before.
@@ -147,9 +152,10 @@ function json(res: ServerResponse, status: number, body: unknown): void {
     res.writeHead(status, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': CORS_ALLOW_ORIGIN,
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Vary': 'Origin',
     });
     res.end(payload);
 }
@@ -484,8 +490,8 @@ async function handleGatekeeper(req: IncomingMessage, res: ServerResponse): Prom
     const auth = await authenticate(req);
     if (!isAuthErr(auth)) {
         const { user } = auth;
-        if (user.email && process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL) {
-            json(res, 200, { eligible: true, tier: 'verified', reason: 'ADMIN_OVERRIDE' });
+        if (user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL))) {
+            json(res, 200, { eligible: true, tier: 'certified', reason: 'ADMIN_OVERRIDE' });
             return;
         }
     }
@@ -1025,9 +1031,10 @@ const ROUTES: Record<string, RouteHandler> = {
 
 function writeCorsPreflight(res: ServerResponse): void {
     res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': CORS_ALLOW_ORIGIN,
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Vary': 'Origin',
     });
     res.end();
 }

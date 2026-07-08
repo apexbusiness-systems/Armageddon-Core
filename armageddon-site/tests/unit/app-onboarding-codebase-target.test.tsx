@@ -54,6 +54,82 @@ describe('OnboardingPage target endpoint flow', () => {
         expect(push).not.toHaveBeenCalled();
     });
 
+    it('blocks a non-http(s) target endpoint URL with an inline format error', async () => {
+        renderOnboardingPage();
+        await completeCommonFields();
+        fireEvent.change(screen.getByLabelText(/Target endpoint URL/i), { target: { value: 'ftp://files.example.com' } });
+        await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
+        expect(await screen.findByText('Enter an http(s) target endpoint or deployed app URL.')).toBeInTheDocument();
+        expect(push).not.toHaveBeenCalled();
+        // The rejected URL must not be persisted as a locked target.
+        expect(localStorage.getItem(CODEBASE_TARGET_KEY)).toBeNull();
+    });
+
+    it('replaces a previously saved target when the user edits the URL, instead of silently reverting', async () => {
+        const staleTarget: CodebaseTarget = {
+            id: 'endpoint-stale',
+            kind: 'endpoint',
+            status: 'local-only',
+            label: 'Checkout API',
+            endpointUrl: 'https://old.example.com',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            orgName: 'ACME Corp',
+            contactEmail: 'security@acme.test',
+            tier: 'self-serve',
+            targetSystemName: 'Checkout API',
+            targetUrl: 'https://old.example.com',
+            environment: 'staging',
+            authorizationConfirmed: true,
+            acceptableUseAck: true,
+            codebaseTarget: staleTarget,
+        }));
+
+        renderOnboardingPage();
+        await waitFor(() => expect(screen.getByLabelText(/Target endpoint URL/i)).toHaveValue('https://old.example.com'));
+        fireEvent.change(screen.getByLabelText(/Target endpoint URL/i), { target: { value: 'https://new.example.com' } });
+        await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
+
+        expect(await screen.findByText(/Live runs aren't connected/)).toBeInTheDocument();
+        expect(localStorage.getItem(CODEBASE_TARGET_KEY)).toContain('https://new.example.com');
+        expect(localStorage.getItem(CODEBASE_TARGET_KEY)).not.toContain('https://old.example.com');
+        expect(localStorage.getItem(DRAFT_KEY)).toContain('https://new.example.com');
+    });
+
+    it('reuses the saved target when the URL is unchanged (no identity churn)', async () => {
+        const savedTarget: CodebaseTarget = {
+            id: 'endpoint-keep-me',
+            kind: 'endpoint',
+            status: 'local-only',
+            label: 'Checkout API',
+            endpointUrl: 'https://app.example.com',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            orgName: 'ACME Corp',
+            contactEmail: 'security@acme.test',
+            tier: 'self-serve',
+            targetSystemName: 'Checkout API',
+            targetUrl: 'https://app.example.com',
+            environment: 'staging',
+            authorizationConfirmed: true,
+            acceptableUseAck: true,
+            codebaseTarget: savedTarget,
+        }));
+
+        renderOnboardingPage();
+        await waitFor(() => expect(screen.getByLabelText(/Target endpoint URL/i)).toHaveValue('https://app.example.com'));
+        await userEvent.click(screen.getByRole('button', { name: /^continue$/i }));
+
+        await screen.findByText(/Live runs aren't connected/);
+        const persisted = JSON.parse(localStorage.getItem(CODEBASE_TARGET_KEY) ?? 'null') as CodebaseTarget;
+        expect(persisted?.id).toBe('endpoint-keep-me');
+        expect(persisted?.endpointUrl).toBe('https://app.example.com');
+    });
+
     it('saves a target endpoint and honestly reports local-only state without a backend', async () => {
         renderOnboardingPage();
         await completeCommonFields();
@@ -62,5 +138,6 @@ describe('OnboardingPage target endpoint flow', () => {
 
         expect(await screen.findByText(/Live runs aren't connected/)).toBeInTheDocument();
         expect(localStorage.getItem(DRAFT_KEY)).toContain('https://app.example.com');
+        expect(localStorage.getItem(CODEBASE_TARGET_KEY)).toContain('https://app.example.com');
     });
 });

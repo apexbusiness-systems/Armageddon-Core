@@ -11,7 +11,9 @@ interface LeaderboardWidgetProps {
     status: Status;
 }
 
-// Mock Data - "Top 4"
+// Illustrative sample board (labeled "SAMPLE" in the header, never "LIVE").
+// These are demonstration placeholders, not real operators — do NOT relabel
+// the widget "LIVE" while this static array is the data source.
 const TOP_AGENTS = [
     { rank: 1, id: 'APEX-01', score: '99.9%', status: 'GOD_MODE' },
     { rank: 2, id: 'NOVA-X', score: '98.4%', status: 'CERTIFIED' },
@@ -195,7 +197,7 @@ export default function LeaderboardWidget({ status }: { readonly status: Status 
     };
 
     const containerClass = cn(
-        "relative font-mono border bg-black/80 backdrop-blur-md overflow-hidden transition-all duration-500",
+        "relative font-mono border bg-black/85 backdrop-blur-sm overflow-hidden transition-all duration-500",
         isRejected ? "border-red-600 bg-red-950/20" : "border-white/10",
         isCertified ? "border-yellow-500/50" : ""
     );
@@ -230,7 +232,12 @@ export default function LeaderboardWidget({ status }: { readonly status: Status 
                             return "bg-green-500";
                         })()
                     )} />
-                    <span className="text-[10px] text-white/30">LIVE</span>
+                    {/* Honest label: this widget renders an illustrative sample
+                        board (TOP_AGENTS below), NOT a live global feed. Claiming
+                        "LIVE" over static demo data is an unvalidated claim — we
+                        ship evidenced UI. Wire to a real aggregated endpoint over
+                        armageddon_runs to restore a "LIVE" label. */}
+                    <span className="text-[10px] text-white/30" title="Illustrative sample — not a live feed">SAMPLE</span>
                 </div>
             </div>
 

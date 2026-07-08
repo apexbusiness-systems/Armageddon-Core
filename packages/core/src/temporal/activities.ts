@@ -15,13 +15,13 @@ import {
     TOOL_ABUSE_VECTORS,
     POISON_VECTORS,
     SUPPLY_CHAIN_VECTORS
-} from './prompts';
+} from './prompts.js';
 
-import { safetyGuard, SafetyGuard, SystemLockdownError } from '../core/safety';
-import { createReporter, EventType } from '../core/reporter';
-import { hashString, SeedableRNG } from '../core/utils';
-import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial';
-import { runStressTest, StressTestConfig } from '../core/stress';
+import { safetyGuard, SafetyGuard, SystemLockdownError } from '../core/safety.js';
+import { createReporter, EventType } from '../core/reporter.js';
+import { hashString, SeedableRNG } from '../core/utils.js';
+import { createAdversarialEngine, AdversarialEngineConfig } from '../core/adversarial.js';
+import { runStressTest, StressTestConfig } from '../core/stress.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. APEX ARCHITECTURE: STRICT TYPES
@@ -1148,7 +1148,7 @@ export async function generateReport(state: WorkflowState): Promise<ArmageddonRe
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function runBattery14_IndirectInjection(config: BatteryConfig): Promise<BatteryResult> {
-    const { runBattery14IndirectInjection } = await import('../core/engine/activities');
+    const { runBattery14IndirectInjection } = await import('../core/engine/activities.js');
     const result = await runBattery14IndirectInjection(config.runId, {
         iterations: config.iterations,
         heartbeatInterval: Math.max(1, Math.floor(config.iterations / 10))

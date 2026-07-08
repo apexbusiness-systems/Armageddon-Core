@@ -9,8 +9,8 @@ import type {
     LLMResponse,
     ProviderMetrics,
     ProviderOptions,
-} from './types';
-import { SeedableRNG, hashString } from '../core/utils';
+} from './types.js';
+import { SeedableRNG, hashString } from '../core/utils.js';
 
 /**
  * SimulationProvider - Deterministic mock provider for FREE tier

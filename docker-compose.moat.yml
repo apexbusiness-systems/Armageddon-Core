@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ─────────────────────────────────────────────────────────────────────────
   # KINETIC ENGINE (MOAT) - Local Production Replica

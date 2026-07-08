@@ -1,0 +1,89 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# EXECUTION ENGINE — self-serve / certification (SIM_MODE) run path
+#
+# Fixes "EXECUTING 0/13 forever". The Cloudflare edge Worker's POST /api/run
+# (intake-handler.ts → createRunRecord) only INSERTS an armageddon_runs row with
+# status='pending' — it cannot start a Temporal workflow (no gRPC on the CF edge).
+# Two Node processes finish the job; both are built from packages/core/Dockerfile:
+#
+#   api    — dist/api-server.js. Runs the Pending-Run Dispatcher
+#            (api-server.ts → startPendingRunsLoop → dispatchPendingRun →
+#            client.workflow.start('ArmageddonLevel7Workflow')), which polls
+#            Supabase for status='pending' rows and starts the workflow, flipping
+#            the row to status='running'. It also serves the full dynamic API.
+#   worker — dist/worker.js (Dockerfile default CMD). Long-polls the SAME
+#            TEMPORAL_TASK_QUEUE, executes the battery activities, and writes
+#            armageddon_events + armageddon_runs progress that the console streams
+#            back over Supabase realtime → the 0/13 counter advances.
+#
+# Both MUST share TEMPORAL_TASK_QUEUE and point at the SAME Supabase project the
+# public site uses. No public inbound is required for either container in this
+# topology: the edge inserts the pending row, the api poller (outbound to
+# Supabase + Temporal) drains it. Expose the api port only if you also repoint
+# NEXT_PUBLIC_ARMAGEDDON_API_BASE at this service.
+#
+# Operator must provision (this repo cannot): Temporal Cloud namespace/API key,
+# Supabase service-role key, the attestation seed, and SIM_MODE=true. See
+# .env.moat.example and RUNBOOK_EXECUTION_ENGINE_2026-07-06.md §2–3.
+# Invariant 10: worker.ts process.exit(1)s unless SIM_MODE=true — that gate is
+# intentional. Live-fire (SIM_MODE=false) is a separate waiver-gated decision.
+#
+# Usage:  cp .env.moat.example .env.moat   # then fill in secrets
+#         docker compose -f docker-compose.exec.yml up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: packages/core/Dockerfile
+    image: armageddon-core:${VERSION:-latest}
+    container_name: armageddon-api-exec
+    command: ["node", "dist/api-server.js"]   # override the worker default CMD
+    env_file:
+      - .env.moat
+    environment:
+      - NODE_ENV=production
+    # Publish only if you repoint the site's API base at this service. Not needed
+    # for the edge-inserts + poller-dispatches topology (poller is outbound-only).
+    # ports:
+    #   - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/core/Dockerfile
+    image: armageddon-core:${VERSION:-latest}
+    container_name: armageddon-worker-exec
+    # Uses the Dockerfile default CMD: node dist/worker.js
+    env_file:
+      - .env.moat
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pgrep", "-x", "node"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G

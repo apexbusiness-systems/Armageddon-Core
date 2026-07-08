@@ -7,16 +7,23 @@ import { motion } from 'framer-motion';
 import type { PlanId } from '@/lib/pricing';
 import { PLANS, PLAN_ORDER } from '@/lib/pricing';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { getSupabase } from '@/lib/supabase';
 import { useT } from '@/i18n/useT';
 import {
     DRAFT_KEY,
+    createEndpointTarget,
     saveCodebaseTarget,
+    validateTargetEndpointUrl,
     type CodebaseTarget,
     type OnboardingDraft,
     type TargetEnv,
 } from '@/lib/codebase-target';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Domain label excludes '.' ([^\s@.]) so the literal '.' separator is
+// unambiguous — the previous [^\s@]+\.[^\s@]+ let the class also match the dot,
+// giving overlapping quantifiers and super-linear backtracking (Sonar S8786).
+// Behavior is identical for accept/reject; only the runtime is now linear.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
 
 function isPlanId(value: string | null): value is PlanId {
     return value !== null && (PLAN_ORDER as readonly string[]).includes(value);
@@ -89,7 +96,12 @@ export default function OnboardingPage() {
         if (d.orgName.trim() === '') found.push('Organization name is required.');
         if (!EMAIL_PATTERN.test(d.contactEmail.trim())) found.push('A valid contact email is required.');
         if (d.targetSystemName.trim() === '') found.push('Target system name is required.');
-        if (d.targetUrl.trim() === '') found.push('Target endpoint URL is required.');
+        if (d.targetUrl.trim() === '') {
+            found.push('Target endpoint URL is required.');
+        } else {
+            const targetUrlError = validateTargetEndpointUrl(d.targetUrl);
+            if (targetUrlError !== null) found.push(targetUrlError);
+        }
         if (!d.authorizationConfirmed) found.push('You must confirm you are authorized to test the target.');
         if (!d.acceptableUseAck) found.push('You must acknowledge the acceptable use policy.');
         return found;
@@ -124,11 +136,19 @@ export default function OnboardingPage() {
         if (found.length > 0) return;
 
         let persistedDraft = draft;
-        if (draft.codebaseTarget) {
-            const target = await prepareBackendIntake(draft.codebaseTarget);
-            persistedDraft = { ...draft, codebaseTarget: target, targetUrl: target.endpointUrl };
+        const targetUrl = draft.targetUrl.trim();
+        if (targetUrl) {
+            // Reuse the saved target only when it still matches what the user
+            // typed — otherwise an edited URL would be silently dropped in
+            // favor of the stale, previously-locked target.
+            const existing = draft.codebaseTarget;
+            const target = existing && existing.endpointUrl === targetUrl
+                ? existing
+                : createEndpointTarget(targetUrl, draft.targetSystemName || 'System under test');
+            const updatedTarget = await prepareBackendIntake(target);
+            persistedDraft = { ...draft, codebaseTarget: updatedTarget, targetUrl: updatedTarget.endpointUrl };
             try {
-                saveCodebaseTarget(target);
+                saveCodebaseTarget(updatedTarget);
             } catch {
                 /* ignore */
             }
@@ -142,13 +162,34 @@ export default function OnboardingPage() {
 
         const { tier } = draft;
 
+        // Enterprise is always a scoped-program contact request.
         if (tier === 'enterprise') {
             router.push('/intake?tier=enterprise');
             return;
         }
 
+        // An already-authenticated operator is *editing their target config*,
+        // not making a new purchase. Route them back to the console to run —
+        // the gatekeeper enforces real tier entitlement there. Bouncing an
+        // authenticated user to the pre-purchase /intake page renders the
+        // signed-out marketing view, which looks exactly like a forced logout
+        // (the reported bug). Only unauthenticated prospects go through /intake.
+        if (isApiConfigured()) {
+            let signedIn = false;
+            try {
+                const { data } = await (getSupabase()?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
+                signedIn = Boolean(data?.session);
+            } catch {
+                signedIn = false;
+            }
+            if (signedIn) {
+                router.push('/console');
+                return;
+            }
+        }
+
         if (tier === 'verified' || tier === 'certified') {
-            // Paid review tiers: never pretend payment is captured.
+            // Paid review tiers (unauthenticated prospect): never pretend payment is captured.
             router.push(`/intake?tier=${tier}&payment=pending`);
             return;
         }

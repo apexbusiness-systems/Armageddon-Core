@@ -202,7 +202,7 @@ function AuthModalPanel({ mode, initialError, onClose, onModeChange }: PanelProp
             aria-label={isSignup ? 'Sign up' : 'Sign in'}
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/85 backdrop-blur-md" />
+            <div className="absolute inset-0 bg-black/90" />
 
             {/* Panel */}
             <motion.div

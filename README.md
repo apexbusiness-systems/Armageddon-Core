@@ -33,17 +33,17 @@ The system runs as a localized "Moat" cluster defined in `docker-compose.moat.ym
 
 ```mermaid
 graph TD
-    User([User]) -->|Localhost:3000| UI[Containment Interface]
+    User(["User"]) -->|"Localhost:3000"| UI["Containment Interface"]
 
     subgraph "The Moat (Docker Network)"
-        Worker[Armageddon Worker (Kinetic)]
-        Temporal[Temporal Server]
-        Postgres[(Persistence)]
+        Worker["Armageddon Worker (Kinetic)"]
+        Temporal["Temporal Server"]
+        Postgres[("Persistence")]
     end
 
-    UI -->|Dispatch| Temporal
-    Temporal -->|Task Queue| Worker
-    Worker -->|Python Bridge| Kinetic[Kinetic Python Engine]
+    UI -->|"Dispatch"| Temporal
+    Temporal -->|"Task Queue"| Worker
+    Worker -->|"Python Bridge"| Kinetic["Kinetic Python Engine"]
 ```
 
 ## 🚀 DEPLOYMENT PROTOCOL

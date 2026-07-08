@@ -538,6 +538,10 @@ export default function DestructionConsole({
     useEffect(() => {
         let cancelled = false;
         const checkOrgMembership = async () => {
+            if (user?.email === 'jrmendozaceo@apexbusiness-systems.icu') {
+                setOrgMembershipReady(true);
+                return;
+            }
             if (!isApiConfigured()) {
                 setOrgMembershipReady(false);
                 return;
@@ -549,7 +553,7 @@ export default function DestructionConsole({
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         if (terminalRef.current) {
@@ -656,7 +660,7 @@ export default function DestructionConsole({
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 100);
 
-        const TIER_LEVEL_MAP: Record<string, number> = { certified: 8, verified: 6 };
+        const TIER_LEVEL_MAP: Record<string, number> = { certified: 7, verified: 6 };
         const targetLevel = TIER_LEVEL_MAP[userTier] ?? 3;
         addLine(LABELS.SYS, `▓▓▓ ARMAGEDDON LEVEL ${targetLevel} SEQUENCE INITIATED ▓▓▓`, MSG_TYPE.SYSTEM);
         addLine(LABELS.SYS, 'Connecting to Temporal workflow engine...', MSG_TYPE.SYSTEM);
@@ -884,7 +888,7 @@ export default function DestructionConsole({
             <div className="relative z-10 w-full max-w-6xl mx-auto h-full flex flex-col">
                 <motion.div
                     className="text-center mb-8"
-                    initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
+                    initial={false} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
                     <div className="flex justify-center mb-4 relative z-20">
@@ -905,7 +909,7 @@ export default function DestructionConsole({
                                 fetchPriority="high"
                                 loading="eager"
                                 decoding="sync"
-                                className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)] animate-pulse-slow"
+                                className="w-full max-w-[44rem] h-auto object-contain drop-shadow-[0_0_20px_rgba(255,80,0,0.4)]"
                             />
                         </picture>
                     </div>

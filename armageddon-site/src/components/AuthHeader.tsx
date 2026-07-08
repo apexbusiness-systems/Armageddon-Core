@@ -6,7 +6,9 @@ import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import AuthIdentityBadge from './AuthIdentityBadge';
 import AuthModal, { type AuthMode } from './AuthModal';
+import SettingsModal from './SettingsModal';
 import { useT } from '@/i18n/useT';
+import { getSupabase } from '@/lib/supabase';
 
 interface AuthHeaderProps {
     readonly user: User | null;
@@ -55,6 +57,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
     const isLoggedIn = !!user;
     const [hovered, setHovered] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [mode, setMode] = useState<AuthMode>('signin');
     const [initialError, setInitialError] = useState<string | null>(null);
     const [clearanceLevel, setClearanceLevel] = useState<number>(8);
@@ -62,7 +65,18 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
     useEffect(() => {
         if (!user) return;
         let cancelled = false;
-        fetch('/api/gatekeeper', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+
+        async function fetchClearanceTier() {
+            const { data: { session } } = await getSupabase()?.auth.getSession() ?? { data: { session: null } };
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
+            if (session?.access_token) {
+                headers.Authorization = `Bearer ${session.access_token}`;
+            }
+
+            return fetch('/api/gatekeeper', { method: 'POST', headers });
+        }
+
+        fetchClearanceTier()
             .then(res => res.json())
             .then(data => {
                 if (cancelled) return;
@@ -115,6 +129,27 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                 >
                     {dictionary.common.nav.pricing}
                 </Link>
+                <Link
+                    href="/support"
+                    className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
+                >
+                    Support
+                </Link>
+                <Link
+                    href="/privacy"
+                    className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
+                >
+                    Privacy
+                </Link>
+                {isLoggedIn && (
+                    <button
+                        type="button"
+                        onClick={() => setSettingsOpen(true)}
+                        className="mono-small tracking-widest uppercase text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)] px-1"
+                    >
+                        Settings
+                    </button>
+                )}
                 {isLoggedIn ? (
                     <>
                         <AnimatePresence>
@@ -124,7 +159,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                             type="button"
                             aria-label={dictionary.common.nav.logoutAria}
                             onClick={onLogout}
-                            className="relative px-7 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] backdrop-blur-md shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
+                            className="relative px-7 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >
@@ -141,7 +176,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                             type="button"
                             aria-label={dictionary.common.nav.signupAria}
                             onClick={() => openModal('signup')}
-                            className="relative px-6 py-2.5 bg-[var(--aerospace)] text-black font-bold backdrop-blur-md shadow-[0_0_24px_rgba(255,51,0,0.5)] transition-all duration-300 text-sm tracking-[0.3em] uppercase hover:bg-white"
+                            className="relative px-6 py-2.5 bg-[var(--aerospace)] text-black font-bold shadow-[0_0_24px_rgba(255,51,0,0.5)] transition-all duration-300 text-sm tracking-[0.3em] uppercase hover:bg-white"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >
@@ -153,7 +188,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                             type="button"
                             aria-label={dictionary.common.nav.loginAria}
                             onClick={() => openModal('signin')}
-                            className="relative px-6 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] backdrop-blur-md shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
+                            className="relative px-6 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >
@@ -175,6 +210,12 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                 initialError={initialError}
                 onClose={() => setModalOpen(false)}
                 onModeChange={setMode}
+            />
+
+            <SettingsModal
+                open={settingsOpen}
+                user={user}
+                onClose={() => setSettingsOpen(false)}
             />
         </>
     );

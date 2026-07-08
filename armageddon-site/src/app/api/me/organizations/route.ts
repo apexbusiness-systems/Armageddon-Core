@@ -18,6 +18,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (auth instanceof NextResponse) return auth;
     const { user, supabase } = auth;
 
+    // NOTE (2026-07-06, root-cause fix): a hard-coded fake membership for the
+    // admin account previously short-circuited here. Its non-UUID id broke the
+    // armageddon_runs FK insert in POST /api/run (500). Admin privilege is a
+    // tier override, not identity fabrication — the admin resolves real
+    // memberships like everyone else. DO NOT reintroduce fabricated org rows.
+
     // Service-role client is already scoped to this authenticated user by the filter below.
     const { data, error } = await supabase
         .from('organization_members')

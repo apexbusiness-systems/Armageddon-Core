@@ -199,7 +199,7 @@ export function hasExceededLimits(): boolean {
 }
 
 // Import hashString for seed generation
-import { hashString } from '../core/utils';
+import { hashString } from '../core/utils.js';
 
 /**
  * Default configurations for common use cases

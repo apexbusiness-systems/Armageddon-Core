@@ -3,7 +3,7 @@
 // APEX Business Systems Ltd.
 // DATE: 2026-02-06
 
-import type { CircuitBreakerConfig, CircuitState, ProviderMetrics, CostConfig } from './types';
+import type { CircuitBreakerConfig, CircuitState, ProviderMetrics, CostConfig } from './types.js';
 
 /**
  * Default circuit breaker configuration

@@ -1,4 +1,4 @@
-import type { LLMResponse } from './types';
+import type { LLMResponse } from './types.js';
 
 export function mapStopFinishReason(reason: string | null | undefined): LLMResponse['finishReason'] {
     switch (reason) {

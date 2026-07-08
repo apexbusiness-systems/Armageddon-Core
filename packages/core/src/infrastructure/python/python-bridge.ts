@@ -17,7 +17,7 @@ import type {
     ExecutionResult,
     LogLine,
     KineticMetrics,
-} from './types';
+} from './types.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECRET REDACTION

@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
         const { user, supabase } = auth;
         
         // Secure Admin Verification via Environment Variable or Test Accounts
-        if (user && user.email && ((process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL) || user.email.toLowerCase().includes('armageddon.test.suite.cert') || user.email.toLowerCase().includes('apex'))) {
+        if (user && user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || (process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL))) {
              return NextResponse.json({
                 eligible: true,
                 tier: 'certified',

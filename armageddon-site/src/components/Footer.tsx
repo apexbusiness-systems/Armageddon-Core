@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
 import { useT } from '@/i18n/useT';
@@ -80,9 +81,17 @@ export default function Footer() {
             {/* Sub-footer */}
             <div className="py-8 px-4 bg-[var(--void)]">
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-                    {/* Brand */}
-                    <div className="flex items-center gap-4">
+                    {/* Brand & Compliance Links */}
+                    <div className="flex flex-wrap items-center gap-4">
                         <span className="mono-small text-signal/30 uppercase">{dictionary.common.footer.copyright}</span>
+                        <span className="text-zinc-800">|</span>
+                        <Link href="/privacy" className="mono-small text-signal/40 hover:text-signal transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
+                            PRIVACY POLICY
+                        </Link>
+                        <span className="text-zinc-800">|</span>
+                        <Link href="/support" className="mono-small text-signal/40 hover:text-signal transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
+                            SUPPORT TERMINAL
+                        </Link>
                     </div>
 
                     {/* Deployment indicator */}

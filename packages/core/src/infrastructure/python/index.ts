@@ -3,5 +3,5 @@
 // APEX Business Systems Ltd.
 // DATE: 2026-02-06
 
-export * from './types';
-export { PythonExecutor, createPythonExecutor } from './python-bridge';
+export * from './types.js';
+export { PythonExecutor, createPythonExecutor } from './python-bridge.js';
