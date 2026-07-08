@@ -311,7 +311,7 @@ describe('HttpTargetProvider', () => {
 
         const provider = new HttpTargetProvider({ model: 'http-target', httpTarget: bigConfig });
         const response = await provider.complete({ prompt: 'x' });
-        expect(response.content.length).toBe(10);
+        expect(response.content).toHaveLength(10);
         expect(response.finishReason).toBe('length');
     });
 

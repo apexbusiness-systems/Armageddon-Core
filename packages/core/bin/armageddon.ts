@@ -4,6 +4,7 @@ import { Connection, Client } from '@temporalio/client';
 import { createArmageddonWorker } from '../src/worker';
 import { EvidenceGenerator } from '../src/core/evidence-generator';
 import { resolveTarget, describeResolvedTarget } from '../src/cli/resolve-target';
+import { configureRunModeEnv, applyHttpTargetEnv } from '../src/cli/run-setup';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
@@ -56,23 +57,8 @@ program
     console.log(`[CLI] Starting Armageddon Run ${runId} (Level ${level})`);
     console.log(`[CLI] Mode: ${mode}, Seed: ${seed}`);
 
-    // Set Environment Variables for the run
-    if (mode === 'simulation') {
-        process.env.SIM_MODE = 'true';
-        process.env.SANDBOX_TENANT = process.env.SANDBOX_TENANT || 'cli-sim-tenant';
-        process.env.CHAOS_SEED = seed.toString();
-        // Ensure not destructive
-        delete process.env.ARMAGEDDON_DESTRUCTIVE;
-    } else if (mode === 'destructive') {
-        process.env.SIM_MODE = 'true'; // Required even for destructive (as per prompt: SIM_MODE=true + SANDBOX_TENANT + ARMAGEDDON_DESTRUCTIVE)
-        // Wait, prompt says: "Destructive batteries MUST refuse to run unless ALL of: (1) explicit non-prod config, (2) SIM_MODE=true + SANDBOX_TENANT set, (3) ARMAGEDDON_DESTRUCTIVE=true flag"
-
-        if (!process.env.SANDBOX_TENANT || !process.env.ARMAGEDDON_DESTRUCTIVE) {
-             console.error('[CLI] DESTRUCTIVE MODE BLOCKED: Missing required env vars (SANDBOX_TENANT, ARMAGEDDON_DESTRUCTIVE)');
-             console.error('Use: SANDBOX_TENANT=x ARMAGEDDON_DESTRUCTIVE=true armageddon run --mode=destructive ...');
-             process.exit(1);
-        }
-    }
+    // Set Environment Variables for the run (exits process on invalid destructive-mode config)
+    configureRunModeEnv(mode, seed);
 
     // Resolve what B10-B14 will actually attack. Fails loudly (throws) rather
     // than silently defaulting to the 'sim-001' stub for a CERTIFIED run.
@@ -93,21 +79,9 @@ program
         return;
     }
     console.log(`[CLI] Target resolved: ${describeResolvedTarget(resolvedTarget)}`);
-    if (resolvedTarget.providerKind === 'http') {
-        // Propagate to the worker process (in-process or external via its own
-        // env) so LiveFireAdapter's createHttpTargetConfigFromEnv() sees it.
-        process.env.ARMAGEDDON_TARGET_PROVIDER = 'http';
-        process.env.ARMAGEDDON_TARGET_ENDPOINT = resolvedTarget.httpTarget!.endpoint;
-        process.env.ARMAGEDDON_TARGET_METHOD = resolvedTarget.httpTarget!.method;
-        process.env.ARMAGEDDON_TARGET_CONTENT_TYPE = resolvedTarget.httpTarget!.contentType;
-        process.env.ARMAGEDDON_TARGET_BODY_TEMPLATE = resolvedTarget.httpTarget!.bodyTemplate;
-        if (resolvedTarget.httpTarget!.responsePath) process.env.ARMAGEDDON_TARGET_RESPONSE_PATH = resolvedTarget.httpTarget!.responsePath;
-        if (resolvedTarget.httpTarget!.authHeaderEnv) process.env.ARMAGEDDON_TARGET_AUTH_HEADER_ENV = resolvedTarget.httpTarget!.authHeaderEnv;
-        process.env.ARMAGEDDON_TARGET_ALLOWLIST_HOSTS = resolvedTarget.httpTarget!.allowlistHosts.join(',');
-        process.env.ARMAGEDDON_TARGET_TIMEOUT_MS = String(resolvedTarget.httpTarget!.timeoutMs);
-        process.env.ARMAGEDDON_TARGET_MAX_RPM = String(resolvedTarget.httpTarget!.maxRPM);
-        process.env.ARMAGEDDON_TARGET_MAX_RESPONSE_CHARS = String(resolvedTarget.httpTarget!.maxResponseChars);
-    }
+    // Propagate to the worker process (in-process or external via its own
+    // env) so LiveFireAdapter's createHttpTargetConfigFromEnv() sees it.
+    applyHttpTargetEnv(resolvedTarget);
 
     let worker;
     let runPromise;
