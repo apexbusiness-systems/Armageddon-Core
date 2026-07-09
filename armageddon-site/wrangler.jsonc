@@ -19,7 +19,7 @@
   // Plain-text vars (secrets stay in dashboard; never commit secret values here)
   // Secret: ANTHROPIC_API_KEY — set via: npx wrangler secret put ANTHROPIC_API_KEY
   "vars": {
-    "NEXT_PUBLIC_ARMAGEDDON_API_BASE": "https://armageddontest.icu",
+        "NEXT_PUBLIC_ARMAGEDDON_API_BASE": "https://armageddon-exec-api.onrender.com",
     "NEXT_PUBLIC_SUPABASE_URL": "https://qhjqselqpkfqjfpuxykb.supabase.co",
     "TEMPORAL_ADDRESS": "armageddon-prod.smvtx.tmprl.cloud:7233",
     "TEMPORAL_NAMESPACE": "armageddon-prod.smvtx",
