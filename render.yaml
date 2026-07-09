@@ -1,0 +1,60 @@
+# ARMAGEDDON EXECUTION ENGINE — Render Blueprint
+# Deploys api-server (pending-run dispatcher) + temporal-worker (battery executor)
+# Services auto-deploy on push to main
+services:
+  - type: web
+    name: armageddon-exec-api
+    runtime: docker
+    dockerfilePath: packages/core/Dockerfile.api
+    dockerContext: .
+    region: ohio
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SIM_MODE
+        value: "true"
+      - key: API_PORT
+        value: "8081"
+      - key: TEMPORAL_ADDRESS
+        value: armageddon-prod.smvtx.tmprl.cloud:7233
+      - key: TEMPORAL_NAMESPACE
+        value: armageddon-prod.smvtx
+      - key: TEMPORAL_TASK_QUEUE
+        value: armageddon-certification
+      - key: SUPABASE_URL
+        value: https://qhjqselqpkfqjfpuxykb.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: TEMPORAL_API_KEY
+        sync: false
+      - key: ARMAGEDDON_ATTESTATION_SEED
+        sync: false
+
+  - type: worker
+    name: armageddon-exec-worker
+    runtime: docker
+    dockerfilePath: packages/core/Dockerfile
+    dockerContext: .
+    region: ohio
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SIM_MODE
+        value: "true"
+      - key: TEMPORAL_ADDRESS
+        value: armageddon-prod.smvtx.tmprl.cloud:7233
+      - key: TEMPORAL_NAMESPACE
+        value: armageddon-prod.smvtx
+      - key: TEMPORAL_TASK_QUEUE
+        value: armageddon-certification
+      - key: SUPABASE_URL
+        value: https://qhjqselqpkfqjfpuxykb.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: TEMPORAL_API_KEY
+        sync: false
+      - key: ARMAGEDDON_ATTESTATION_SEED
+        sync: false
