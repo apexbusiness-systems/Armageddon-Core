@@ -1,7 +1,7 @@
-# ═══════════════════════════════════════════════════════════════════════════
-# ARMAGEDDON API SERVER — DOCKERFILE
-# Standalone Node.js HTTP certification runtime
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
+# ARMAGEDDON EXECUTION ENGINE - DOCKERFILE
+# Co-runs API server + Temporal worker in a single free-tier container
+# ═════════════════════════════════════════════════════════════════════════
 
 FROM node:20-bullseye-slim
 
@@ -17,24 +17,25 @@ COPY package.json package-lock.json ./
 COPY packages/core/package*.json ./packages/core/
 RUN npm ci --install-links
 
-# Copy TypeScript config and source
+# Copy TypeScript config, source, and unified start script
 COPY packages/core/tsconfig.json ./packages/core/
 COPY packages/core/src ./packages/core/src
+COPY packages/core/start.sh ./packages/core/start.sh
 
-# Build the shared package, then create the non-root user and hand it ownership.
-# Combined into a single layer to satisfy the "merge consecutive RUN" rule and
-# keep the image minimal.
+# Build the shared package, create non-root user, set permissions
+# start.sh must be executable before switching to non-root user
 RUN npm run build -w @armageddon/shared && \
-    groupadd -g 1001 armageddon && \
-    useradd -u 1001 -g armageddon -s /bin/bash -m apiuser && \
-    chown -R apiuser:armageddon /app
+ chmod +x packages/core/start.sh && \
+ groupadd -g 1001 armageddon && \
+ useradd -u 1001 -g armageddon -s /bin/bash -m apiuser && \
+ chown -R apiuser:armageddon /app
 
 USER apiuser
 
 EXPOSE 8081
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
-    CMD curl -f http://localhost:8081/health || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+ CMD curl -f http://localhost:8081/health || exit 1
 
-# Run directly with tsx (no build step needed for the API server)
-CMD ["node_modules/.bin/tsx", "packages/core/src/api-server.ts"]
+# Unified entrypoint: starts Temporal worker (background) + API server (foreground)
+CMD ["/bin/sh", "packages/core/start.sh"]
