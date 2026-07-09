@@ -61,7 +61,7 @@ jobs:
           # from this host. Must be present at BUILD time so Next inlines it into
           # the static export; otherwise isApiConfigured() is false and the
           # console locks every backed action (runs, gatekeeper, attestation).
-          NEXT_PUBLIC_ARMAGEDDON_API_BASE: https://armageddontest.icu
+                NEXT_PUBLIC_ARMAGEDDON_API_BASE: https://armageddon-exec-api.onrender.com
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL || secrets.ARMAGEDDON_DB_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || secrets.ARMAGEDDON_DB_ANON_KEY || secrets.SUPABASE_TOKEN }}
         run: npm run validate:production-env
