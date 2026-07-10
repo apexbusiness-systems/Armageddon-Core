@@ -14,6 +14,10 @@ FROM node:20-bullseye-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     update-ca-certificates && \
     rm -rf /var/lib/apt/lists/*
+# Build-time guard: fail the BUILD loudly if the cert bundle isn't actually
+# present, instead of shipping an image that only fails at runtime against
+# Temporal Cloud (2026-07-10 incident: this exact gap shipped silently).
+RUN test -s /etc/ssl/certs/ca-certificates.crt || (echo "FATAL: ca-certificates bundle missing after update-ca-certificates" && exit 1)
 WORKDIR /app
 # Copy workspace package (@armageddon/shared) required by armageddon-core
 COPY packages/shared ./packages/shared
