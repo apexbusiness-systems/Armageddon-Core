@@ -97,11 +97,18 @@ export async function createArmageddonWorker(): Promise<Worker> {
     const connection = await connectWithRetry();
 
     // 3. Register Worker
+    // workflowsPath must match this file's own extension: under compiled
+    // `node dist/worker.js` (plain Dockerfile) the sibling is workflows.js;
+    // under `tsx src/worker.ts` (Dockerfile.api's unified container) it's
+    // workflows.ts. Temporal's bundler does a raw fs.statSync on this path
+    // -- it bypasses tsx's .js->.ts loader rewriting (unlike the `activities`
+    // import above), so a hardcoded .js 404s when running from source.
+    const workflowsExt = fileURLToPath(import.meta.url).endsWith('.ts') ? 'ts' : 'js';
     const worker = await Worker.create({
         connection,
         namespace: process.env.TEMPORAL_NAMESPACE || 'default',
         taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7',
-        workflowsPath: fileURLToPath(new URL('./temporal/workflows.js', import.meta.url)),
+        workflowsPath: fileURLToPath(new URL(`./temporal/workflows.${workflowsExt}`, import.meta.url)),
         activities: activities.activities,
     });
 
