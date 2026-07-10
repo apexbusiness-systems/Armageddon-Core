@@ -15,12 +15,16 @@ set -e
 echo "[start.sh] Starting ARMAGEDDON execution engine..."
 
 echo "[start.sh] Launching Temporal worker..."
-node_modules/.bin/tsx packages/core/src/worker.ts &
+# Explicit heap caps: two Node processes share one 512MB free-tier instance.
+# Without a cap, V8 may size its heap off total host memory (misleading
+# inside a cgroup) and get OOM-killed by the kernel with no GC chance first.
+# Split leaves ~150MB headroom for OS + Node/V8 baseline + native addons.
+NODE_OPTIONS="--max-old-space-size=192" node packages/core/dist/worker.js &
 WORKER_PID=$!
 echo "[start.sh] Worker PID: $WORKER_PID"
 
 echo "[start.sh] Launching API server..."
-node_modules/.bin/tsx packages/core/src/api-server.ts &
+NODE_OPTIONS="--max-old-space-size=128" node packages/core/dist/api-server.js &
 API_PID=$!
 echo "[start.sh] API PID: $API_PID"
 
