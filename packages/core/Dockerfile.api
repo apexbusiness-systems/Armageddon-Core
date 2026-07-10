@@ -37,5 +37,7 @@ EXPOSE 8081
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
  CMD curl -f http://localhost:8081/health || exit 1
 
-# Unified entrypoint: starts Temporal worker (background) + API server (foreground)
-CMD ["/bin/sh", "packages/core/start.sh"]
+# Unified entrypoint: starts worker + API, and now watches both (see start.sh).
+# Requires bash for `wait -n`; bash is already present in this image (see the
+# apiuser useradd -s /bin/bash above).
+CMD ["/bin/bash", "packages/core/start.sh"]
