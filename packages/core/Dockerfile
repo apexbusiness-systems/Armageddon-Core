@@ -7,12 +7,20 @@
 FROM node:20-bullseye-slim
 
 # Install Python and system dependencies
+# ca-certificates is required (not optional): this worker also runs against
+# Temporal Cloud in docker-compose.moat.cloud.yml, where the native gRPC
+# binding validates TLS via rustls-native-certs against /etc/ssl/certs --
+# unlike fetch()/undici, which bundles its own CA store. Same root cause as
+# the Dockerfile.api fix (2026-07-10): --no-install-recommends means curl
+# alone does NOT pull this in on Debian.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
     procps \
     curl \
+    ca-certificates \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create Python virtual environment at /opt/venv
