@@ -36,8 +36,10 @@ trap 'echo "[start.sh] Signal received, shutting down..."; kill $WORKER_PID $API
 # Watchdog: if EITHER process exits (crash or otherwise), tear down the
 # other and exit non-zero so Render's own restart/alerting can see the
 # failure instead of it being masked forever behind a healthy API server.
+set +e
 wait -n "$WORKER_PID" "$API_PID"
 EXIT_CODE=$?
+set -e
 echo "[start.sh] A process exited (code $EXIT_CODE) -- worker or API died. Shutting down container."
 kill "$WORKER_PID" "$API_PID" 2>/dev/null
 exit "$EXIT_CODE"
