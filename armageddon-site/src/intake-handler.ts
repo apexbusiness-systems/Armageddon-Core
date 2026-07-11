@@ -480,6 +480,7 @@ interface RunInput {
   organizationId: string;
   level: number;
   requestedBatteries: string[] | null;
+  targetEndpoint: string | null;
 }
 
 function parseRunInput(body: Record<string, unknown>): RunInput | { error: string } {
@@ -487,6 +488,9 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
   const level = typeof body.level === 'number' ? body.level : 1;
   const requestedBatteries = Array.isArray(body.batteries)
     ? (body.batteries as unknown[]).filter((b): b is string => typeof b === 'string')
+    : null;
+  const targetEndpoint = typeof body.targetEndpoint === 'string' && body.targetEndpoint.trim()
+    ? body.targetEndpoint.trim()
     : null;
 
   if (!organizationId) return { error: 'organizationId is required.' };
@@ -496,7 +500,27 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
     return { error: 'organizationId must be a valid UUID.' };
   }
   if (level < 1 || level > 7) return { error: 'level must be 1–7.' };
-  return { organizationId, level, requestedBatteries };
+  if (targetEndpoint && !isAllowedTargetEndpoint(targetEndpoint)) return { error: 'targetEndpoint failed SSRF validation.' };
+  return { organizationId, level, requestedBatteries, targetEndpoint };
+}
+
+function isBlockedTargetHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  if (/^(0|10|127|169\.254|192\.168)\./.test(host)) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return true;
+  if (host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')) return true;
+  return false;
+}
+
+function isAllowedTargetEndpoint(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    return !isBlockedTargetHost(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 type RunAccess =
@@ -602,6 +626,7 @@ async function createRunRecord(
   level: number,
   batteries: string[],
   tier: string,
+  targetEndpoint: string | null,
 ): Promise<Response> {
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
@@ -624,7 +649,7 @@ async function createRunRecord(
     status: 'pending',
     // Store the org's actual tier so api-server can dispatch CERTIFIED runs
     // correctly; targetModel selects the real PAIR engine on CERTIFIED tier.
-    config: { batteries, iterations, tier, seed, targetModel: defaultTargetModel(tier) },
+    config: { batteries, iterations, tier, seed, targetModel: defaultTargetModel(tier), targetEndpoint },
   });
 
   if (insertError) {
@@ -661,7 +686,7 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
   const access = await evaluateRunAccess(env, user, input);
   if (!access.ok) return jsonResponse(access.body, canonicalHost, access.status);
 
-  return createRunRecord(env, canonicalHost, input.organizationId, input.level, access.batteries, access.tier);
+  return createRunRecord(env, canonicalHost, input.organizationId, input.level, access.batteries, access.tier, input.targetEndpoint);
 }
 
 // ── Intake form handler (unchanged) ──────────────────────────────────────────

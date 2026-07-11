@@ -50,6 +50,7 @@ COPY packages/core/src ./packages/core/src
 # Build shared package first, then armageddon-core; fail fast if either workspace cannot compile.
 RUN npm run build -w @armageddon/shared
 RUN npm run build -w armageddon-core && ls -la packages/core/dist
+RUN npm run bundle:workflows -w armageddon-core
 RUN npm prune --omit=dev --workspaces --include-workspace-root
 
 # Flatten dist to /app/dist for CMD

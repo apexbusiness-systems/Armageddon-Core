@@ -334,10 +334,11 @@ interface StartRunParams {
     level: number;
     plan: RunPlan;
     batteries: string[];
+    targetEndpoint?: string;
 }
 
 async function startCertificationRun(res: ServerResponse, supabase: SupabaseClient, params: StartRunParams): Promise<void> {
-    const { runId, workflowId, organizationId, plan, batteries } = params;
+    const { runId, workflowId, organizationId, plan, batteries, targetEndpoint } = params;
 
     let client: Client;
     try {
@@ -354,7 +355,7 @@ async function startCertificationRun(res: ServerResponse, supabase: SupabaseClie
         const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId,
             taskQueue: TEMPORAL_TASK_QUEUE,
-            args: [{ runId, organizationId, level: params.level, iterations: plan.iterations, tier: plan.tier, seed: plan.seed, batteries }],
+            args: [{ runId, organizationId, level: params.level, iterations: plan.iterations, tier: plan.tier, seed: plan.seed, batteries, targetEndpoint }],
         });
 
         await supabase
@@ -371,7 +372,7 @@ async function startCertificationRun(res: ServerResponse, supabase: SupabaseClie
 }
 
 async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    let body: { organizationId?: string; level?: number; iterations?: number; batteries?: string[] };
+    let body: { organizationId?: string; level?: number; iterations?: number; batteries?: string[]; targetEndpoint?: string };
     try {
         const raw = await readBody(req);
         body = JSON.parse(raw);
@@ -381,8 +382,13 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
     }
 
     const { organizationId, level = 7, batteries } = body;
+    const targetEndpoint = typeof body.targetEndpoint === 'string' && body.targetEndpoint.trim() ? body.targetEndpoint.trim() : undefined;
     if (!organizationId) {
         json(res, 400, { success: false, error: 'organizationId is required' });
+        return;
+    }
+    if (targetEndpoint && !(await validateSSRF(targetEndpoint))) {
+        json(res, 400, { success: false, error: 'targetEndpoint failed SSRF validation', code: 'SSRF_BLOCKED' });
         return;
     }
 
@@ -438,6 +444,7 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
                 iterations: plan.iterations,
                 tier: plan.tier,
                 seed: plan.seed,
+                targetEndpoint,
             },
         });
 
@@ -447,7 +454,7 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
         return;
     }
 
-    await startCertificationRun(res, supabase, { runId, workflowId, organizationId, level, plan, batteries: validatedBatteries });
+    await startCertificationRun(res, supabase, { runId, workflowId, organizationId, level, plan, batteries: validatedBatteries, targetEndpoint });
 }
 
 // GET /api/run?runId=<id>
@@ -1068,8 +1075,8 @@ interface PendingRun {
 }
 
 async function dispatchPendingRun(sb: SupabaseClient, client: Client, run: PendingRun): Promise<void> {
-    const cfg = (run.config ?? {}) as { batteries?: string[]; iterations?: number; tier?: string; seed?: number; targetModel?: string };
-    const { batteries = DEFAULT_BATTERIES, iterations = 2500, tier = 'FREE', seed = 0, targetModel = 'sim-001' } = cfg;
+    const cfg = (run.config ?? {}) as { batteries?: string[]; iterations?: number; tier?: string; seed?: number; targetModel?: string; targetEndpoint?: string };
+    const { batteries = DEFAULT_BATTERIES, iterations = 2500, tier = 'FREE', seed = 0, targetModel = 'sim-001', targetEndpoint } = cfg;
     const workflowTier = (tier === 'certified' && process.env.SIM_MODE !== 'true') ? 'CERTIFIED' : 'FREE';
     // Only forward a real model when tier is actually CERTIFIED; force sim-001 otherwise.
     const resolvedTargetModel = workflowTier === 'CERTIFIED' ? (targetModel || 'claude-sonnet-4-6') : 'sim-001';
@@ -1078,7 +1085,7 @@ async function dispatchPendingRun(sb: SupabaseClient, client: Client, run: Pendi
         const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId: run.workflow_id,
             taskQueue: TEMPORAL_TASK_QUEUE,
-            args: [{ runId: run.id, organizationId: run.organization_id, level: run.level, iterations, tier: workflowTier, seed, batteries, targetModel: resolvedTargetModel }],
+            args: [{ runId: run.id, organizationId: run.organization_id, level: run.level, iterations, tier: workflowTier, seed, batteries, targetModel: resolvedTargetModel, targetEndpoint }],
         });
 
         await sb.from('armageddon_runs')

@@ -15,11 +15,13 @@ set -e
 echo "[start.sh] Starting ARMAGEDDON execution engine..."
 
 echo "[start.sh] Launching Temporal worker..."
-# Explicit heap caps: two Node processes share one 512MB free-tier instance.
-# Without a cap, V8 may size its heap off total host memory (misleading
-# inside a cgroup) and get OOM-killed by the kernel with no GC chance first.
-# Split leaves ~150MB headroom for OS + Node/V8 baseline + native addons.
-NODE_OPTIONS="--max-old-space-size=192" node packages/core/dist/worker.js &
+# Heap caps split across two Node processes sharing one 512MB free-tier
+# instance. Worker raised 192->224MB now that workflow bundling happens at
+# Docker build time (bundle-workflows.mjs), not in this process anymore --
+# webpack/tapable/neo-async no longer load into its heap at all. Re-check
+# Render's Metrics tab after this deploys; treat further OOM as a signal of
+# an actual leak, not a sizing problem.
+NODE_OPTIONS="--max-old-space-size=224" node packages/core/dist/worker.js &
 WORKER_PID=$!
 echo "[start.sh] Worker PID: $WORKER_PID"
 
@@ -34,8 +36,10 @@ trap 'echo "[start.sh] Signal received, shutting down..."; kill $WORKER_PID $API
 # Watchdog: if EITHER process exits (crash or otherwise), tear down the
 # other and exit non-zero so Render's own restart/alerting can see the
 # failure instead of it being masked forever behind a healthy API server.
+set +e
 wait -n "$WORKER_PID" "$API_PID"
 EXIT_CODE=$?
+set -e
 echo "[start.sh] A process exited (code $EXIT_CODE) -- worker or API died. Shutting down container."
 kill "$WORKER_PID" "$API_PID" 2>/dev/null
 exit "$EXIT_CODE"
