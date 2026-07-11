@@ -47,6 +47,14 @@ describe('worker run-path integrity', () => {
     it('routes /api/attestation/pubkey at the edge', () => {
         expect(workerSrc).toContain("case '/api/attestation/pubkey':");
     });
+
+
+    it('persists targetEndpoint from edge /api/run into pending run config', () => {
+        expect(workerSrc).toContain('targetEndpoint: string | null');
+        expect(workerSrc).toContain('targetEndpoint && !isAllowedTargetEndpoint(targetEndpoint)');
+        expect(workerSrc).toContain('targetModel: defaultTargetModel(tier), targetEndpoint');
+        expect(workerSrc).toContain('input.targetEndpoint');
+    });
 });
 
 describe('edge attestation seed decoder (parity with @armageddon/shared)', () => {
