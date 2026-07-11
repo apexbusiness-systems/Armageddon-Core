@@ -1,5 +1,6 @@
 import { Worker, NativeConnection } from '@temporalio/worker';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { existsSync } from 'node:fs';
 import * as activities from './temporal/activities.js';
 import { safetyGuard } from './core/safety.js';
 import { getAttestationPublicKey } from './core/attestation.js';
@@ -97,18 +98,23 @@ export async function createArmageddonWorker(): Promise<Worker> {
     const connection = await connectWithRetry();
 
     // 3. Register Worker
-    // workflowsPath must match this file's own extension: under compiled
-    // `node dist/worker.js` (plain Dockerfile) the sibling is workflows.js;
-    // under `tsx src/worker.ts` (Dockerfile.api's unified container) it's
-    // workflows.ts. Temporal's bundler does a raw fs.statSync on this path
-    // -- it bypasses tsx's .js->.ts loader rewriting (unlike the `activities`
-    // import above), so a hardcoded .js 404s when running from source.
-    const workflowsExt = fileURLToPath(import.meta.url).endsWith('.ts') ? 'ts' : 'js';
+    // Prefer a pre-built bundle (dist/workflow-bundle.js, produced at Docker
+    // build time by `npm run bundle:workflows` -- see scripts/bundle-workflows.mjs)
+    // so the runtime worker process never loads webpack in-process (23s/4.11MB
+    // in-process compile observed 2026-07-10, contributing to the worker's
+    // OOM against its 512MB free-tier budget). Falls back to dynamic
+    // workflowsPath bundling when no prebuilt bundle exists, i.e. local
+    // `tsx`/`tsx watch` dev, where this file's extension is still .ts.
+    const selfPath = fileURLToPath(import.meta.url);
+    const prebuiltBundlePath = fileURLToPath(new URL('./workflow-bundle.js', import.meta.url));
+    const workflowsExt = selfPath.endsWith('.ts') ? 'ts' : 'js';
     const worker = await Worker.create({
         connection,
         namespace: process.env.TEMPORAL_NAMESPACE || 'default',
         taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7',
-        workflowsPath: fileURLToPath(new URL(`./temporal/workflows.${workflowsExt}`, import.meta.url)),
+        ...(existsSync(prebuiltBundlePath)
+            ? { workflowBundle: { codePath: prebuiltBundlePath } }
+            : { workflowsPath: fileURLToPath(new URL(`./temporal/workflows.${workflowsExt}`, import.meta.url)) }),
         activities: activities.activities,
     });
 
