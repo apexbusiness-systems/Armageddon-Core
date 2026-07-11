@@ -47,6 +47,7 @@ COPY packages/core/start.sh ./packages/core/start.sh
 # sit in the shipped image either.
 RUN npm run build -w @armageddon/shared && \
  npm run build -w armageddon-core && \
+ npm run bundle:workflows -w armageddon-core && \
  npm prune --omit=dev --workspaces --include-workspace-root && \
  chmod +x packages/core/start.sh && \
  groupadd -g 1001 armageddon && \
