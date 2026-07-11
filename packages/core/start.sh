@@ -15,11 +15,13 @@ set -e
 echo "[start.sh] Starting ARMAGEDDON execution engine..."
 
 echo "[start.sh] Launching Temporal worker..."
-# Explicit heap caps: two Node processes share one 512MB free-tier instance.
-# Without a cap, V8 may size its heap off total host memory (misleading
-# inside a cgroup) and get OOM-killed by the kernel with no GC chance first.
-# Split leaves ~150MB headroom for OS + Node/V8 baseline + native addons.
-NODE_OPTIONS="--max-old-space-size=192" node packages/core/dist/worker.js &
+# Heap caps split across two Node processes sharing one 512MB free-tier
+# instance. Worker raised 192->224MB now that workflow bundling happens at
+# Docker build time (bundle-workflows.mjs), not in this process anymore --
+# webpack/tapable/neo-async no longer load into its heap at all. Re-check
+# Render's Metrics tab after this deploys; treat further OOM as a signal of
+# an actual leak, not a sizing problem.
+NODE_OPTIONS="--max-old-space-size=224" node packages/core/dist/worker.js &
 WORKER_PID=$!
 echo "[start.sh] Worker PID: $WORKER_PID"
 

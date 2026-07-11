@@ -8,6 +8,7 @@
   "bin": "./bin/armageddon.ts",
   "scripts": {
     "build": "tsc",
+    "bundle:workflows": "node scripts/bundle-workflows.mjs",
     "dev": "tsx watch src/worker.ts",
     "worker": "tsx src/worker.ts",
     "api": "tsx src/api-server.ts",
