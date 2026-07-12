@@ -10,6 +10,7 @@
     "certify:armageddon": "npm run build -w @armageddon/shared && npm run build -w armageddon-core && npm run typecheck -w armageddon-core && npm run build -w armageddon-site && npm run lint -w armageddon-site",
     "validate:all": "npm ci && npm run certify:armageddon",
     "check:levels": "node scripts/check-level-integrity.mjs",
+    "check:docker-contract": "node scripts/check-docker-build-contract.mjs",
     "docs:check": "node scripts/check-docs-drift.mjs && node scripts/check-level-integrity.mjs",
     "test": "npm --prefix packages/core run test && npm --prefix armageddon-site run test",
     "lint": "npm run lint:shared && npm run lint:core && npm run lint:site",

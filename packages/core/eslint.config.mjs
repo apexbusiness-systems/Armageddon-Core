@@ -15,6 +15,17 @@ export default tseslint.config(
     ],
   },
   {
+    files: ['src/temporal/workflows.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: '@armageddon/shared',
+          message: 'Temporal workflow code must import a deterministic subpath such as @armageddon/shared/types, never the server-capable barrel.',
+        }],
+      }],
+    },
+  },
+  {
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
