@@ -46,6 +46,7 @@ RUN npm ci --install-links
 # Copy TypeScript config and source
 COPY packages/core/tsconfig.json ./packages/core/
 COPY packages/core/src ./packages/core/src
+COPY packages/core/scripts/bundle-workflows.mjs ./packages/core/scripts/bundle-workflows.mjs
 
 # Build shared package first, then armageddon-core; fail fast if either workspace cannot compile.
 RUN npm run build -w @armageddon/shared

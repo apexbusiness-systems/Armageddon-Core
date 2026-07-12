@@ -77,11 +77,23 @@ describe('Provider Factory', () => {
             expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('together not yet implemented'));
         });
 
+        it('should throw PROVIDER_NOT_IMPLEMENTED for together models in certified-live mode', () => {
+            expect(() => createProvider({
+                model: 'meta-llama/Llama-3-70b-chat-hf'
+            }, 'certified-live')).toThrow(/PROVIDER_NOT_IMPLEMENTED/);
+        });
+
         it('should fallback to SimulationProvider for unknown models', () => {
             const provider = createProvider({
                 model: 'unknown-model' as ModelIdentifier
             });
             expect(provider).toBeInstanceOf(SimulationProvider);
+        });
+
+        it('should throw UNSUPPORTED_TARGET_MODEL for unknown models in certified-live mode', () => {
+            expect(() => createProvider({
+                model: 'unknown-model' as ModelIdentifier
+            }, 'certified-live')).toThrow(/UNSUPPORTED_TARGET_MODEL/);
         });
     });
 

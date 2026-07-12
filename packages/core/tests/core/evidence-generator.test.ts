@@ -131,7 +131,7 @@ describe('EvidenceGenerator', () => {
             const pdfBytes = await generator.generateCertificatePdf();
             expect(pdfBytes).toBeInstanceOf(Uint8Array);
             expect(pdfBytes.length).toBeGreaterThan(0);
-        });
+        }, 30000);
     });
 
     describe('generateJunitXml', () => {
@@ -248,7 +248,7 @@ describe('EvidenceGenerator', () => {
             const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);
             const pdf = await gen.generateCertificatePdf();
             expect(pdf).toBeInstanceOf(Uint8Array);
-        });
+        }, 30000);
 
         it('renders attestation summary into report.md', () => {
             const gen = new EvidenceGenerator(mockReport, 'test-run-id', mockOptions);

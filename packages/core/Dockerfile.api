@@ -35,6 +35,7 @@ RUN npm ci --install-links
 COPY packages/core/tsconfig.json ./packages/core/
 COPY packages/core/src ./packages/core/src
 COPY packages/core/start.sh ./packages/core/start.sh
+COPY packages/core/scripts/bundle-workflows.mjs ./packages/core/scripts/bundle-workflows.mjs
 
 # Build the shared package AND armageddon-core (-> dist/worker.js,
 # dist/api-server.js). Runtime now executes compiled JS via plain `node`

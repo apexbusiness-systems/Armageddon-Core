@@ -79,10 +79,18 @@ export function isKnownTargetModel(value: string): value is Exclude<ModelIdentif
 }
 
 /**
- * Create a provider instance for the given model
+ * Create a provider instance for the given model.
+ *
+ * @param options       - Provider options including model identifier.
+ * @param executionMode - 'simulation' (default) allows fallback to SimulationProvider.
+ *                        'certified-live' throws on any unimplemented or unknown model —
+ *                        a certified run must never silently downgrade to simulation.
  */
-export function createProvider(options: ProviderOptions): ILLMProvider {
-    const providerName = MODEL_PROVIDER_MAP[options.model] || 'simulation';
+export function createProvider(
+    options: ProviderOptions,
+    executionMode: 'simulation' | 'certified-live' = 'simulation'
+): ILLMProvider {
+    const providerName = MODEL_PROVIDER_MAP[options.model] || 'unknown';
 
     switch (providerName) {
         case 'openai':
@@ -98,9 +106,25 @@ export function createProvider(options: ProviderOptions): ILLMProvider {
         case 'together':
             // @see https://github.com/apexbusiness-systems/Armageddon-Core/issues/42
             // Together provider planned for v2.0 release
+            if (executionMode === 'certified-live') {
+                throw new Error(
+                    `PROVIDER_NOT_IMPLEMENTED: The Together provider (model: ${options.model}) ` +
+                    'is not yet available for certified-live execution. ' +
+                    'Refusing to substitute SimulationProvider — a certified run must use a real provider. ' +
+                    'See https://github.com/apexbusiness-systems/Armageddon-Core/issues/42.'
+                );
+            }
             console.warn(`[Providers] ${providerName} not yet implemented, falling back to simulation`);
             return new SimulationProvider(options);
         default:
+            if (executionMode === 'certified-live') {
+                throw new Error(
+                    `UNSUPPORTED_TARGET_MODEL: Unknown model "${options.model}" cannot be used ` +
+                    'for certified-live execution. ' +
+                    'Refusing to substitute SimulationProvider. ' +
+                    'Provide a known model identifier from the supported list.'
+                );
+            }
             return new SimulationProvider(options);
     }
 }

@@ -25,7 +25,8 @@
     "build:core": "npm --prefix packages/core run build",
     "build:site": "npm --prefix armageddon-site run build",
     "test:e2e:local": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npx playwright test -c packages/core/playwright.config.ts",
-    "certify:staging-e2e": "npm --prefix armageddon-site run certify:staging-e2e"
+    "certify:staging-e2e": "npm --prefix armageddon-site run certify:staging-e2e",
+    "check:docker-contract": "node scripts/check-docker-build-contract.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

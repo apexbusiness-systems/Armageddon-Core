@@ -48,37 +48,119 @@ function parseIPv4Address(hostname: string): string | null {
     return null;
 }
 
+/**
+ * Returns true if the resolved IPv4 dotted-decimal address falls within any
+ * IANA-reserved, private, link-local, CGNAT, documentation, benchmarking,
+ * multicast, or otherwise non-global-unicast range.
+ *
+ * Ranges covered (RFC-referenced):
+ *   0.0.0.0/8        – "This" network (RFC 791)
+ *   10.0.0.0/8       – Private (RFC 1918)
+ *   100.64.0.0/10    – Carrier-grade NAT (RFC 6598)
+ *   127.0.0.0/8      – Loopback (RFC 5735)
+ *   169.254.0.0/16   – Link-local / cloud metadata (RFC 3927)
+ *   172.16.0.0/12    – Private (RFC 1918)
+ *   192.0.0.0/24     – IETF Protocol (RFC 5736)
+ *   192.0.2.0/24     – TEST-NET-1 (RFC 5737)
+ *   192.168.0.0/16   – Private (RFC 1918)
+ *   198.18.0.0/15    – Benchmarking (RFC 2544)
+ *   198.51.100.0/24  – TEST-NET-2 (RFC 5737)
+ *   203.0.113.0/24   – TEST-NET-3 (RFC 5737)
+ *   224.0.0.0/4      – Multicast (RFC 3171)
+ *   240.0.0.0/4      – Reserved / future (RFC 1112)
+ *   255.255.255.255  – Limited broadcast
+ */
+function isBlockedIPv4(address: string): boolean {
+    const octets = address.split('.').map(Number) as [number, number, number, number];
+    const [a, b, c] = octets;
+    return (
+        a === 0                                    ||  // 0/8
+        a === 10                                   ||  // 10/8
+        (a === 100 && b >= 64 && b <= 127)         ||  // 100.64/10 CGNAT
+        a === 127                                  ||  // 127/8 loopback
+        (a === 169 && b === 254)                   ||  // 169.254/16 link-local
+        (a === 172 && b >= 16 && b <= 31)          ||  // 172.16/12
+        (a === 192 && b === 0   && c === 0)        ||  // 192.0.0/24 IETF Protocol
+        (a === 192 && b === 0   && c === 2)        ||  // 192.0.2/24 TEST-NET-1
+        (a === 192 && b === 168)                   ||  // 192.168/16
+        (a === 198 && b >= 18  && b <= 19)         ||  // 198.18/15 benchmarking
+        (a === 198 && b === 51  && c === 100)      ||  // 198.51.100/24 TEST-NET-2
+        (a === 203 && b === 0   && c === 113)      ||  // 203.0.113/24 TEST-NET-3
+        a >= 224                                       // 224/4 multicast + 240/4 reserved + broadcast
+    );
+}
+
+/**
+ * Decodes an IPv4-mapped or IPv4-compatible IPv6 address and checks it against
+ * the IPv4 block list.  Also rejects loopback, unspecified, unique-local,
+ * link-local, documentation, discard, and multicast IPv6 ranges.
+ *
+ * IPv4-mapped:     ::ffff:a.b.c.d  /  ::ffff:0:a.b.c.d
+ * IPv4-compatible: ::a.b.c.d  (deprecated, RFC 4291 §2.5.5.1)
+ * IPv4-translated: 64:ff9b::/96  (RFC 6052)
+ */
+function isBlockedIPv6(address: string): boolean {
+    const norm = address.toLowerCase();
+
+    // Unspecified / loopback
+    if (norm === '::' || norm === '::1') return true;
+
+    // Unique-local (fc00::/7) — fc and fd prefix
+    if (norm.startsWith('fc') || norm.startsWith('fd')) return true;
+
+    // Link-local (fe80::/10) — fe8, fe9, fea, feb
+    if (norm.startsWith('fe8') || norm.startsWith('fe9') ||
+        norm.startsWith('fea') || norm.startsWith('feb')) return true;
+
+    // Multicast (ff00::/8)
+    if (norm.startsWith('ff')) return true;
+
+    // Documentation (2001:db8::/32)
+    if (norm.startsWith('2001:db8')) return true;
+
+    // Discard (0100::/64)
+    if (norm.startsWith('0100:') || norm.startsWith('100:')) return true;
+
+    // Helper to decode 32-bit hex IPv4 address from two 16-bit hex chunks
+    const parseIPv4Hex = (hiStr: string, loStr: string): string => {
+        const hi = parseInt(hiStr, 16);
+        const lo = parseInt(loStr, 16);
+        return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+    };
+
+    // IPv4-mapped dot-decimal  ::ffff:<ipv4>  or  ::ffff:0:<ipv4>
+    const mappedMatch = norm.match(/^::ffff:(?:0:)?(\d+\.\d+\.\d+\.\d+)$/);
+    if (mappedMatch) return isBlockedIPv4(mappedMatch[1]);
+
+    // IPv4-mapped hex form  ::ffff:<ipv4-hex> or ::ffff:0:<ipv4-hex>
+    const mappedHex = norm.match(/^::ffff:(?:0:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (mappedHex) return isBlockedIPv4(parseIPv4Hex(mappedHex[1], mappedHex[2]));
+
+    // IPv4-compatible dot-decimal (deprecated)  ::<ipv4>
+    const compatMatch = norm.match(/^::(\d+\.\d+\.\d+\.\d+)$/);
+    if (compatMatch) return isBlockedIPv4(compatMatch[1]);
+
+    // IPv4-compatible hex form (deprecated)  ::<ipv4-hex>
+    const compatHex = norm.match(/^::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (compatHex) return isBlockedIPv4(parseIPv4Hex(compatHex[1], compatHex[2]));
+
+    // 64:ff9b::/96 (NAT64, RFC 6052) — wraps real IPv4, conservatively block
+    if (norm.startsWith('64:ff9b:')) return true;
+
+    return false;
+}
+
 function isBlockedIpAddress(address: string): boolean {
     const ipVersion = isIP(address);
     if (ipVersion === 4) {
         const parsed = parseIPv4Address(address);
         if (!parsed) return true;
-        const [a, b] = parsed.split('.').map(Number) as [number, number, number, number];
-        return (
-            a === 0 ||
-            a === 10 ||
-            a === 127 ||
-            a === 169 && b === 254 ||
-            a === 172 && b >= 16 && b <= 31 ||
-            a === 192 && b === 168 ||
-            a >= 224
-        );
+        return isBlockedIPv4(parsed);
     }
-
     if (ipVersion === 6) {
-        const normalized = address.toLowerCase();
-        return (
-            normalized === '::1' ||
-            normalized === '::' ||
-            normalized.startsWith('fc') ||
-            normalized.startsWith('fd') ||
-            normalized.startsWith('fe8') ||
-            normalized.startsWith('fe9') ||
-            normalized.startsWith('fea') ||
-            normalized.startsWith('feb')
-        );
+        return isBlockedIPv6(address);
     }
-
+    // Not a recognized IP — block by default (fail-closed)
     return true;
 }
 
@@ -88,16 +170,21 @@ export async function validateSSRF(url: string): Promise<boolean> {
         const parsed = new URL(url);
         if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
 
+        // Reject URL userinfo (username or password in URL) — SSRF/CSRF vector
+        if (parsed.username || parsed.password) return false;
+
         const hostname = parsed.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
         if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false;
 
         const decodedHostname = decodeURIComponent(hostname);
         const directIPv4 = parseIPv4Address(decodedHostname);
-        if (directIPv4) return !isBlockedIpAddress(directIPv4);
+        if (directIPv4) return !isBlockedIPv4(directIPv4);
         if (isIP(decodedHostname)) return !isBlockedIpAddress(decodedHostname);
 
         const results = await lookup(decodedHostname, { all: true, verbatim: true });
+        // Zero addresses — reject (DNS failure or NXDOMAIN)
         if (results.length === 0) return false;
+        // ALL resolved addresses must pass — one private address among many rejects all
         return results.every(result => !isBlockedIpAddress(result.address));
     } catch {
         return false;
