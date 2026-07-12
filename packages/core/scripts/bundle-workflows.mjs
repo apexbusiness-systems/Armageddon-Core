@@ -20,5 +20,16 @@ const workflowsPath = path.join(__dirname, '..', 'dist', 'temporal', 'workflows.
 const outPath = path.join(__dirname, '..', 'dist', 'workflow-bundle.js');
 
 const { code } = await bundleWorkflowCode({ workflowsPath });
+const bundleBytes = Buffer.byteLength(code, 'utf8');
+const maxBundleBytes = 3 * 1024 * 1024;
+
+if (bundleBytes > maxBundleBytes) {
+  throw new Error(
+    `[bundle-workflows] Bundle is ${(bundleBytes / 1024 / 1024).toFixed(2)} MB; ` +
+    `maximum is ${(maxBundleBytes / 1024 / 1024).toFixed(2)} MB. ` +
+    'Check Temporal workflow imports for non-deterministic or server-only barrel dependencies.'
+  );
+}
+
 await writeFile(outPath, code);
-console.log(`[bundle-workflows] Wrote ${outPath} (${(code.length / 1024 / 1024).toFixed(2)} MB)`);
+console.log(`[bundle-workflows] Wrote ${outPath} (${(bundleBytes / 1024 / 1024).toFixed(2)} MB)`);
