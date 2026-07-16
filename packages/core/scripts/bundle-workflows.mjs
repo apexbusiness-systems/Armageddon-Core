@@ -21,7 +21,14 @@ const outPath = path.join(__dirname, '..', 'dist', 'workflow-bundle.js');
 
 const { code } = await bundleWorkflowCode({ workflowsPath });
 const bundleBytes = Buffer.byteLength(code, 'utf8');
-const maxBundleBytes = 3 * 1024 * 1024;
+// Guard: bundle was 4.11 MB before the Supabase/gate.ts removal (2026-07-15).
+// After removing @supabase from the workflow import chain the bundle is 1.39 MB.
+// The limit is set to 2 MB — tight enough to catch @supabase re-entry (~845 KB),
+// loose enough for normal Temporal SDK growth. If the guard fires at Docker build
+// time, check that workflows.ts only imports from workflow-types.ts (not activities.ts
+// barrel) and that @armageddon/shared is only imported via the /types subpath.
+const maxBundleBytes = 2 * 1024 * 1024;
+
 
 if (bundleBytes > maxBundleBytes) {
   throw new Error(
