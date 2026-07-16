@@ -94,25 +94,31 @@ function buildEventRow(
 export class SupabaseReporter {
     private readonly client: SupabaseClient;
     private readonly runId: string;
+    private readonly disabled: boolean;
 
     constructor(runId: string) {
-        const supabaseUrl = readSupabaseUrl();
-        const supabaseKey = readSupabaseServiceRoleKey();
+        this.disabled = process.env.DISABLE_REPORTER === 'true';
+        this.runId = runId;
 
-        if (process.env.DISABLE_REPORTER === 'true') {
-            console.log('[Reporter] Reporter disabled via DISABLE_REPORTER env variable.');
+        if (this.disabled) {
+            console.warn(
+                `[Reporter] ⚠️  TELEMETRY DISABLED for run ${runId} via DISABLE_REPORTER=true. ` +
+                `NO events or progress will be written to armageddon_events/armageddon_runs. ` +
+                `The frontend will show zero progress indefinitely. This warning repeats on every skipped write below.`
+            );
             // @ts-expect-error - Next.js App Router context may not be available in CLI
             this.client = null;
-            this.runId = runId;
             return;
         }
+
+        const supabaseUrl = readSupabaseUrl();
+        const supabaseKey = readSupabaseServiceRoleKey();
 
         if (!supabaseUrl || !supabaseKey) {
             throw new Error('[Reporter] SUPABASE_URL (or ARMAGEDDON_DB_URL) and SUPABASE_SERVICE_ROLE_KEY (or ARMAGEDDON_DB_SERVICE_ROLE_KEY) required');
         }
 
         this.client = createServerSupabaseClient(supabaseUrl, supabaseKey);
-        this.runId = runId;
     }
 
     /**
@@ -123,7 +129,10 @@ export class SupabaseReporter {
         eventType: EventType,
         payload?: Record<string, unknown>
     ): Promise<void> {
-        if (process.env.DISABLE_REPORTER === 'true') return;
+        if (this.disabled) {
+            console.warn(`[Reporter] SKIPPED event ${eventType} (battery ${batteryId}) for run ${this.runId} -- DISABLE_REPORTER=true.`);
+            return;
+        }
         const row = buildEventRow(this.runId, batteryId, eventType, payload, new Date().toISOString());
 
         // Single realtime transport: the durable insert IS the live signal. The
@@ -147,7 +156,10 @@ export class SupabaseReporter {
             payload?: Record<string, unknown>;
         }>
     ): Promise<void> {
-        if (process.env.DISABLE_REPORTER === 'true') return;
+        if (this.disabled) {
+            console.warn(`[Reporter] SKIPPED batch of ${events.length} events for run ${this.runId} -- DISABLE_REPORTER=true.`);
+            return;
+        }
         if (events.length === 0) return;
 
         const createdAt = new Date().toISOString();
@@ -166,7 +178,10 @@ export class SupabaseReporter {
      * Upsert progress to armageddon_runs table (every N iterations).
      */
     async upsertProgress(progress: Omit<RunProgress, 'runId' | 'updatedAt'>): Promise<void> {
-        if (process.env.DISABLE_REPORTER === 'true') return;
+        if (this.disabled) {
+            console.warn(`[Reporter] SKIPPED progress upsert for run ${this.runId} -- DISABLE_REPORTER=true.`);
+            return;
+        }
         // Progress (not terminal proof) → update real snake_case columns on the run row
         // keyed by id. Non-fatal: log on error, never corrupt the run record.
         const escapeRate = progress.totalIterations > 0
@@ -195,7 +210,10 @@ export class SupabaseReporter {
         status: 'COMPLETED' | 'FAILED',
         summary: Record<string, unknown>
     ): Promise<void> {
-        if (process.env.DISABLE_REPORTER === 'true') return;
+        if (this.disabled) {
+            console.warn(`[Reporter] SKIPPED finalizeRun (${status}) for run ${this.runId} -- DISABLE_REPORTER=true.`);
+            return;
+        }
         const terminalStatus = status === 'COMPLETED' ? 'passed' : 'failed';
         await this.pushEvent('SYSTEM', status === 'COMPLETED' ? 'RUN_COMPLETED' : 'RUN_FAILED', summary);
 
