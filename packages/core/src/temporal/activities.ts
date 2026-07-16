@@ -900,7 +900,9 @@ export async function finalizeRunActivity(input: FinalizeRunInput): Promise<void
     safetyGuard.enforce('FinalizeRun');
 
     if (process.env.DISABLE_REPORTER === 'true') {
-        console.log('[FinalizeRun] Bypassing durable state persistence because reporter is disabled.');
+        console.warn(`[FinalizeRun] ⚠️  TELEMETRY DISABLED via DISABLE_REPORTER=true. ` +
+            `Skipping durable state persistence for run ${input.runId}. ` +
+            `The run will NEVER show as completed on the frontend.`);
         return;
     }
 

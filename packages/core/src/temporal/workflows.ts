@@ -1,6 +1,9 @@
 import { proxyActivities, defineSignal, setHandler, executeChild } from '@temporalio/workflow';
+// Type-only import: Temporal's bundler elides `import type` declarations and does NOT
+// follow this module into @armageddon/shared → gate.ts → @supabase/supabase-js.
+// All runtime type contracts live in workflow-types.ts (zero external dependencies).
 import type * as activities from './activities.js';
-import { BatteryConfig, WorkflowState, ArmageddonReport, BatteryResult } from './activities.js';
+import type { BatteryConfig, WorkflowState, ArmageddonReport, BatteryResult } from './workflow-types.js';
 import { normalizeIterations } from '@armageddon/shared/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
