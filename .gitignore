@@ -25,3 +25,12 @@ attestation-demo-evidence.json
 
 # Test run outputs
 results/
+
+# Plaintext credential dumps that don't match the .env* pattern above.
+# ATSC-env.md (2026-07-16) holds live Cloudflare/Supabase/Temporal/GitHub
+# tokens and a site admin password in Markdown — the .env* gitignore rules
+# above do not catch this extension. Never commit this file; move its
+# contents to a password manager or Render/Cloudflare secret store instead.
+ATSC-env.md
+*-env.md
+*.secrets.md

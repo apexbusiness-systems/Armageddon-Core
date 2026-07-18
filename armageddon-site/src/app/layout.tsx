@@ -5,6 +5,7 @@ import StickyArmageddonPlayer from '@/components/StickyArmageddonPlayer';
 import PwaInstallDock from '@/components/PwaInstallDock';
 import LanguageSelector from '@/components/LanguageSelector';
 import AppProviders from '@/components/AppProviders';
+import { isApiConfigured } from '@/lib/runtime-api';
 
 const bebasNeue = Bebas_Neue({ subsets: ['latin'], weight: '400', variable: '--font-display', display: 'swap' });
 const spaceMono = Space_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-mono', display: 'swap' });
@@ -126,6 +127,13 @@ export default function RootLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    // Honest status pill: this used to be a hardcoded "always ready" string
+    // that stayed green even when the console below it showed RUN BLOCKED.
+    // NEXT_PUBLIC_ARMAGEDDON_API_BASE is inlined at build time (see
+    // src/lib/runtime-api.ts), so this reflects the actual build, not
+    // wishful text. The edge CDN itself has no "down" state worth signaling
+    // here — the thing that actually varies build-to-build is backend wiring.
+    const backendWired = isApiConfigured();
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
@@ -153,12 +161,22 @@ export default function RootLayout({
                         <div className="chromatic-edge" aria-hidden="true" />
                         <div className="scanline" aria-hidden="true" />
 
-                        {/* SYSTEM STATUS INDICATOR */}
+                        {/* SYSTEM STATUS INDICATOR — reflects actual build wiring, not a fixed string */}
                         <div className="fixed top-5 left-5 z-[10000] pointer-events-none">
                             <div className="flex items-center gap-3 bg-[var(--void)]/95 border border-[var(--tungsten)] px-4 py-2 backdrop-blur-sm">
-                                <div className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse shadow-[0_0_8px_var(--safe)]" />
-                                <span className="mono-small text-[var(--safe)]/80 tracking-widest">
-                                    CLOUDFLARE_EDGE_READY
+                                <div
+                                    className={`w-2 h-2 rounded-full animate-pulse ${
+                                        backendWired
+                                            ? 'bg-[var(--safe)] shadow-[0_0_8px_var(--safe)]'
+                                            : 'bg-[var(--warning)] shadow-[0_0_8px_var(--warning)]'
+                                    }`}
+                                />
+                                <span
+                                    className={`mono-small tracking-widest ${
+                                        backendWired ? 'text-[var(--safe)]/80' : 'text-[var(--warning)]/80'
+                                    }`}
+                                >
+                                    {backendWired ? 'CLOUDFLARE_EDGE_READY // BACKEND_LIVE' : 'CLOUDFLARE_EDGE_READY // BACKEND_OFFLINE'}
                                 </span>
                             </div>
                         </div>
