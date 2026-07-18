@@ -1,3 +1,16 @@
+> **AMENDMENT — 2026-07-18:** Production has since moved off the manual Docker
+> Compose path described below. The live deployment is a Render Blueprint
+> (`render.yaml`, auto-deploys `packages/core/Dockerfile.api` on push to
+> `main`), and `/api/run` + `/api/gatekeeper` + `/api/me/organizations` are
+> now served directly by the Cloudflare edge Worker (`intake-handler.ts`) via
+> an HTTP-based Temporal Cloud client — same-origin, no separate API host to
+> wire up. `NEXT_PUBLIC_ARMAGEDDON_API_BASE` is simply `https://armageddontest.icu`
+> (see `.github/workflows/deploy-cloudflare.yml:84`). This document's Docker
+> Compose steps remain valid as a self-hosted alternative but are **not**
+> what production runs today. See `PRODUCTION_STATUS.md` 2026-07-18 entry for
+> the current gap: the live static bundle needs a fresh `deploy-cloudflare.yml`
+> run to pick up this wiring.
+
 # Runbook — Deploy the ARMAGEDDON Execution Engine (Node API/dispatcher + Temporal worker)
 
 **Purpose:** make certification runs actually execute instead of hanging at `EXECUTING 0/13`.
