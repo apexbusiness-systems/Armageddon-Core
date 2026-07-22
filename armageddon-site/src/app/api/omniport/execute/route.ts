@@ -39,7 +39,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             config: {
                 batteries: batteries ?? ['B10', 'B11', 'B12', 'B13', 'B14'],
                 iterations,
-                tier: 'CERTIFIED',
+                // tier is 'FREE', not 'CERTIFIED': this endpoint always forces
+                // sim_mode: true above (it has no waiver/live-fire-guard gate),
+                // so its workflow must run the SimulationAdapter path honestly
+                // rather than claim CERTIFIED tier for a run that can never be
+                // live-fire (see packages/core/src/core/adversarial.ts, which
+                // now throws for tier:'CERTIFIED' with no targetModel).
+                tier: 'FREE',
                 seed,
                 omniPortRunRef,
                 targetEndpoint: targetUrl,
@@ -76,7 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 runId,
                 organizationId,
                 iterations,
-                tier: 'CERTIFIED',
+                tier: 'FREE',
                 seed,
                 batteries: batteries ?? ['B10', 'B11', 'B12', 'B13', 'B14'],
                 targetEndpoint: targetUrl,

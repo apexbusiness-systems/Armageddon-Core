@@ -321,7 +321,7 @@ export class EvidenceGenerator {
         return JSON.stringify(manifest, null, 2);
     }
 
-    private async loadPdfDocFromTemplate(PDFDocument: any): Promise<any> {
+    private async loadPdfDocFromTemplate(PDFDocument: typeof import('pdf-lib').PDFDocument): Promise<import('pdf-lib').PDFDocument> {
         const candidatePaths = [
             path.resolve(__dirname, '../../../../certs/pdf-certificate.pdf'),
             path.resolve(__dirname, '../../../certs/pdf-certificate.pdf'),

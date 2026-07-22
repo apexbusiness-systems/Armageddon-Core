@@ -127,7 +127,21 @@ export class AdversarialEngine {
     constructor(config: AdversarialEngineConfig) {
         this.tierConfig = config;
 
-        if (config.tier === 'CERTIFIED' && config.targetModel) {
+        if (config.tier === 'CERTIFIED') {
+            // A certified run must be provably real. Silently degrading to
+            // createSimulationConfig here would let a run labelled tier:
+            // 'CERTIFIED' / engine: 'LIVE_FIRE' actually execute fake
+            // SimulationProvider attacks with no error anywhere — exactly the
+            // fabricated-certification failure mode evidence-generator.ts is
+            // designed to prevent. Fail closed instead, matching the
+            // 'http-target' refusal below.
+            if (!config.targetModel) {
+                throw new Error(
+                    "[AdversarialEngine] tier is 'CERTIFIED' but no targetModel was provided. " +
+                    'Refusing to silently fall back to simulation for a certified run.'
+                );
+            }
+
             // Real LLM adversarial testing - map short name to full identifier
             const fullModelName = MODEL_MAP[config.targetModel] as ModelIdentifier;
 

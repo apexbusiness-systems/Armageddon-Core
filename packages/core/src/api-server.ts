@@ -569,6 +569,13 @@ async function persistOmniPortTelemetry(
 // either entrypoint is stored and displayed identically.
 const MAX_TARGET_SYSTEM_NAME_LENGTH = 160;
 
+// Same default real adversary model intake-handler.ts's defaultTargetModel()
+// and dispatchPendingRun's resolvedTargetModel fallback use for a certified
+// run. Required on every live-fire dispatch: AdversarialEngine now throws
+// rather than silently simulating when tier is 'CERTIFIED' with no
+// targetModel (packages/core/src/core/adversarial.ts).
+const LIVE_FIRE_TARGET_MODEL = 'claude-sonnet-4-6';
+
 function sanitizeTargetSystemName(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const cleaned = value
@@ -645,7 +652,11 @@ async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse):
         sandbox_tenant: process.env.SANDBOX_TENANT ?? 'armageddon-test',
         workflow_id: workflowId,
         status: 'pending',
-        config: { batteries, iterations, tier: 'CERTIFIED', seed, omniPortRunRef, targetEndpoint: targetUrl, targetSystemName },
+        // tier is 'FREE', not 'CERTIFIED': this endpoint always forces
+        // sim_mode: true above (it has no waiver/live-fire-guard gate), so
+        // its workflow must run the SimulationAdapter path honestly rather
+        // than claim CERTIFIED tier for a run that can never be live-fire.
+        config: { batteries, iterations, tier: 'FREE', seed, omniPortRunRef, targetEndpoint: targetUrl, targetSystemName },
     });
     if (insertError) {
         console.error('[OmniPort] Failed to create run record:', insertError.message);
@@ -668,7 +679,7 @@ async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse):
         handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId,
             taskQueue: resolveOmniPortTaskQueue(organizationId),
-            args: [{ runId, organizationId, iterations, tier: 'CERTIFIED', seed, batteries, targetEndpoint: targetUrl }],
+            args: [{ runId, organizationId, iterations, tier: 'FREE', seed, batteries, targetEndpoint: targetUrl }],
         });
     } catch (err) {
         console.error('[OmniPort] Workflow start failed:', (err as Error).message);
@@ -813,7 +824,11 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
         sandbox_tenant: process.env.OMNIPORT_LIVE_FIRE_TENANT || 'live-fire-authorized',
         workflow_id: workflowId,
         status: 'pending',
-        config: { batteries: selectedBatteries, iterations, tier: 'CERTIFIED', seed, liveFire: true, waiverRecordId: waiverRecord.id, targetEndpoint: targetUrl, targetSystemName },
+        // targetModel is required here: AdversarialEngine throws rather than
+        // silently simulating when tier is 'CERTIFIED' with no targetModel
+        // (see packages/core/src/core/adversarial.ts) — omitting it would
+        // fail every live-fire dispatch, not degrade it quietly.
+        config: { batteries: selectedBatteries, iterations, tier: 'CERTIFIED', seed, liveFire: true, waiverRecordId: waiverRecord.id, targetEndpoint: targetUrl, targetSystemName, targetModel: LIVE_FIRE_TARGET_MODEL },
     });
     if (insertError) {
         console.error('[OmniPort] Live-fire run record insert failed:', insertError.message);
@@ -836,7 +851,7 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
         handle = await client.workflow.start('ArmageddonLevel7Workflow', {
             workflowId,
             taskQueue: resolveOmniPortTaskQueue(organizationId),
-            args: [{ runId, organizationId, iterations, tier: 'CERTIFIED', seed, batteries: selectedBatteries, targetEndpoint: targetUrl }],
+            args: [{ runId, organizationId, iterations, tier: 'CERTIFIED', seed, batteries: selectedBatteries, targetEndpoint: targetUrl, targetModel: LIVE_FIRE_TARGET_MODEL }],
         });
     } catch (err) {
         console.error('[OmniPort] Live-fire workflow start failed:', (err as Error).message);
