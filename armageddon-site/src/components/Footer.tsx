@@ -55,6 +55,7 @@ export default function Footer() {
                         transition={{ duration: 0.8, delay: 0.1 }}
                     >
                         <button
+                            type="button"
                             onClick={handleCtaClick}
                             className="btn-cta mx-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                         >

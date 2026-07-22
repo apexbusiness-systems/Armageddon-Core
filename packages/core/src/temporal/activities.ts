@@ -309,7 +309,7 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
         } else if (isWin) {
             const args = ['/c', absoluteNpm, 'run', 'test', '--', '--reporter=json'];
             // Use absolute path for cmd.exe on Windows.
-            execFile('C:\\Windows\\System32\\cmd.exe', args, execOptions, handleExecResult);
+            execFile(String.raw`C:\Windows\System32\cmd.exe`, args, execOptions, handleExecResult);
         } else {
             const args = ['run', 'test', '--', '--reporter=json'];
             execFile(absoluteNpm, args, execOptions, handleExecResult);
@@ -349,7 +349,7 @@ export async function runBattery7_PlaywrightE2E(config: BatteryConfig): Promise<
         const nodeDir = path.dirname(process.execPath);
         const absoluteNpx = path.join(nodeDir, isWin ? 'npx.cmd' : 'npx');
 
-        const command = isWin ? 'C:\\Windows\\System32\\cmd.exe' : absoluteNpx;
+        const command = isWin ? String.raw`C:\Windows\System32\cmd.exe` : absoluteNpx;
         const args = isWin 
             ? ['/c', absoluteNpx, 'playwright', 'test', 'tests/e2e/battery-7.spec.ts', '--reporter=json']
             : ['playwright', 'test', 'tests/e2e/battery-7.spec.ts', '--reporter=json'];
@@ -601,8 +601,8 @@ async function runGenericAdversarialBattery<T>(
         payload?: Record<string, unknown>;
     }> = [];
 
-    for (let i = 0; i < results.length; i++) {
-        const event = results[i].result.event;
+    for (const item of results) {
+        const event = item.result.event;
         if (event) {
             eventsToPush.push({
                 batteryId,
@@ -1084,41 +1084,61 @@ export async function runBattery4_SecurityAuth(config: BatteryConfig): Promise<B
     };
 }
 
+async function probeAssetsLive(
+    assets: string[],
+    targetEndpoint: string,
+    details: Record<string, number>
+): Promise<{ passedCount: number; failedCount: number }> {
+    let passedCount = 0;
+    let failedCount = 0;
+    for (const asset of assets) {
+        try {
+            const url = new URL(asset, targetEndpoint).toString();
+            const res = await fetch(url);
+            if (res.ok) {
+                passedCount++; details[asset] = res.status;
+            } else {
+                failedCount++; details[asset] = res.status;
+            }
+        } catch {
+            failedCount++; details[asset] = 0;
+        }
+    }
+    return { passedCount, failedCount };
+}
+
+function probeAssetsSimulated(
+    assets: string[],
+    config: BatteryConfig,
+    details: Record<string, number>
+): { passedCount: number; failedCount: number } {
+    let passedCount = 0;
+    let failedCount = 0;
+    const rng = new SeedableRNG(resolveSeed(config));
+    for (const asset of assets) {
+        const ok = rng.bool(0.99);
+        if (ok) {
+            passedCount++; details[asset] = 200;
+        } else {
+            failedCount++; details[asset] = 404;
+        }
+    }
+    return { passedCount, failedCount };
+}
+
 export async function runBattery8_AssetSmoke(config: BatteryConfig): Promise<BatteryResult> {
     safetyGuard.enforce('Battery8_AssetSmoke');
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B8', 'BATTERY_STARTED', { target: config.targetEndpoint });
 
     const assets = ['/manifest.webmanifest', '/favicon.ico'];
-    let passedCount = 0;
-    let failedCount = 0;
     const details: Record<string, number> = {};
 
-    if (config.targetEndpoint && (config.targetEndpoint.includes('localhost') || config.targetEndpoint.includes('127.0.0.1'))) {
-        for (const asset of assets) {
-            try {
-                const url = new URL(asset, config.targetEndpoint).toString();
-                const res = await fetch(url);
-                if (res.ok) {
-                    passedCount++; details[asset] = res.status;
-                } else {
-                    failedCount++; details[asset] = res.status;
-                }
-            } catch {
-                failedCount++; details[asset] = 0;
-            }
-        }
-    } else {
-        const rng = new SeedableRNG(resolveSeed(config));
-        for (const asset of assets) {
-             const ok = rng.bool(0.99);
-             if (ok) {
-                 passedCount++; details[asset] = 200;
-             } else {
-                 failedCount++; details[asset] = 404;
-             }
-        }
-    }
+    const { targetEndpoint } = config;
+    const { passedCount, failedCount } = targetEndpoint
+        && (targetEndpoint.includes('localhost') || targetEndpoint.includes('127.0.0.1'))
+        ? await probeAssetsLive(assets, targetEndpoint, details)
+        : probeAssetsSimulated(assets, config, details);
 
     const passed = failedCount === 0;
     await reporter.pushEvent('B8', 'BATTERY_COMPLETED', { passedCount, failedCount });
@@ -1151,6 +1171,19 @@ export async function generateReport(state: WorkflowState): Promise<ArmageddonRe
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function runBattery14_IndirectInjection(config: BatteryConfig): Promise<BatteryResult> {
+    // Unlike B10-B13 (runGenericAdversarialBattery), this battery delegates to
+    // a separate engine module that tracks its own internal event log
+    // (result.events) but never persists to armageddon_events. Push the same
+    // STARTED/COMPLETED pair every other battery pushes so this run's
+    // telemetry — and any certificate generated from it — isn't silently
+    // missing this battery (see docs/audits/PRODUCTION_RUN_DISPATCH_STUCK_2026-07-22.md,
+    // run 6d608387: B14 was marked executed/failed with zero events).
+    const reporter = createReporter(config.runId);
+    await reporter.pushEvent('B14', 'BATTERY_STARTED', {
+        tier: config.tier,
+        engine: config.tier === 'CERTIFIED' ? 'LIVE_FIRE' : 'SIMULATION',
+    });
+
     const { runBattery14IndirectInjection } = await import('../core/engine/activities.js');
     const result = await runBattery14IndirectInjection(config.runId, {
         iterations: config.iterations,
@@ -1158,6 +1191,8 @@ export async function runBattery14_IndirectInjection(config: BatteryConfig): Pro
     });
 
     const passed = result.passed;
+    await reporter.pushEvent('B14', 'BATTERY_COMPLETED', { blocked: result.blocked, breaches: result.breaches });
+
     return {
         batteryId: 'B14_INDIRECT_INJECTION',
         status: passed ? 'PASSED' : 'FAILED',

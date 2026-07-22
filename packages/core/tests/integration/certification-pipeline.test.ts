@@ -127,4 +127,32 @@ describe('certification pipeline — start → certification with live telemetry
         expect(report.status).toBe('COMPLETED');
         expect(report.score).toBe(100);
     });
+
+    // Regression shield for a real production finding (2026-07-22, run
+    // 6d608387): B14 delegates to a separate engine module and was the only
+    // battery of B10-B14 that never pushed BATTERY_STARTED/COMPLETED to
+    // armageddon_events, despite being recorded executed/failed on the run
+    // row — see docs/audits/PRODUCTION_RUN_DISPATCH_STUCK_2026-07-22.md.
+    // iterations:0 deliberately keeps the delegated engine's loop from
+    // running at all: that loop calls Temporal's Context.current().heartbeat()
+    // unconditionally (unlike B10-B13's runGenericAdversarialBattery, which
+    // never touches Context), so it only works inside a live Temporal worker
+    // and would throw "Activity context not initialized" in this harness —
+    // a separate, pre-existing gap in that engine, not something this fix
+    // touches. Zero iterations still exercises exactly what this fix changed
+    // (the STARTED/COMPLETED reporter calls) without depending on it.
+    it('B14 streams BATTERY_STARTED/COMPLETED telemetry like every other battery', async () => {
+        const b14RunId = '22222222-2222-4222-8222-222222222222';
+        const config = { runId: b14RunId, iterations: 0, tier: 'FREE' as const, seed: 1, batteries: ['B14'] };
+
+        const result = await mod.runBattery14_IndirectInjection(config);
+
+        expect(['PASSED', 'FAILED']).toContain(result.status);
+
+        const b14Events = captured.events.filter((e) => e.battery_id === 'B14' && (e as { run_id?: string }).run_id === b14RunId);
+        const started = b14Events.filter((e) => e.event_type === 'BATTERY_STARTED');
+        const completed = b14Events.filter((e) => e.event_type === 'BATTERY_COMPLETED');
+        expect(started).toHaveLength(1);
+        expect(completed).toHaveLength(1);
+    });
 });

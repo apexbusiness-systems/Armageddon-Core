@@ -1,6 +1,5 @@
 
 import { createPythonExecutor } from '../packages/core/src/infrastructure/python/python-bridge.js';
-import * as path from 'path';
 
 async function main() {
     console.log('🔒 Verifying Kinetic IP Moat (Python Bridge)...');

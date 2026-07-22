@@ -52,7 +52,7 @@ async function apiFetch(endpoint, { token, ...init } = {}) {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
-      ...(init.headers ?? {}),
+      ...init.headers,
     },
   });
   const contentType = response.headers.get('content-type') ?? '';
@@ -455,7 +455,9 @@ async function main() {
   console.log(`[Cloudflare] Production: https://${zoneName}`);
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error(`[Cloudflare] Deployment failed: ${error.message}`);
   process.exit(1);
-});
+}

@@ -24,7 +24,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts && npm run build:shared
 
       - name: SonarCloud preflight (token + project access)
         id: sonar_preflight

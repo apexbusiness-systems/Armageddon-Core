@@ -1,6 +1,6 @@
 ---
-version: 1.1.0
-last_audited: 2026-07-07
+version: 1.2.0
+last_audited: 2026-07-22
 status: verified
 ---
 
@@ -30,6 +30,11 @@ The system should:
 - remain honest about missing access or incomplete backfill
 
 ## Last Verified Session
+
+- Audit date: 2026-07-22 (onboarding→certification E2E user-shoes validation — see `2026-07-22-onboarding-certification-e2e-validation.md`)
+- Key facts: Full root quality gate (lint/typecheck/test/build, 447 tests) and a real-browser onboarding→console user-shoes journey (12/12 checks) passed against the canonical Cloudflare static export. Decision: GO for the onboarding→certification flow. Root `README.md` was stale (Moat-only) and was rewritten to describe both shipped surfaces (public Cloudflare site + execution engine) and the 8-level system; `npm run docs:check` re-verified green. Durable correction: do not fabricate a Level 7/8 certification seal/PDF without a real run — no staging test credentials exist in this environment, and `packages/core/src/worker.ts` refuses to start live-fire (`SIM_MODE=false`) by design (CLAUDE.md Invariant 10).
+
+## Previous Verified Session (2026-07-07 — git-history reconciliation)
 
 - Audit date: 2026-07-07 (git-history reconciliation — see `2026-07-07-git-history-reconciliation.md`)
 - Key facts: Release gate PR #184 landed CLAUDE.md Invariants 12–15 (run-record integrity, edge attestation endpoint, pricing SoT, marketing claim integrity). Execution-engine gap ("EXECUTING 0/13") root-caused as a deployment gap, not a code defect; deploy path merged via PRs #187–#189 (`docker-compose.exec.yml`, runbook, certification-pipeline integration test). Production deployment of api-server + worker remains UNVERIFIED (operator action). J3 onboarding validation defect fixed in PR #190.

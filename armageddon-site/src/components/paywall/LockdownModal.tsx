@@ -51,6 +51,7 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
             >
                 {/* Close Button X */}
                 <button
+                    type="button"
                     onClick={onClose}
                     aria-label="Close lockdown modal"
                     className="absolute top-4 right-4 text-signal/30 hover:text-[var(--aerospace)] transition-colors z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
@@ -128,10 +129,10 @@ export default function LockdownModal({ onClose }: { readonly onClose: () => voi
 
                     {/* Secondary Actions */}
                     <div className="flex justify-between items-center px-2">
-                        <button onClick={onClose} className="mono-small text-signal/40 hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
+                        <button type="button" onClick={onClose} className="mono-small text-signal/40 hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
                             ABORT SEQUENCE
                         </button>
-                        <button onClick={onClose} className="mono-small text-[var(--aerospace)] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
+                        <button type="button" onClick={onClose} className="mono-small text-[var(--aerospace)] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]">
                             MEMBER LOGIN &gt;
                         </button>
                     </div>

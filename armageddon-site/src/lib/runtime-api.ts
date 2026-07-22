@@ -21,7 +21,7 @@ function normalizeBase(raw: string | undefined): string | null {
 
     // Strip trailing slashes without regex backtracking.
     let end = trimmed.length;
-    while (end > 0 && trimmed.charCodeAt(end - 1) === 47) {
+    while (end > 0 && trimmed.codePointAt(end - 1) === 47) {
         end -= 1;
     }
     const base = trimmed.slice(0, end);

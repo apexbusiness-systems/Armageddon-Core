@@ -345,6 +345,7 @@ export default function SupportPage() {
                 style={{ fontFamily: 'var(--font-mono)', caretColor: 'var(--safe)' }}
               />
               <button
+                type="button"
                 onClick={sendMessage}
                 disabled={isLoading || !input.trim()}
                 className="bg-[var(--aerospace)] hover:bg-[var(--aerospace-dark)] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold text-xs tracking-widest uppercase px-5 py-3.5 self-stretch transition-colors"
@@ -376,7 +377,7 @@ export default function SupportPage() {
           >
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] bg-[#050505]">
               <span className="mono-small text-[var(--warning)]">⚑ ESCALATION / EMAIL DRAFT</span>
-              <button onClick={() => setEscalation(null)} className="text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors px-2" aria-label={t.escalation.closeButton}>✕</button>
+              <button type="button" onClick={() => setEscalation(null)} className="text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors px-2" aria-label={t.escalation.closeButton}>✕</button>
             </div>
             <div className="p-5 flex flex-col gap-4">
               <p className="text-xs text-[var(--signal-dim)]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -414,13 +415,13 @@ export default function SupportPage() {
                 />
               </div>
               <div className="flex gap-3 flex-wrap">
-                <button onClick={copyEmail} className="bg-[var(--aerospace)] hover:bg-[var(--aerospace-dark)] text-white mono-small px-4 py-2.5 transition-colors">
+                <button type="button" onClick={copyEmail} className="bg-[var(--aerospace)] hover:bg-[var(--aerospace-dark)] text-white mono-small px-4 py-2.5 transition-colors">
                   {t.escalation.copyButton}
                 </button>
-                <button onClick={openMailApp} className="border border-white/[0.12] text-[var(--signal-dim)] hover:text-[var(--signal)] hover:border-white/[0.25] mono-small px-4 py-2.5 transition-colors">
+                <button type="button" onClick={openMailApp} className="border border-white/[0.12] text-[var(--signal-dim)] hover:text-[var(--signal)] hover:border-white/[0.25] mono-small px-4 py-2.5 transition-colors">
                   {t.escalation.openMailButton}
                 </button>
-                <button onClick={() => setEscalation(null)} className="border border-white/[0.12] text-[var(--signal-dim)] hover:text-[var(--signal)] hover:border-white/[0.25] mono-small px-4 py-2.5 transition-colors">
+                <button type="button" onClick={() => setEscalation(null)} className="border border-white/[0.12] text-[var(--signal-dim)] hover:text-[var(--signal)] hover:border-white/[0.25] mono-small px-4 py-2.5 transition-colors">
                   {t.escalation.closeButton}
                 </button>
               </div>

@@ -24,7 +24,24 @@ type IntakeEnv = {
   MAX_MSGS_PER_MIN?: string;
   MAX_MSGS_PER_HOUR?: string;
   MAX_INPUT_CHARS?: string;
+  // ── Wake-on-Enqueue (execution-plane cold-start elimination) ──────────────
+  // The Node execution engine (api-server + Temporal worker) runs as a
+  // free-tier service that spins down when idle. The edge control plane and
+  // the execution plane are decoupled: creating a run only inserts a `pending`
+  // row in Supabase, which does NOT generate the inbound HTTP that keeps the
+  // executor awake — so a run created while the executor sleeps sits unclaimed
+  // until something wakes it. This URL lets the edge fire a single fire-and-
+  // forget wake request at the exact moment a run is enqueued, coupling "work
+  // exists" to "wake the worker" with zero polling and zero extra cost. Unset
+  // → no-op (graceful degradation; existing deployments are unaffected).
+  ARMAGEDDON_EXEC_WAKE_URL?: string;
 };
+
+// Minimal Cloudflare Workers ExecutionContext shape (waitUntil only). Kept
+// local so this file has no @cloudflare/workers-types build dependency.
+interface EdgeExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+}
 
 type IntakePayload = {
   system_name?: unknown;
@@ -72,7 +89,7 @@ function normalizeBinding(raw: string | undefined): string | undefined {
   if (!trimmed) return undefined;
 
   const first = trimmed[0];
-  const last = trimmed[trimmed.length - 1];
+  const last = trimmed.at(-1);
   const hasWrappingQuotes = trimmed.length >= 2 && first === last && (first === '"' || first === "'");
   const unwrapped = hasWrappingQuotes ? trimmed.slice(1, -1).trim() : trimmed;
 
@@ -619,15 +636,61 @@ function secureSeed(): number {
   return globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
 }
 
+/**
+ * Wake-on-Enqueue: fire a single fire-and-forget wake request to the execution
+ * plane the instant a run is enqueued, so a spun-down free-tier executor wakes
+ * to claim the pending run instead of leaving it stranded until the next
+ * unrelated inbound request.
+ *
+ * Exported for the regression shield (tests/unit/worker-wake-on-enqueue.test.ts).
+ * Contract, all load-bearing:
+ *   • No URL configured   → no-op (returns false). Graceful degradation.
+ *   • Non-http(s) URL     → no-op (returns false). Never fetch untrusted schemes.
+ *   • Fetch throws/rejects → swallowed. A dead executor URL must NEVER fail
+ *     run creation — the run row is already safely persisted.
+ *   • When `ctx` is present the promise is registered with waitUntil so the
+ *     Worker runtime does not cancel it after the response is returned;
+ *     otherwise it is best-effort (still non-blocking).
+ */
+export function wakeExecutor(env: IntakeEnv, ctx?: EdgeExecutionContext): boolean {
+  const url = env.ARMAGEDDON_EXEC_WAKE_URL?.trim();
+  if (!url || !/^https?:\/\//i.test(url)) return false;
+
+  // Short timeout: this is a nudge, not a dependency. We do not read or await
+  // the response for correctness — the dispatcher polling Supabase does the
+  // real work once the executor is up.
+  const wake = fetch(url, {
+    method: 'GET',
+    signal: AbortSignal.timeout(5000),
+    headers: { 'x-armageddon-wake': 'enqueue' },
+  })
+    .then(() => undefined)
+    .catch(() => undefined);
+
+  if (ctx?.waitUntil) {
+    ctx.waitUntil(wake);
+  } else {
+    // No execution context (e.g. unit tests / non-Worker host): best-effort.
+    void wake;
+  }
+  return true;
+}
+
+interface CreateRunParams {
+  organizationId: string;
+  level: number;
+  batteries: string[];
+  tier: string;
+  targetEndpoint: string | null;
+}
+
 async function createRunRecord(
   env: IntakeEnv,
   canonicalHost: string,
-  organizationId: string,
-  level: number,
-  batteries: string[],
-  tier: string,
-  targetEndpoint: string | null,
+  params: CreateRunParams,
+  ctx?: EdgeExecutionContext,
 ): Promise<Response> {
+  const { organizationId, level, batteries, tier, targetEndpoint } = params;
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
   // Public marketing claim (all locales): "Simulation tier runs 10,000
@@ -663,10 +726,14 @@ async function createRunRecord(
 
   // Run is now 'pending' — the Node.js api-server polls Supabase for pending runs and
   // dispatches them to Temporal via gRPC (which cannot run on the CF Workers edge).
+  // Wake the (possibly spun-down) executor now so it claims this run promptly
+  // instead of after the next unrelated request. Fire-and-forget: the run row
+  // is already persisted, so a wake failure changes nothing about this response.
+  wakeExecutor(env, ctx);
   return jsonResponse({ success: true, runId, workflowId }, canonicalHost);
 }
 
-async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string, ctx?: EdgeExecutionContext): Promise<Response> {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
 
   const userOrResponse = await requireAuthenticatedUser(request, env, canonicalHost);
@@ -686,7 +753,13 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
   const access = await evaluateRunAccess(env, user, input);
   if (!access.ok) return jsonResponse(access.body, canonicalHost, access.status);
 
-  return createRunRecord(env, canonicalHost, input.organizationId, input.level, access.batteries, access.tier, input.targetEndpoint);
+  return createRunRecord(env, canonicalHost, {
+    organizationId: input.organizationId,
+    level: input.level,
+    batteries: access.batteries,
+    tier: access.tier,
+    targetEndpoint: input.targetEndpoint,
+  }, ctx);
 }
 
 // ── Intake form handler (unchanged) ──────────────────────────────────────────
@@ -1173,7 +1246,7 @@ async function handleAttestationPubkey(request: Request, env: IntakeEnv, canonic
 // ── Worker entry point ────────────────────────────────────────────────────────
 
 const intakeWorker = {
-  async fetch(request: Request, env: IntakeEnv): Promise<Response> {
+  async fetch(request: Request, env: IntakeEnv, ctx?: EdgeExecutionContext): Promise<Response> {
     const canonicalHost = env.CANONICAL_HOST?.trim() || DEFAULT_CANONICAL_HOST;
     const url = new URL(request.url);
 
@@ -1193,7 +1266,7 @@ const intakeWorker = {
       case '/api/attestation/pubkey':
         return handleAttestationPubkey(request, env, canonicalHost);
       case '/api/run':
-        return handleRun(request, env, canonicalHost);
+        return handleRun(request, env, canonicalHost, ctx);
       case '/api/support-chat':
         return handleSupportChat(request, env, canonicalHost);
       default:

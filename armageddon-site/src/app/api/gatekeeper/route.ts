@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
         const { user, supabase } = auth;
         
         // Secure Admin Verification via Environment Variable or Test Accounts
-        if (user && user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || user.email === readAdminEmail())) {
+        if (user?.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || user.email === readAdminEmail())) {
              return NextResponse.json({
                 eligible: true,
                 tier: 'certified',

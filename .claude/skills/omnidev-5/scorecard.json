@@ -1,0 +1,35 @@
+{
+  "skill": "omnidev-5",
+  "generated_utc": "2026-07-05T22:54:43+00:00",
+  "tooling": "apex-skill-forge v9 forge.py",
+  "lint": {
+    "fails": 0,
+    "warns": 0,
+    "findings": []
+  },
+  "tokens": {
+    "method": "estimate: characters / 4",
+    "metadata_always_loaded": 108,
+    "description_chars": 422,
+    "skill_md_body_on_trigger": 1145,
+    "skill_md_lines": 55,
+    "references_on_demand": {
+      "docker.md": 1094,
+      "integration-patterns.md": 902,
+      "redis.md": 1179,
+      "render.md": 1656,
+      "terraform.md": 1181,
+      "upstash.md": 1168
+    },
+    "scripts_loaded_tokens": 0
+  },
+  "trigger_eval": {
+    "validated": true,
+    "positive": 12,
+    "negative": 8,
+    "total": 20
+  },
+  "trigger_accuracy_live": null,
+  "note": "Token values are estimates (chars/4). trigger_accuracy_live: run the 20-query eval set in a live Claude Code session and record the measured rate here (e.g. 19/20 = 0.950) to complete the evidence chain.",
+  "rubric_score": 100
+}

@@ -14,18 +14,18 @@ FROM node:20-bullseye-slim
 # the Dockerfile.api fix (2026-07-10): --no-install-recommends means curl
 # alone does NOT pull this in on Debian.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    procps \
     python3 \
     python3-pip \
     python3-venv \
-    procps \
-    curl \
-    ca-certificates \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create Python virtual environment at /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
+RUN python3 -m venv "$VIRTUAL_ENV"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR /app
@@ -41,7 +41,15 @@ COPY packages/shared ./packages/shared
 # Copy root package files for workspace resolution
 COPY package.json package-lock.json ./
 COPY packages/core/package*.json ./packages/core/
-RUN npm ci --install-links
+# --ignore-scripts blocks arbitrary lifecycle scripts from transitive deps
+# (supply-chain hardening). Safe here: @temporalio/core-bridge (the only
+# native-binding dep) has no install/postinstall script and ships prebuilt
+# .node binaries per-platform in the package itself — verified directly
+# against node_modules/@temporalio/core-bridge/package.json and its
+# releases/<target>/index.node files. The two build RUN steps below already
+# explicitly build @armageddon/shared and armageddon-core, so nothing here
+# depends on postinstall running.
+RUN npm ci --install-links --ignore-scripts
 
 # Copy TypeScript config and source
 COPY packages/core/tsconfig.json ./packages/core/

@@ -29,7 +29,9 @@ COPY packages/shared ./packages/shared
 # Install Node.js dependencies
 COPY package.json package-lock.json ./
 COPY packages/core/package*.json ./packages/core/
-RUN npm ci --install-links
+# --ignore-scripts: see packages/core/Dockerfile for the verified-safe rationale
+# (@temporalio/core-bridge ships prebuilt .node binaries, no install script).
+RUN npm ci --install-links --ignore-scripts
 
 # Copy TypeScript config, source, and unified start script
 COPY packages/core/tsconfig.json ./packages/core/

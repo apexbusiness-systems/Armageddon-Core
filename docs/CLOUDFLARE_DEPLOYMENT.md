@@ -65,9 +65,12 @@ The routes marked "No" above are only implemented in
 `packages/core/Dockerfile.api`). **Where that process runs in production is
 not committed to this repository and is UNVERIFIED.** `docker-compose.yml`
 (local dev) and `docker-compose.moat.yml` / `docker-compose.moat.cloud.yml`
-(operator Moat) all define an `api`/`worker` service, but none of those files
-are a production cloud deployment target — there is no committed Fly.io,
-Render, Railway, or similar config for `api-server.ts`. Do not assume these
+(operator Moat) all define an `api`/`worker` service. **Corrected 2026-07-22:**
+a committed Render Blueprint (`render.yaml`, added 2026-07-05, running
+`packages/core/Dockerfile.api`) now exists and defines a candidate production
+target for `api-server.ts` — the "no committed cloud config" claim below is
+stale. Whether that Render service is actually deployed and reachable in
+production remains UNVERIFIED from repository state alone. Do not assume these
 routes are reachable at `https://armageddontest.icu` in production without
 fresh operator evidence (see `PRODUCTION_STATUS.md`).
 
@@ -112,13 +115,15 @@ The `/api/support-chat` endpoint (ATLAS agent) requires two resources that are n
 
 ### 1. KV namespace for rate limiting
 
-> **Current status (confirmed 2026-06-24):** The production `armageddon-core` Worker shows only one binding (`ASSETS`) in the Cloudflare dashboard. `RATE_LIMIT_KV` is **not yet provisioned**. Rate limiting is silently skipped. See OPS runbook 5.2.
+> **Corrected 2026-07-22:** The 2026-06-24 status below is stale. `armageddon-site/wrangler.jsonc` has carried a real KV namespace ID (`92d18e3aa55a4769b4485ffb3616f034`, committed 2026-07-05) in place of the `REPLACE_WITH_KV_NAMESPACE_ID` placeholder since PR that landed that commit — the config-level blocker described below is resolved. Whether that namespace is reachable/functioning against the live Cloudflare account is still **UNVERIFIED** without fresh operator evidence (dashboard check or a live rate-limit-triggering request); this doc reports repository state, not live runtime state.
+>
+> **Original status (confirmed 2026-06-24, superseded above):** The production `armageddon-core` Worker shows only one binding (`ASSETS`) in the Cloudflare dashboard. `RATE_LIMIT_KV` is **not yet provisioned**. Rate limiting is silently skipped. See OPS runbook 5.2.
 
 ```bash
 npx wrangler kv namespace create RATE_LIMIT_KV
 ```
 
-Copy the returned `id` and replace the `REPLACE_WITH_KV_NAMESPACE_ID` placeholder in `armageddon-site/wrangler.jsonc`:
+Copy the returned `id` and replace the `REPLACE_WITH_KV_NAMESPACE_ID` placeholder in `armageddon-site/wrangler.jsonc` (already done in the committed config as of 2026-07-05 — this step is for provisioning a *new* namespace, e.g. for a different environment):
 
 ```jsonc
 "kv_namespaces": [
@@ -126,7 +131,7 @@ Copy the returned `id` and replace the `REPLACE_WITH_KV_NAMESPACE_ID` placeholde
 ]
 ```
 
-**Note**: Deploying with the placeholder value is not a hard failure — the Worker binds gracefully and rate limiting is silently skipped. However, rate limiting will not function until the real ID is in place.
+**Note**: Deploying with the placeholder value is not a hard failure — the Worker binds gracefully and rate limiting is silently skipped. The committed config no longer uses the placeholder, but rate limiting only functions if the referenced namespace actually exists and is reachable in the target Cloudflare account.
 
 ### 2. Anthropic API key (required — no fallback)
 

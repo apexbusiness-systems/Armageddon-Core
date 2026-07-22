@@ -92,7 +92,7 @@ let cachedSupabaseServiceRole: SupabaseClient | null = null;
 export function getSupabaseServiceRole(): SupabaseClient {
     // Security: Prevent browser usage
     if (typeof window !== 'undefined') {
-        throw new Error(
+        throw new TypeError(
             '[SECURITY] getSupabaseServiceRole() cannot be called in browser context. ' +
             'This would expose the service role key to clients.'
         );

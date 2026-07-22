@@ -67,7 +67,7 @@ export class HealthServer {
    * Get the actual listening port
    */
   getPort(): number {
-    if (this.server && this.server.listening) {
+    if (this.server?.listening) {
       const address = this.server.address();
       if (address && typeof address === 'object') {
         return address.port;

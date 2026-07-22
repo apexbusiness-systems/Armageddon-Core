@@ -2,7 +2,7 @@
 set -e
 
 echo "=== TypeScript type-check ==="
-npx tsc --noEmit -p packages/core/tsconfig.json
+node_modules/.bin/tsc --noEmit -p packages/core/tsconfig.json
 
 echo "=== Lint (workspace) ==="
 if npm run lint -w armageddon-core --if-present 2>/dev/null; then
@@ -21,7 +21,7 @@ fi
 
 if compgen -G "armageddon-site/jest.config.*" > /dev/null; then
   cd armageddon-site
-  npx jest --coverage --coverageReporters=lcov
+  ../node_modules/.bin/jest --coverage --coverageReporters=lcov
   cd ..
 else
   mkdir -p armageddon-site/coverage
