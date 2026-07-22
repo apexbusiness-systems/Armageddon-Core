@@ -4,7 +4,8 @@ import { proxyActivities, defineSignal, setHandler, executeChild } from '@tempor
 // All runtime type contracts live in workflow-types.ts (zero external dependencies).
 import type * as activities from './activities.js';
 import type { BatteryConfig, WorkflowState, ArmageddonReport, BatteryResult } from './workflow-types.js';
-import { normalizeIterations, DEFAULT_BATTERIES } from '@armageddon/shared/types';
+import { DEFAULT_BATTERIES } from './workflow-types.js';
+import { normalizeIterations } from '@armageddon/shared/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION & CONSTANTS

@@ -16,6 +16,8 @@
 // If you add a field to BatteryConfig or BatteryResult in activities.ts,
 // mirror it here. A typecheck failure is the intended signal.
 
+export const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
+
 export type OrganizationTier = 'FREE' | 'CERTIFIED';
 export type AdversarialModel = 'sim-001' | 'gpt-4-turbo' | 'claude-3-opus' | 'llama-3-70b';
 

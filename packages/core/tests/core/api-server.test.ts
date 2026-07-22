@@ -8,7 +8,7 @@ import {
   buildRunPlan,
   checkRateLimit,
 } from '../../src/api-server.js';
-import { DEFAULT_BATTERIES } from '@armageddon/shared/types';
+import { DEFAULT_BATTERIES } from '@armageddon/shared';
 
 // Mock external dependencies before importing api-server helpers
 vi.mock('../../src/core/supabase-client.js', () => ({
