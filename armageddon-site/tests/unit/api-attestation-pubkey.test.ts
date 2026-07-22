@@ -58,7 +58,7 @@ describe('attestation-pubkey helper', () => {
             expect(a.publicKey).toBe(b.publicKey);
             expect(a.keyId).toBe(b.keyId);
             expect(a.source).toBe('env');
-            expect(Buffer.from(a.publicKey, 'base64').length).toBe(32);
+            expect(Buffer.from(a.publicKey, 'base64')).toHaveLength(32);
             expect(a.keyId).toMatch(/^[0-9a-f]{16}$/);
         });
     });
@@ -97,7 +97,7 @@ describe('GET /api/attestation/pubkey', () => {
         expect(body.spec).toBe('armageddon-attestation/1.0');
         expect(body.algorithm).toBe('ed25519');
         expect(body.keyId).toMatch(/^[0-9a-f]{16}$/);
-        expect(Buffer.from(body.publicKey, 'base64').length).toBe(32);
+        expect(Buffer.from(body.publicKey, 'base64')).toHaveLength(32);
         expect(typeof body.issuedAt).toBe('string');
     });
 

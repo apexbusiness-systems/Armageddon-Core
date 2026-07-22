@@ -29,24 +29,15 @@ describe('auth-origin', () => {
         expect(getAuthOrigin()).toBe('https://armageddontest.icu');
     });
 
-    it('returns canonical origin when NEXT_PUBLIC_SITE_URL is set to canonical', () => {
-        process.env.NEXT_PUBLIC_SITE_URL = 'https://armageddontest.icu';
-        expect(getAuthOrigin()).toBe('https://armageddontest.icu');
-    });
-
-    it('returns canonical origin for stale domain (www.armageddon.icu)', () => {
-        process.env.NEXT_PUBLIC_SITE_URL = 'https://www.armageddon.icu';
-        expect(getAuthOrigin()).toBe('https://armageddontest.icu');
-    });
-
-    it('returns canonical origin for omnihub domain', () => {
-        process.env.NEXT_PUBLIC_SITE_URL = 'https://app.apexomnihub.icu';
-        expect(getAuthOrigin()).toBe('https://armageddontest.icu');
-    });
-
-    it('normalizes trailing slash', () => {
-        process.env.NEXT_PUBLIC_SITE_URL = 'https://armageddontest.icu/';
-        expect(getAuthOrigin()).toBe('https://armageddontest.icu');
+    it.each([
+        ['canonical', 'https://armageddontest.icu', 'https://armageddontest.icu'],
+        ['stale domain (www.armageddon.icu)', 'https://www.armageddon.icu', 'https://armageddontest.icu'],
+        ['omnihub domain', 'https://app.apexomnihub.icu', 'https://armageddontest.icu'],
+        ['trailing slash', 'https://armageddontest.icu/', 'https://armageddontest.icu'],
+        ['malformed NEXT_PUBLIC_SITE_URL', 'not-a-url', 'https://armageddontest.icu'],
+    ])('returns canonical origin for %s', (_label, siteUrl, expected) => {
+        process.env.NEXT_PUBLIC_SITE_URL = siteUrl;
+        expect(getAuthOrigin()).toBe(expected);
     });
 
     it('allows localhost when browser is actually on localhost', () => {
@@ -58,11 +49,6 @@ describe('auth-origin', () => {
     it('rejects localhost when browser is NOT on localhost', () => {
         process.env.NEXT_PUBLIC_SITE_URL = 'http://localhost:3000';
         global.window.location.hostname = 'armageddontest.icu'; // user in prod
-        expect(getAuthOrigin()).toBe('https://armageddontest.icu');
-    });
-
-    it('returns canonical origin for malformed NEXT_PUBLIC_SITE_URL', () => {
-        process.env.NEXT_PUBLIC_SITE_URL = 'not-a-url';
         expect(getAuthOrigin()).toBe('https://armageddontest.icu');
     });
 });

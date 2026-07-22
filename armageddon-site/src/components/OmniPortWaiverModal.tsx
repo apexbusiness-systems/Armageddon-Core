@@ -69,7 +69,7 @@ interface OmniPortWaiverModalProps {
     onDecline?: () => void;
 }
 
-export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPortWaiverModalProps) {
+export default function OmniPortWaiverModal({ onAuthorized, onDecline }: Readonly<OmniPortWaiverModalProps>) {
     const user = useAuth();
     const [visible, setVisible] = useState(false);
     const [waiverToken, setWaiverToken] = useState('');
@@ -87,8 +87,8 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
         const liveFire = params.get('omniport_live_fire');
         const token = params.get('waiver_token');
         const org = params.get('org_id') ?? '';
-        const level = parseInt(params.get('level') ?? '7', 10);
-        const iterations = parseInt(params.get('iterations') ?? '10000', 10);
+        const level = Number.parseInt(params.get('level') ?? '7', 10);
+        const iterations = Number.parseInt(params.get('iterations') ?? '10000', 10);
 
         if (liveFire === '1' && token) {
             window.__OMNIPORT_LIVE_FIRE_PENDING = true;
@@ -100,8 +100,8 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setWaiverToken(window.__OMNIPORT_WAIVER_TOKEN);
             setOrgId(org);
-            setRunLevel(isFinite(level) ? level : 7);
-            setRunIterations(isFinite(iterations) ? iterations : 10000);
+            setRunLevel(Number.isFinite(level) ? level : 7);
+            setRunIterations(Number.isFinite(iterations) ? iterations : 10000);
             setVisible(true);
         }
     }, []);
@@ -267,6 +267,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                 {/* Actions */}
                 <div className="flex gap-3 px-6 pb-6">
                     <button
+                        type="button"
                         onClick={handleDecline}
                         disabled={status === 'submitting'}
                         className="flex-1 mono-small py-3"
@@ -282,6 +283,7 @@ export default function OmniPortWaiverModal({ onAuthorized, onDecline }: OmniPor
                     </button>
 
                     <button
+                        type="button"
                         onClick={handleAccept}
                         disabled={!scrolledToBottom || status === 'submitting' || !user}
                         className="flex-1 mono-small py-3"

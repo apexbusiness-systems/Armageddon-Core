@@ -29,7 +29,7 @@ export interface I18nContextValue {
 
 export const I18nContext = createContext<I18nContextValue | null>(null);
 
-export function I18nProvider({ children }: { children: ReactNode }) {
+export function I18nProvider({ children }: Readonly<{ children: ReactNode }>) {
     const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
     // Resolve after mount (async to satisfy react-hooks/set-state-in-effect) so the

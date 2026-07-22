@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRunEligibility, normalizeIterations, DEFAULT_BATTERIES, readAdminEmail, type OrganizationTier } from '@armageddon/shared';
@@ -64,6 +65,172 @@ function getClientIp(request: NextRequest): string {
 // ELIGIBILITY CHECK
 // Using centralized checkRunEligibility from packages/core/src/core/monetization/gate.ts
 
+type EligibilityResult = {
+    eligible: boolean;
+    tier: OrganizationTier;
+    reason?: string;
+    upsellMessage?: string;
+    upgradeUrl?: string;
+};
+
+function isAdminUser(email: string | null | undefined): boolean {
+    // Exact, case-sensitive equality only (see CLAUDE.md Invariant 11).
+    return Boolean(
+        email && (email === 'jrmendozaceo@apexbusiness-systems.icu' || email === readAdminEmail())
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUEST GUARDS — each returns a NextResponse to short-circuit, or null to continue.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function enforceIpRateLimit(ip: string): Promise<NextResponse | null> {
+    const ipLimitResult = await dbRateLimit({ scope: 'ip', key: ip, limit: 10, windowMs: 60 * 1000 });
+    if (!ipLimitResult.allowed) {
+        console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
+        return NextResponse.json(
+            { success: false, error: 'Too many requests. Please try again in a minute.' },
+            { status: 429 }
+        );
+    }
+    return null;
+}
+
+async function enforceSsrfGuard(targetEndpoint: string | undefined): Promise<NextResponse | null> {
+    if (!targetEndpoint) return null;
+    const isValid = await validateSSRF(targetEndpoint);
+    if (!isValid) {
+        return NextResponse.json({ success: false, error: 'SSRF_BLOCKED' }, { status: 400 });
+    }
+    return null;
+}
+
+async function enforceMembership(
+    supabase: SupabaseClient,
+    userId: string,
+    organizationId: string,
+    isAdmin: boolean
+): Promise<NextResponse | null> {
+    // ADMIN_EMAIL bypass: skip org membership check entirely.
+    if (isAdmin) return null;
+    const isMember = await verifyOrganizationMembership(supabase, userId, organizationId);
+    if (!isMember) {
+        console.warn(`[Security] User ${userId} attempted unauthorized access to org ${organizationId}`);
+        return NextResponse.json(
+            { success: false, error: 'Forbidden: You are not a member of this organization' },
+            { status: 403 }
+        );
+    }
+    return null;
+}
+
+async function enforceOrgRateLimit(organizationId: string): Promise<NextResponse | null> {
+    const orgLimitResult = await dbRateLimit({ scope: 'org', key: organizationId, limit: 5, windowMs: 60 * 1000 });
+    if (!orgLimitResult.allowed) {
+        console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
+        return NextResponse.json(
+            { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
+            { status: 429 }
+        );
+    }
+    return null;
+}
+
+// Returns validated battery list, or a NextResponse when an invalid id is present.
+function validateBatteries(batteries: string[] | undefined): NextResponse | string[] {
+    let validatedBatteries: string[] = DEFAULT_BATTERIES;
+    if (batteries && batteries.length > 0) {
+        // Remove duplicates
+        const uniqueBatteries = Array.from(new Set(batteries));
+
+        // Validate battery IDs
+        const validPattern = /^B1[0-4]$/;
+        const invalidBatteries = uniqueBatteries.filter(b => !validPattern.test(b));
+
+        if (invalidBatteries.length > 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: `Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: ${DEFAULT_BATTERIES.join(', ')}`,
+                },
+                { status: 400 }
+            );
+        }
+
+        validatedBatteries = uniqueBatteries;
+    }
+    return validatedBatteries;
+}
+
+// Admin receives certified tier unconditionally; non-admins go through the DB gate.
+async function resolveEligibility(
+    isAdmin: boolean,
+    organizationId: string,
+    level: number,
+    validatedBatteries: string[],
+    supabase: SupabaseClient
+): Promise<NextResponse | EligibilityResult> {
+    if (isAdmin) {
+        return { eligible: true, tier: 'certified' };
+    }
+    const eligibility = await checkRunEligibility(organizationId, level, validatedBatteries, supabase);
+    if (!eligibility.eligible) {
+        return NextResponse.json(
+            {
+                success: false,
+                error: eligibility.reason || 'ACCESS_DENIED',
+                upsellMessage: eligibility.upsellMessage,
+                upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
+            },
+            { status: 403 }
+        );
+    }
+    return eligibility;
+}
+
+function resolveIterations(tier: OrganizationTier, level: number, requested: number | undefined): number {
+    const defaultIterations = tier === 'certified' && level >= 7 ? 10000 : 2500;
+    return normalizeIterations(requested ?? defaultIterations);
+}
+
+// Starts the Temporal workflow. Returns the started run id, or a NextResponse
+// (and marks the run failed) when the engine is unavailable or start fails.
+async function dispatchWorkflow(
+    supabase: SupabaseClient,
+    runId: string,
+    workflowId: string,
+    workflowArgs: Record<string, unknown>
+): Promise<NextResponse | { firstExecutionRunId: string }> {
+    let client;
+    try {
+        client = await getTemporalClient();
+    } catch (error) {
+        console.error('Temporal unavailable:', (error as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        return NextResponse.json(
+            { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' },
+            { status: 503 }
+        );
+    }
+
+    let handle;
+    try {
+        handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+            workflowId,
+            taskQueue: TEMPORAL_TASK_QUEUE,
+            args: [workflowArgs],
+        });
+    } catch (error) {
+        console.error('Workflow start failed:', (error as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        return NextResponse.json(
+            { success: false, error: 'Failed to start workflow', code: 'WORKFLOW_START_FAILED' },
+            { status: 500 }
+        );
+    }
+    return { firstExecutionRunId: handle.firstExecutionRunId };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // POST HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -73,28 +240,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // 1. IP-based Rate Limiting (Pre-parsing)
         // Identify client IP from trusted deployment proxy headers, then fall back to an anonymous bucket.
         const ip = getClientIp(request);
-        const ipLimitResult = await dbRateLimit({ scope: 'ip', key: ip, limit: 10, windowMs: 60 * 1000 });
-        if (!ipLimitResult.allowed) {
-            console.warn(`[Security] Rate limit exceeded for IP: ${ip}`);
-            return NextResponse.json(
-                { success: false, error: 'Too many requests. Please try again in a minute.' },
-                { status: 429 }
-            );
-        }
+        const ipGuard = await enforceIpRateLimit(ip);
+        if (ipGuard) return ipGuard;
 
         // Parse request body
         const body: RunRequest = await request.json();
         const { organizationId, level = 7, batteries, targetEndpoint } = body;
 
-        if (targetEndpoint) {
-            const isValid = await validateSSRF(targetEndpoint);
-            if (!isValid) {
-                return NextResponse.json(
-                    { success: false, error: 'SSRF_BLOCKED' },
-                    { status: 400 }
-                );
-            }
-        }
+        const ssrfGuard = await enforceSsrfGuard(targetEndpoint);
+        if (ssrfGuard) return ssrfGuard;
 
         if (!organizationId) {
              return NextResponse.json(
@@ -109,90 +263,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (baseAuth instanceof NextResponse) return baseAuth;
         const { user: authedUser, supabase } = baseAuth;
 
-        const isAdmin = Boolean(
-            authedUser.email && (authedUser.email === 'jrmendozaceo@apexbusiness-systems.icu' || authedUser.email === readAdminEmail())
-        );
+        const isAdmin = isAdminUser(authedUser.email);
 
-        if (!isAdmin) {
-            // Non-admin: verify org membership
-            const isMember = await verifyOrganizationMembership(supabase, authedUser.id, organizationId);
-            if (!isMember) {
-                console.warn(`[Security] User ${authedUser.id} attempted unauthorized access to org ${organizationId}`);
-                return NextResponse.json(
-                    { success: false, error: 'Forbidden: You are not a member of this organization' },
-                    { status: 403 }
-                );
-            }
-        }
+        const membershipGuard = await enforceMembership(supabase, authedUser.id, organizationId, isAdmin);
+        if (membershipGuard) return membershipGuard;
 
         // 3. Organization-based Rate Limiting
-        if (organizationId) {
-            const orgLimitResult = await dbRateLimit({ scope: 'org', key: organizationId, limit: 5, windowMs: 60 * 1000 });
-            if (!orgLimitResult.allowed) {
-                console.warn(`[Security] Rate limit exceeded for Organization: ${organizationId}`);
-                return NextResponse.json(
-                    { success: false, error: 'Organization rate limit exceeded. Please try again in a minute.' },
-                    { status: 429 }
-                );
-            }
-        }
+        const orgGuard = await enforceOrgRateLimit(organizationId);
+        if (orgGuard) return orgGuard;
 
         // Validate and sanitize batteries
-        let validatedBatteries: string[] = DEFAULT_BATTERIES;
-        if (batteries && batteries.length > 0) {
-            // Remove duplicates
-            const uniqueBatteries = Array.from(new Set(batteries));
-
-            // Validate battery IDs
-            const validPattern = /^B1[0-4]$/;
-            const invalidBatteries = uniqueBatteries.filter(b => !validPattern.test(b));
-
-            if (invalidBatteries.length > 0) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: `Invalid battery IDs: ${invalidBatteries.join(', ')}. Allowed: ${DEFAULT_BATTERIES.join(', ')}`
-                    },
-                    { status: 400 }
-                );
-            }
-
-            validatedBatteries = uniqueBatteries;
-        }
+        const batteryResult = validateBatteries(batteries);
+        if (batteryResult instanceof NextResponse) return batteryResult;
+        const validatedBatteries = batteryResult;
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 1: Check eligibility (including battery customization)
-        // Admin receives certified tier unconditionally; non-admins go through DB gate.
         // ═══════════════════════════════════════════════════════════════════
 
-        let eligibility: { eligible: boolean; tier: OrganizationTier; reason?: string; upsellMessage?: string; upgradeUrl?: string };
+        const eligibilityResult = await resolveEligibility(isAdmin, organizationId, level, validatedBatteries, supabase);
+        if (eligibilityResult instanceof NextResponse) return eligibilityResult;
+        const eligibility = eligibilityResult;
 
-        if (isAdmin) {
-            eligibility = { eligible: true, tier: 'certified' };
-        } else {
-            // Pass injected client for performance
-            eligibility = await checkRunEligibility(
-                organizationId,
-                level,
-                validatedBatteries,
-                supabase
-            );
-
-            if (!eligibility.eligible) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: eligibility.reason || 'ACCESS_DENIED',
-                        upsellMessage: eligibility.upsellMessage,
-                        upgradeUrl: eligibility.upgradeUrl || '/pricing?upgrade=certified',
-                    },
-                    { status: 403 }
-                );
-            }
-        }
-
-        const defaultIterations = eligibility.tier === 'certified' && level >= 7 ? 10000 : 2500;
-        const iterations = normalizeIterations(body.iterations ?? defaultIterations);
+        const iterations = resolveIterations(eligibility.tier, level, body.iterations);
 
 
         // ═══════════════════════════════════════════════════════════════════
@@ -236,47 +329,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // STEP 3: Start Temporal workflow
         // ═══════════════════════════════════════════════════════════════════
 
-        let client;
-        try {
-            client = await getTemporalClient();
-        } catch (error) {
-            console.error('Temporal unavailable:', (error as Error).message);
-            await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-            return NextResponse.json(
-                { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' },
-                { status: 503 }
-            );
-        }
-
-        let handle;
-        try {
-            handle = await client.workflow.start('ArmageddonLevel7Workflow', {
-                workflowId,
-                taskQueue: TEMPORAL_TASK_QUEUE,
-                args: [{
-                    runId,
-                    organizationId,
-                    iterations,
-                    tier: workflowTier,
-                    seed: workflowSeed,
-                    batteries: validatedBatteries,
-                    targetEndpoint,
-                }],
-            });
-        } catch (error) {
-            console.error('Workflow start failed:', (error as Error).message);
-            await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-            return NextResponse.json(
-                { success: false, error: 'Failed to start workflow', code: 'WORKFLOW_START_FAILED' },
-                { status: 500 }
-            );
-        }
+        const dispatchResult = await dispatchWorkflow(supabase, runId, workflowId, {
+            runId,
+            organizationId,
+            iterations,
+            tier: workflowTier,
+            seed: workflowSeed,
+            batteries: validatedBatteries,
+            targetEndpoint,
+        });
+        if (dispatchResult instanceof NextResponse) return dispatchResult;
 
         // Update run with workflow_run_id
         await supabase
             .from('armageddon_runs')
             .update({
-                workflow_run_id: handle.firstExecutionRunId,
+                workflow_run_id: dispatchResult.firstExecutionRunId,
                 status: 'running',
                 started_at: new Date().toISOString(),
             })

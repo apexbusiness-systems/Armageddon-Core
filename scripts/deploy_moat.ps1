@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 function Write-Status {
     param([string]$Message, [string]$Color)
-    Write-Host "[$([DateTime]::Now.ToString('HH:mm:ss'))] $Message"
+    Write-Output "[$([DateTime]::Now.ToString('HH:mm:ss'))] $Message"
 }
 
 # 1. SECRETS CHECK

@@ -129,6 +129,19 @@ export default function OnboardingPage() {
         }
     };
 
+    // Resolve whether an operator already has an authenticated session.
+    // Returns false when no live backend is configured, mirroring the
+    // original inline guard (only checked when isApiConfigured()).
+    const resolveSignedIn = async (): Promise<boolean> => {
+        if (!isApiConfigured()) return false;
+        try {
+            const { data } = await (getSupabase()?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
+            return Boolean(data?.session);
+        } catch {
+            return false;
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const found = validate(draft);
@@ -174,18 +187,9 @@ export default function OnboardingPage() {
         // authenticated user to the pre-purchase /intake page renders the
         // signed-out marketing view, which looks exactly like a forced logout
         // (the reported bug). Only unauthenticated prospects go through /intake.
-        if (isApiConfigured()) {
-            let signedIn = false;
-            try {
-                const { data } = await (getSupabase()?.auth.getSession() ?? Promise.resolve({ data: { session: null } }));
-                signedIn = Boolean(data?.session);
-            } catch {
-                signedIn = false;
-            }
-            if (signedIn) {
-                router.push('/console');
-                return;
-            }
+        if (await resolveSignedIn()) {
+            router.push('/console');
+            return;
         }
 
         if (tier === 'verified' || tier === 'certified') {

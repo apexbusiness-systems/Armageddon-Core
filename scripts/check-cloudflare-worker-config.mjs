@@ -9,7 +9,7 @@ const raw = readFileSync(configPath, 'utf8');
 
 const withoutLineComments = raw
   .split('\n')
-  .map((line) => line.replace(/(^|\s+)\/\/.*$/, '$1'))
+  .map((line) => line.replace(/(^|\s)\/\/.*$/, '$1'))
   .join('\n');
 const config = JSON.parse(withoutLineComments);
 
@@ -34,13 +34,13 @@ if (config.assets?.directory === './out') {
   fail(`Static assets directory must be ./out, got ${JSON.stringify(config.assets?.directory)}`);
 }
 
-if (!Object.prototype.hasOwnProperty.call(config.assets ?? {}, 'binding')) {
+if (!Object.hasOwn(config.assets ?? {}, 'binding')) {
   pass('assets.binding absent');
 } else {
   fail('assets.binding must be absent when a Worker script is configured');
 }
 
-if (config.main && config.assets?.directory && !Object.prototype.hasOwnProperty.call(config.assets ?? {}, 'binding')) {
+if (config.main && config.assets?.directory && !Object.hasOwn(config.assets ?? {}, 'binding')) {
   pass('no assets-only/binding conflict');
 } else {
   fail('Worker config still risks an assets-only/binding conflict');

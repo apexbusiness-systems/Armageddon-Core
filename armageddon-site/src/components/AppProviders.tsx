@@ -8,6 +8,6 @@ import { I18nProvider } from '@/i18n/I18nProvider';
  * layout (a server component) can stay server-rendered while still
  * mounting client-only context providers around its children.
  */
-export default function AppProviders({ children }: { children: ReactNode }) {
+export default function AppProviders({ children }: Readonly<{ children: ReactNode }>) {
     return <I18nProvider>{children}</I18nProvider>;
 }

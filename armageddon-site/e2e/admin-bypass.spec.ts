@@ -19,7 +19,7 @@ test('Admin creates policy without approval prompt', async ({ page }) => {
     const logoutBtn = await page.getByRole('button', { name: 'LOGOUT' }).first();
     if (await logoutBtn.isVisible()) {
         await logoutBtn.click();
-        await page.waitForTimeout(1000);
+        await expect(page.getByRole('button', { name: 'LOGIN' }).first()).toBeVisible();
     }
     
     // Wait for LOGIN button and click

@@ -218,7 +218,7 @@ describe('EvidenceGenerator', () => {
             expect(parsed.attestation.spec).toBe('armageddon-attestation/1.0');
             expect(parsed.attestation.merkleRoot).toMatch(/^[0-9a-f]{64}$/);
             expect(parsed.attestation.signature.length).toBeGreaterThan(0);
-            expect(parsed.attestation.leaves.length).toBe(1 + mockReport.batteries.length);
+            expect(parsed.attestation.leaves).toHaveLength(1 + mockReport.batteries.length);
         });
 
         it('produces a verifiable attestation when re-parsed from JSON', () => {

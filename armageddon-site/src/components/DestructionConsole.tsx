@@ -330,6 +330,7 @@ const BatterySelector = React.memo(function BatterySelector({
                 const isSelected = selectedBatteries.includes(battery.id);
                 return (
                     <button
+                        type="button"
                         key={battery.id}
                         onClick={() => toggleBattery(battery.id)}
                         disabled={!canCustomize || isRunning}
@@ -629,9 +630,12 @@ export default function DestructionConsole({
         if (!targetReadiness.ok || blockers.length > 0) {
             setIsComplete(false);
             setTerminalLines([]);
-            const reason = targetReadiness.ok
-                ? `${t.readiness.completeItemsFirstPrefix}${blockers.join(', ')}.`
-                : targetReadiness.code === 'missing' ? t.readiness.targetMissingReason : t.readiness.targetInvalidReason;
+            let reason: string;
+            if (targetReadiness.ok) {
+                reason = `${t.readiness.completeItemsFirstPrefix}${blockers.join(', ')}.`;
+            } else {
+                reason = targetReadiness.code === 'missing' ? t.readiness.targetMissingReason : t.readiness.targetInvalidReason;
+            }
             addLine(LABELS.SYS, `${t.readiness.runBlockedPrefix}${reason}`, MSG_TYPE.WARNING);
             addLine(LABELS.SYS, t.readiness.noRunStarted, MSG_TYPE.SYSTEM);
             onStatusChange?.('idle');
@@ -846,10 +850,10 @@ export default function DestructionConsole({
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `armageddon-evidence-${new Date().getTime()}.json`;
+        a.download = `armageddon-evidence-${Date.now()}.json`;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
+        a.remove();
         URL.revokeObjectURL(url);
     }, [organizationId, terminalStatus, runId, attestationPubKey, terminalLines, addLine]);
 
@@ -991,6 +995,7 @@ export default function DestructionConsole({
                                     exit={{ opacity: 0, height: 0 }}
                                 >
                                     <button
+                                        type="button"
                                         onClick={handleExportJson}
                                         className="btn-secondary w-full uppercase"
                                     >
@@ -1024,7 +1029,7 @@ export default function DestructionConsole({
                                         <span className="mono-small text-zinc-400 text-[10px] hidden sm:inline-block">
                                             {user.email?.split('@')[0]}
                                         </span>
-                                        <button onClick={handleLogout} className="text-[10px] text-[var(--destructive)] hover:text-red-400 hover:underline mono-small tracking-wider">
+                                        <button type="button" onClick={handleLogout} className="text-[10px] text-[var(--destructive)] hover:text-red-400 hover:underline mono-small tracking-wider">
                                             [LOGOUT]
                                         </button>
                                     </div>

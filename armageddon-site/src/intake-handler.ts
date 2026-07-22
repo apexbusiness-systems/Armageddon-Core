@@ -72,7 +72,7 @@ function normalizeBinding(raw: string | undefined): string | undefined {
   if (!trimmed) return undefined;
 
   const first = trimmed[0];
-  const last = trimmed[trimmed.length - 1];
+  const last = trimmed.at(-1);
   const hasWrappingQuotes = trimmed.length >= 2 && first === last && (first === '"' || first === "'");
   const unwrapped = hasWrappingQuotes ? trimmed.slice(1, -1).trim() : trimmed;
 

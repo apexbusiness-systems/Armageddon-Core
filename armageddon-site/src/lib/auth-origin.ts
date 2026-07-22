@@ -10,7 +10,7 @@ export function getAuthOrigin(): string {
 
     // Normalize trailing slashes without regex backtracking on long inputs.
     let siteUrlEnd = siteUrl.length;
-    while (siteUrlEnd > 0 && siteUrl.charCodeAt(siteUrlEnd - 1) === 47) {
+    while (siteUrlEnd > 0 && siteUrl.codePointAt(siteUrlEnd - 1) === 47) {
         siteUrlEnd -= 1;
     }
     siteUrl = siteUrl.slice(0, siteUrlEnd);

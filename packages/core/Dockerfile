@@ -14,18 +14,18 @@ FROM node:20-bullseye-slim
 # the Dockerfile.api fix (2026-07-10): --no-install-recommends means curl
 # alone does NOT pull this in on Debian.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    procps \
     python3 \
     python3-pip \
     python3-venv \
-    procps \
-    curl \
-    ca-certificates \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create Python virtual environment at /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
+RUN python3 -m venv "$VIRTUAL_ENV"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR /app

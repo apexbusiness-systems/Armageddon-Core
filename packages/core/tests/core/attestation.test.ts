@@ -169,7 +169,7 @@ describe('attestation: key management', () => {
         expect(a.keyId).toBe(b.keyId);
         expect(a.source).toBe('env');
         expect(a.keyId).toMatch(/^[0-9a-f]{16}$/);
-        expect(Buffer.from(a.publicKey, 'base64').length).toBe(32);
+        expect(Buffer.from(a.publicKey, 'base64')).toHaveLength(32);
     });
 
     it('derives a different key from a different seed', () => {
@@ -284,7 +284,7 @@ describe('attestation: createAttestation/verifyAttestation', () => {
             expect(a.algorithm).toBe(ATTESTATION_ALGORITHM);
             expect(a.spec).toBe(ATTESTATION_SPEC);
             expect(a.version).toBe(ATTESTATION_VERSION);
-            expect(a.leaves.length).toBe(1 + input.batteries.length);
+            expect(a.leaves).toHaveLength(1 + input.batteries.length);
             expect(a.leaves[0].id).toBe('META');
             expect(verifyAttestation(a, input)).toEqual({ valid: true });
         });
@@ -383,7 +383,7 @@ describe('attestation: createAttestation/verifyAttestation', () => {
         withSeed(STABLE_HEX_SEED, () => {
             const input = mkInput({ batteries: [] });
             const a = createAttestation(input);
-            expect(a.leaves.length).toBe(1);
+            expect(a.leaves).toHaveLength(1);
             expect(verifyAttestation(a, input).valid).toBe(true);
         });
     });

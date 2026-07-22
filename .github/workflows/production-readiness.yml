@@ -81,7 +81,7 @@ jobs:
       - name: OmniHub Atomic Flip - Battery 10 "The Mind-Killer" Circuit Breaker Loop
         run: |
           echo "Starting continuous execution loop for Battery 10 (The Mind-Killer)"
-          npx tsx packages/core/src/sim/circuit-breaker.ts &
+          node_modules/.bin/tsx packages/core/src/sim/circuit-breaker.ts &
           sleep 5 # Allow simulation to run
 
   docker-image-build-gate:
