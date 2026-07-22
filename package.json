@@ -38,5 +38,8 @@
     "next": {
       "postcss": "8.5.15"
     }
+  },
+  "devDependencies": {
+    "@cyclonedx/cyclonedx-npm": "6.0.0"
   }
 }
