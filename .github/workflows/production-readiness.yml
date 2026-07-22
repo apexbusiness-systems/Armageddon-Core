@@ -63,9 +63,14 @@ jobs:
 
       - name: Generate npm SBOM
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+        # --no-install: @cyclonedx/cyclonedx-npm is a pinned, lockfile-verified
+        # devDependency installed by `npm ci` above. This flag stops npx from
+        # ever falling back to an on-demand registry fetch (and running that
+        # package's lifecycle scripts) if the local copy is somehow missing —
+        # it fails loudly instead.
         run: |
           mkdir -p build-artifacts docs/compliance/sbom
-          npx --package=@cyclonedx/cyclonedx-npm@6.0.0 -- cyclonedx-npm --output-format json --output-file build-artifacts/sbom-npm.cdx.json
+          npx --no-install --package=@cyclonedx/cyclonedx-npm@6.0.0 -- cyclonedx-npm --output-format json --output-file build-artifacts/sbom-npm.cdx.json
           cp build-artifacts/sbom-npm.cdx.json docs/compliance/sbom/sbom-npm.cdx.json
 
       - name: Upload SBOM artifact

@@ -8,7 +8,7 @@ import { endSupabaseSession } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
-import { DRAFT_KEY, canStartRunForTarget, readSavedCodebaseTarget, type CodebaseTarget, type OnboardingDraft } from '@/lib/codebase-target';
+import { DRAFT_KEY, canStartRunForTarget, readSavedCodebaseTarget, type CodebaseTarget, type OnboardingDraft, type TargetReadinessCode } from '@/lib/codebase-target';
 import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
 import TargetConfigPanel from './TargetConfigPanel';
@@ -189,6 +189,62 @@ async function resolveActiveOrg(): Promise<OrgResolution> {
         return { ok: false, reason: 'no-org' };
     }
     return { ok: true, organizationId, accessToken: session.access_token };
+}
+
+// Resolves why a run cannot start yet (target readiness + outstanding
+// checklist items), or null when the run is clear to start. Extracted out of
+// initiateSequence purely to reduce that function's cognitive complexity.
+function computeRunBlockReason(
+    targetReadiness: { readonly ok: true } | { readonly ok: false; readonly code: TargetReadinessCode },
+    blockers: readonly string[],
+    labels: Pick<ConsoleDictionary['readiness'], 'completeItemsFirstPrefix' | 'targetMissingReason' | 'targetInvalidReason'>,
+): string | null {
+    if (targetReadiness.ok && blockers.length === 0) return null;
+    if (!targetReadiness.ok) {
+        return targetReadiness.code === 'missing' ? labels.targetMissingReason : labels.targetInvalidReason;
+    }
+    return `${labels.completeItemsFirstPrefix}${blockers.join(', ')}.`;
+}
+
+// Flattens the optional upsell/upgrade fields on a 403 run-start response into
+// a plain list of lines to surface to the user.
+function describeAccessDenial(data: Pick<RunResponse, 'error' | 'upsellMessage' | 'upgradeUrl'>): string[] {
+    const lines = [data.error || 'Access denied.'];
+    if (data.upsellMessage) lines.push(data.upsellMessage);
+    if (data.upgradeUrl) lines.push(`Upgrade: ${data.upgradeUrl}`);
+    return lines;
+}
+
+type WorkflowStartResult =
+    | { readonly status: 'started'; readonly runId: string }
+    | { readonly status: 'denied'; readonly messages: string[] }
+    | { readonly status: 'error'; readonly message: string };
+
+// Calls startWorkflowApi and normalizes its outcome (success / access-denied /
+// thrown error) into a single discriminated result. Extracted out of
+// initiateSequence purely to reduce that function's cognitive complexity —
+// behavior (including the console.error side effect) is unchanged.
+async function attemptWorkflowStart(
+    orgId: string,
+    level: number,
+    batteries: string[],
+    accessToken: string,
+    targetUrl: string,
+    targetLabel: string,
+): Promise<WorkflowStartResult> {
+    try {
+        const { ok, status, data } = await startWorkflowApi(orgId, level, batteries, accessToken, targetUrl, targetLabel);
+        if (ok && data.runId) {
+            return { status: 'started', runId: data.runId };
+        }
+        if (status === 403) {
+            return { status: 'denied', messages: describeAccessDenial(data) };
+        }
+        throw new Error(data.error || 'Run failed');
+    } catch (e) {
+        console.error('API call failed', e);
+        return { status: 'error', message: e instanceof Error ? e.message : 'Unknown error' };
+    }
 }
 
 interface RunTelemetrySubscriptionParams {
@@ -706,16 +762,11 @@ export default function DestructionConsole({
         setCodebaseTarget(savedTarget);
         const targetReadiness = canStartRunForTarget(savedTarget);
         const blockers = remainingReadinessBlockers(readinessItems);
-        if (!targetReadiness.ok || blockers.length > 0) {
+        const blockReason = computeRunBlockReason(targetReadiness, blockers, t.readiness);
+        if (blockReason) {
             setIsComplete(false);
             setTerminalLines([]);
-            let reason: string;
-            if (targetReadiness.ok) {
-                reason = `${t.readiness.completeItemsFirstPrefix}${blockers.join(', ')}.`;
-            } else {
-                reason = targetReadiness.code === 'missing' ? t.readiness.targetMissingReason : t.readiness.targetInvalidReason;
-            }
-            addLine(LABELS.SYS, `${t.readiness.runBlockedPrefix}${reason}`, MSG_TYPE.WARNING);
+            addLine(LABELS.SYS, `${t.readiness.runBlockedPrefix}${blockReason}`, MSG_TYPE.WARNING);
             addLine(LABELS.SYS, t.readiness.noRunStarted, MSG_TYPE.SYSTEM);
             onStatusChange?.('idle');
             return;
@@ -773,39 +824,26 @@ export default function DestructionConsole({
         }
         const targetUrl = savedTarget.endpointUrl;
 
-        try {
-            const { ok, status, data } = await startWorkflowApi(orgId, targetLevel, selectedBatteries, org.accessToken, targetUrl, savedTarget.label);
-
-            if (!ok || !data.runId) {
-                if (status === 403) {
-                    // Eligibility/membership denial (e.g. plan tier, battery access) —
-                    // not an adversarial signal. Surface it like the org-membership
-                    // check above; genuine trap detection stays on the EVENTS.TRAP
-                    // realtime channel handler below.
-                    addLine(LABELS.SYS, data.error || 'Access denied.', MSG_TYPE.WARNING);
-                    if (data.upsellMessage) {
-                        addLine(LABELS.SYS, data.upsellMessage, MSG_TYPE.WARNING);
-                    }
-                    if (data.upgradeUrl) {
-                        addLine(LABELS.SYS, `Upgrade: ${data.upgradeUrl}`, MSG_TYPE.WARNING);
-                    }
-                    setIsRunning(false);
-                    onStatusChange?.('idle');
-                    return;
-                }
-                throw new Error(data.error || 'Run failed');
-            }
-            runId = data.runId;
-            setRunId(runId);
-            addLine(LABELS.SYS, t.readiness.workflowStartedAgainst.replace('{url}', targetUrl).replace('{runId}', runId), MSG_TYPE.SYSTEM);
-            addLine(LABELS.SYS, 'Subscribing to real-time event stream...', MSG_TYPE.SYSTEM);
-        } catch (e) {
-            console.error("API call failed", e);
-            addLine('CRIT', `API Error: ${e instanceof Error ? e.message : 'Unknown error'}`, MSG_TYPE.ERROR);
+        // Eligibility/membership denials (e.g. plan tier, battery access) surface
+        // as 'denied' below — not an adversarial signal. Genuine trap detection
+        // stays on the EVENTS.TRAP realtime channel handler further down.
+        const startResult = await attemptWorkflowStart(orgId, targetLevel, selectedBatteries, org.accessToken, targetUrl, savedTarget.label);
+        if (startResult.status === 'denied') {
+            for (const message of startResult.messages) addLine(LABELS.SYS, message, MSG_TYPE.WARNING);
+            setIsRunning(false);
+            onStatusChange?.('idle');
+            return;
+        }
+        if (startResult.status === 'error') {
+            addLine('CRIT', `API Error: ${startResult.message}`, MSG_TYPE.ERROR);
             setIsRunning(false);
             setIsComplete(true);
             return;
         }
+        runId = startResult.runId;
+        setRunId(runId);
+        addLine(LABELS.SYS, t.readiness.workflowStartedAgainst.replace('{url}', targetUrl).replace('{runId}', runId), MSG_TYPE.SYSTEM);
+        addLine(LABELS.SYS, 'Subscribing to real-time event stream...', MSG_TYPE.SYSTEM);
 
         const supabase = getSupabase();
         if (!supabase) {
