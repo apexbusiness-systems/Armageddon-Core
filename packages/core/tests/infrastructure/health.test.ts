@@ -5,6 +5,12 @@ import { HealthServer } from '../../src/infrastructure/health';
 vi.mock('../../src/core/safety', () => ({
   safetyGuard: {
     getStatus: () => ({ simMode: true, enforced: true, sandboxTenant: 'test-tenant' })
+  },
+  SafetyGuard: {
+    getInstance: () => ({
+      getStatus: () => ({ simMode: true, enforced: true, sandboxTenant: 'test-tenant' }),
+      enforce: () => {},
+    })
   }
 }));
 

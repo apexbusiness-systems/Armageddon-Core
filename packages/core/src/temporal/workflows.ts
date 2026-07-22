@@ -4,7 +4,7 @@ import { proxyActivities, defineSignal, setHandler, executeChild } from '@tempor
 // All runtime type contracts live in workflow-types.ts (zero external dependencies).
 import type * as activities from './activities.js';
 import type { BatteryConfig, WorkflowState, ArmageddonReport, BatteryResult } from './workflow-types.js';
-import { normalizeIterations } from '@armageddon/shared/types';
+import { normalizeIterations, DEFAULT_BATTERIES } from '@armageddon/shared/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION & CONSTANTS
@@ -78,21 +78,54 @@ export const cancelSignal = defineSignal('cancel');
  * adversarial batteries that might otherwise hit Temporal's 50k event limit.
  */
 export async function BatteryChildWorkflow(batteryCode: string, config: BatteryConfig): Promise<BatteryResult> {
+    let childCancelled = false;
+    setHandler(cancelSignal, () => { childCancelled = true; });
+
+    if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+
     switch (batteryCode) {
-        case 'B1': return runBattery1_ChaosStress(config);
-        case 'B2': return runBattery2_ChaosEngine(config);
-        case 'B3': return runBattery3_PromptInjection(config);
-        case 'B4': return runBattery4_SecurityAuth(config);
-        case 'B5': return runBattery5_FullUnit(config);
-        case 'B6': return runBattery6_UnsafeGate(config);
-        case 'B7': return runBattery7_PlaywrightE2E(config);
-        case 'B8': return runBattery8_AssetSmoke(config);
-        case 'B9': return runBattery9_IntegrationHandshake(config);
-        case 'B10': return runBattery10_GoalHijack(config);
-        case 'B11': return runBattery11_ToolMisuse(config);
-        case 'B12': return runBattery12_MemoryPoison(config);
-        case 'B13': return runBattery13_SupplyChain(config);
-        case 'B14': return runBattery14_IndirectInjection(config);
+        case 'B1':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery1_ChaosStress(config);
+        case 'B2':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery2_ChaosEngine(config);
+        case 'B3':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery3_PromptInjection(config);
+        case 'B4':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery4_SecurityAuth(config);
+        case 'B5':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery5_FullUnit(config);
+        case 'B6':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery6_UnsafeGate(config);
+        case 'B7':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery7_PlaywrightE2E(config);
+        case 'B8':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery8_AssetSmoke(config);
+        case 'B9':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery9_IntegrationHandshake(config);
+        case 'B10':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery10_GoalHijack(config);
+        case 'B11':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery11_ToolMisuse(config);
+        case 'B12':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery12_MemoryPoison(config);
+        case 'B13':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery13_SupplyChain(config);
+        case 'B14':
+            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+            return runBattery14_IndirectInjection(config);
         default:
             throw new Error(`Unknown battery code: ${batteryCode}`);
     }
@@ -121,29 +154,44 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
     };
 
     try {
-        // Filter requested batteries. If none specified, use default subset (B10-B14).
+        // Filter requested batteries. If none specified, use default battery set.
         const requestedCodes = (normalizedConfig.batteries && normalizedConfig.batteries.length > 0)
             ? normalizedConfig.batteries
-            : ['B10', 'B11', 'B12', 'B13', 'B14'];
+            : DEFAULT_BATTERIES;
 
-        const batterySpecs = requestedCodes.map(code => {
+        const batterySpecs = requestedCodes.map((code: string) => {
             const id = BATTERY_IDS[code as keyof typeof BATTERY_IDS];
             return { code, id: id || `${code}_UNKNOWN` };
         });
+
+        // Check for pre-execution cancellation BEFORE fanning out
+        if (cancelled) {
+            state.status = STATUS.CANCELLED;
+            const report = await generateReport(state);
+            await finalizeRunActivity({
+                runId: config.runId,
+                status: 'cancelled',
+                startedAt: state.startTime,
+                report,
+            });
+            return report;
+        }
 
         // 2. Execute Batteries via Child Workflows
         // We use Promise.allSettled to ensure that a single battery failure
         // does not crash the entire certification run.
         const settledResults = await Promise.allSettled(
-            batterySpecs.map(spec => 
-                executeChild(BatteryChildWorkflow, {
+            batterySpecs.map((spec: { code: string; id: string }) => {
+                if (cancelled) return Promise.reject(new Error('Cancelled before dispatch'));
+                return executeChild(BatteryChildWorkflow, {
                     args: [spec.code, normalizedConfig],
                     workflowId: `${config.runId}-${spec.code}`,
-                })
-            )
+                    workflowExecutionTimeout: TIMEOUTS.START_TO_CLOSE,
+                });
+            })
         );
 
-        state.results = settledResults.map((result, index) => {
+        state.results = settledResults.map((result: PromiseSettledResult<BatteryResult>, index: number) => {
             const { id } = batterySpecs[index];
 
             if (result.status === 'fulfilled') {

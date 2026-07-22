@@ -88,6 +88,10 @@ export async function validateSSRF(url: string): Promise<boolean> {
         const parsed = new URL(url);
         if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
 
+        const ALLOWED_PORTS = new Set([80, 443, 8080, 8443, 3000]);
+        const port = parsed.port ? Number(parsed.port) : (parsed.protocol === 'https:' ? 443 : 80);
+        if (!ALLOWED_PORTS.has(port)) return false;
+
         const hostname = parsed.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
         if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false;
 
@@ -118,11 +122,11 @@ export function verifyOmniPortBearerToken(authHeader: string | null | undefined)
     const token = authHeader.slice(7);
     const apiKey = process.env.OMNIPORT_API_KEY;
     if (!apiKey || !token) return false;
-    // Pad to equal length before timing-safe compare to avoid length oracle
     const keyBuf = Buffer.from(apiKey, 'utf8');
     const tokBuf = Buffer.from(token, 'utf8');
-    if (keyBuf.length !== tokBuf.length) return false;
-    return timingSafeEqual(keyBuf, tokBuf);
+    const keyHash = createHash('sha256').update(keyBuf).digest();
+    const tokHash = createHash('sha256').update(tokBuf).digest();
+    return timingSafeEqual(keyHash, tokHash);
 }
 
 // ─── Webhook signature verification ───────────────────────────────────────

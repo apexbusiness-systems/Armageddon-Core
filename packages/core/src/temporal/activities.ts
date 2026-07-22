@@ -17,7 +17,8 @@ import {
     SUPPLY_CHAIN_VECTORS
 } from './prompts.js';
 
-import { safetyGuard, SafetyGuard, SystemLockdownError } from '../core/safety.js';
+import { SafetyGuard, SystemLockdownError } from '../core/safety.js';
+const safetyGuard = SafetyGuard.getInstance();
 import { createReporter, EventType } from '../core/reporter.js';
 import { createServerSupabaseClient } from '../core/supabase-client.js';
 import { hashString, SeedableRNG } from '../core/utils.js';

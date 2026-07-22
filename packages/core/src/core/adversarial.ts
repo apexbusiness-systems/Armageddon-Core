@@ -178,8 +178,17 @@ export class AdversarialEngine {
                     break;
                 }
             } catch (error) {
-                // Circuit breaker tripped or other error
                 console.error(`[AdversarialEngine] Iteration ${i} failed:`, error);
+                attacks.push({
+                    success: false,
+                    iteration: i,
+                    attackPrompt: '',
+                    targetResponse: '',
+                    judgmentScore: 0,
+                    judgmentReason: `Iteration aborted: ${(error as Error).message}`,
+                    tokens: { attacker: 0, target: 0, judge: 0 },
+                    latency: { attacker: 0, target: 0, judge: 0 },
+                });
                 break;
             }
         }

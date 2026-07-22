@@ -5,10 +5,15 @@ import { runBattery10_GoalHijack, BatteryConfig } from '../../src/temporal/activ
 // Mock safety guard to bypass environment checks
 vi.mock('../../src/core/safety', async (importOriginal) => {
     const mod = await importOriginal<typeof import('../../src/core/safety')>();
+    const mockEnforce = vi.fn();
     return {
         ...mod,
         safetyGuard: {
-            enforce: vi.fn(),
+            enforce: mockEnforce,
+        },
+        SafetyGuard: {
+            ...mod.SafetyGuard,
+            getInstance: () => ({ enforce: mockEnforce, getStatus: vi.fn() }),
         },
     };
 });

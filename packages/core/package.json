@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Armageddon Level 7 Certification Engine - Adversarial AI Testing Microservice",
   "main": "dist/index.js",
-  "bin": "./bin/armageddon.ts",
+  "bin": "./dist/bin/armageddon.js",
   "scripts": {
     "build": "tsc",
     "bundle:workflows": "node scripts/bundle-workflows.mjs",
@@ -46,6 +46,6 @@
     "vitest": "^4.1.9"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   }
 }

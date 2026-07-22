@@ -153,6 +153,3 @@ export interface SafetyStatus {
   enforced: boolean;
   timestamp: string;
 }
-
-// Singleton export for convenience
-export const safetyGuard = SafetyGuard.getInstance();

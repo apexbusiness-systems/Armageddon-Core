@@ -2,7 +2,7 @@ import { Worker, NativeConnection } from '@temporalio/worker';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { existsSync } from 'node:fs';
 import * as activities from './temporal/activities.js';
-import { safetyGuard } from './core/safety.js';
+import { SafetyGuard } from './core/safety.js';
 import { getAttestationPublicKey } from './core/attestation.js';
 import { HealthServer } from './infrastructure/health.js';
 
@@ -12,6 +12,7 @@ import { HealthServer } from './infrastructure/health.js';
 
 const MAX_RETRIES = 15;
 const RETRY_INTERVAL_MS = 2000;
+let _workerRef: Worker | null = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HEALTH MONITORING
@@ -68,6 +69,7 @@ function sleep(ms: number): Promise<void> {
 export async function createArmageddonWorker(): Promise<Worker> {
     // 1. Verify Environment Safety
     try {
+        const safetyGuard = SafetyGuard.getInstance();
         safetyGuard.enforce('WorkerStartup');
         console.log('[Worker] Safety checks passed. SIM_MODE=true verified.');
     } catch (err) {
@@ -119,23 +121,33 @@ export async function createArmageddonWorker(): Promise<Worker> {
     });
 
     healthServer.setWorkerState('RUNNING');
+    _workerRef = worker;
 
     return worker;
 }
 
 export async function runWorker() {
     const worker = await createArmageddonWorker();
+    _workerRef = worker;
     console.log('[Worker] Armageddon Level 7 Worker started. Ready for destruction.');
     console.log('[Worker] Health Monitor: http://localhost:8081/health');
     await worker.run();
 }
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
     console.log('[Worker] SIGTERM received. Initiating graceful shutdown...');
     healthServer.setWorkerState('DRAINING');
-    healthServer.stop();
-    process.exit(0);
+    try {
+        if (_workerRef) {
+            await _workerRef.shutdown();
+        }
+    } catch (err) {
+        console.error('[Worker] Shutdown error:', err);
+    } finally {
+        healthServer.stop();
+        process.exit(0);
+    }
 });
 
 // Run if executed directly. ESM has no require.main/module; compare this module's
