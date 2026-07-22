@@ -145,7 +145,9 @@ Re-deploy the Worker after setting the secret.
 **Symptom**: Rate limits are not being enforced (confirmed by log absence of `RATE_LIMIT_KV`-related errors).
 **Cause**: KV namespace has not been provisioned or `wrangler.jsonc` still contains `REPLACE_WITH_KV_NAMESPACE_ID`.
 
-> **ACTIVE AS OF 2026-06-24**: Confirmed via Cloudflare dashboard — production `armageddon-core` Worker only shows `ASSETS` binding. `RATE_LIMIT_KV` is not bound. This runbook is currently applicable.
+> **CORRECTED 2026-07-22**: The placeholder claim below is stale — `armageddon-site/wrangler.jsonc` has carried a real namespace ID (`92d18e3aa55a4769b4485ffb3616f034`, committed 2026-07-05) since before this correction. The repository-config blocker is resolved; whether the namespace is bound and reachable in the live Cloudflare dashboard is UNVERIFIED without fresh operator confirmation (step 4 below still applies).
+>
+> **ACTIVE AS OF 2026-06-24 (superseded above)**: Confirmed via Cloudflare dashboard — production `armageddon-core` Worker only shows `ASSETS` binding. `RATE_LIMIT_KV` is not bound. This runbook is currently applicable.
 
 **Fix**:
 1. Create the namespace: `npx wrangler kv namespace create RATE_LIMIT_KV`

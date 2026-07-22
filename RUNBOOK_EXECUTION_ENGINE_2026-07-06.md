@@ -11,6 +11,17 @@
 > the current gap: the live static bundle needs a fresh `deploy-cloudflare.yml`
 > run to pick up this wiring.
 
+> **FURTHER CORRECTION — 2026-07-22:** The claim two paragraphs up — that
+> `/api/run` now dispatches "using an HTTP-based Temporal Cloud client" — does
+> not match current code. `intake-handler.ts` defines `temporalStartWorkflow`
+> (an HTTP-based Temporal Cloud client) but it has no call sites in the file;
+> `handleRun` → `createRunRecord` only inserts a `pending` row, with a code
+> comment stating the Node.js api-server poller (`startPendingRunsLoop` in
+> `packages/core/src/api-server.ts`) is what dispatches to Temporal via gRPC.
+> The Render Blueprint (`render.yaml`) claim in this amendment still holds —
+> only the "edge Worker dispatches directly" half is stale. See
+> `PRODUCTION_STATUS.md` 2026-07-22 entry for the verification evidence.
+
 # Runbook — Deploy the ARMAGEDDON Execution Engine (Node API/dispatcher + Temporal worker)
 
 **Purpose:** make certification runs actually execute instead of hanging at `EXECUTING 0/13`.
