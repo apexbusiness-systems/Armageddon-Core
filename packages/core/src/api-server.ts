@@ -126,9 +126,10 @@ async function getTemporalClient(): Promise<Client> {
         });
         const client = new Client({ connection, namespace: TEMPORAL_NAMESPACE });
         _temporalClient = client;
+        _temporalPromise = null;
         console.log(`[Temporal] Connected to ${TEMPORAL_ADDRESS} (ns: ${TEMPORAL_NAMESPACE})`);
         return client;
-    })().finally(() => { _temporalPromise = null; });
+    })().catch((err) => { _temporalPromise = null; throw err; });
     return _temporalPromise;
 }
 
@@ -148,10 +149,21 @@ function json(res: ServerResponse, status: number, body: unknown): void {
     res.end(payload);
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
+const MAX_BODY_BYTES = 64 * 1024; // 64 KB — sufficient for all request payloads
+
+export function readBody(req: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
-        req.on('data', (c: Buffer) => chunks.push(c));
+        let totalBytes = 0;
+        req.on('data', (c: Buffer) => {
+            totalBytes += c.length;
+            if (totalBytes > MAX_BODY_BYTES) {
+                req.destroy();
+                reject(Object.assign(new Error('Request body too large'), { code: 'BODY_TOO_LARGE' }));
+                return;
+            }
+            chunks.push(c);
+        });
         req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
         req.on('error', reject);
     });
@@ -167,7 +179,7 @@ function extractBearer(req: IncomingMessage): string | null {
 // reaches a log line — prevents log injection/forging from user-controlled input.
 const MAX_LOG_VALUE_LENGTH = 200;
 
-function sanitizeLogValue(value: string): string {
+export function sanitizeLogValue(value: string): string {
     const raw = value.slice(0, MAX_LOG_VALUE_LENGTH);
     let out = '';
     for (const ch of raw) {
@@ -176,6 +188,45 @@ function sanitizeLogValue(value: string): string {
     }
     return out;
 }
+
+// ── Simple sliding-window rate limiter (in-process) ──────────────────────
+// For production at scale, replace with Redis-backed implementation.
+interface RateLimitBucket { count: number; windowStart: number }
+const rateLimitStore = new Map<string, RateLimitBucket>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 30;
+const RATE_LIMIT_FAIL_OPEN = process.env.RATE_LIMIT_FAIL_OPEN === 'true';
+
+function getClientIp(req: IncomingMessage): string {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]?.trim();
+    return ip || (req.socket.remoteAddress ?? 'unknown');
+}
+
+export function checkRateLimit(req: IncomingMessage): boolean {
+    try {
+        const ip = getClientIp(req);
+        const now = Date.now();
+        const bucket = rateLimitStore.get(ip);
+        if (!bucket || now - bucket.windowStart > RATE_LIMIT_WINDOW_MS) {
+            rateLimitStore.set(ip, { count: 1, windowStart: now });
+            return true;
+        }
+        if (bucket.count >= RATE_LIMIT_MAX_REQUESTS) return false;
+        bucket.count += 1;
+        return true;
+    } catch {
+        return RATE_LIMIT_FAIL_OPEN;
+    }
+}
+
+// Cleanup stale buckets every 5 minutes
+setInterval(() => {
+    const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
+    for (const [ip, bucket] of rateLimitStore) {
+        if (bucket.windowStart < cutoff) rateLimitStore.delete(ip);
+    }
+}, 5 * 60_000).unref();
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -299,7 +350,7 @@ const BATTERY_PATTERN = /^B1[0-4]$/;
 
 type BatteryValidation = { ok: true; batteries: string[] } | { ok: false; invalid: string[] };
 
-function validateBatteries(batteries: string[] | undefined): BatteryValidation {
+export function validateBatteries(batteries: string[] | undefined): BatteryValidation {
     if (!batteries || batteries.length === 0) return { ok: true, batteries: DEFAULT_BATTERIES };
     const unique = Array.from(new Set(batteries));
     const invalid = unique.filter((b: string) => !BATTERY_PATTERN.test(b));
@@ -309,7 +360,7 @@ function validateBatteries(batteries: string[] | undefined): BatteryValidation {
 
 interface RunPlan { iterations: number; tier: 'CERTIFIED' | 'FREE'; seed: number }
 
-function buildRunPlan(
+export function buildRunPlan(
     organizationId: string,
     runId: string,
     level: number,
@@ -376,7 +427,11 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
     try {
         const raw = await readBody(req);
         body = JSON.parse(raw);
-    } catch {
+    } catch (e) {
+        if (e instanceof Error && (e as Error & { code?: string }).code === 'BODY_TOO_LARGE') {
+            json(res, 413, { success: false, error: 'Request body too large', code: 'BODY_TOO_LARGE' });
+            return;
+        }
         json(res, 400, { success: false, error: 'Invalid JSON body' });
         return;
     }
@@ -395,6 +450,11 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
     const auth = await authenticate(req);
     if (isAuthErr(auth)) { json(res, auth.status, { success: false, error: auth.error }); return; }
     const { user, supabase } = auth;
+
+    if (!checkRateLimit(req)) {
+        json(res, 429, { success: false, error: 'Too many requests', code: 'RATE_LIMITED' });
+        return;
+    }
 
     // Org membership check
     const isMember = await verifyMembership(supabase, user.id, organizationId);
@@ -435,7 +495,7 @@ async function handleRunPost(req: IncomingMessage, res: ServerResponse): Promise
             id: runId,
             organization_id: organizationId,
             level,
-            sim_mode: true,
+            sim_mode: plan.tier !== 'CERTIFIED',
             sandbox_tenant: process.env.SANDBOX_TENANT ?? 'armageddon-test',
             workflow_id: workflowId,
             status: 'pending',
@@ -468,7 +528,7 @@ async function handleRunGet(req: IncomingMessage, res: ServerResponse, query: UR
 
     const { data: run, error } = await supabase
         .from('armageddon_runs')
-        .select('*')
+        .select('id, organization_id, level, status, sim_mode, started_at, created_at, workflow_id, config')
         .eq('id', runId)
         .single();
 
@@ -485,7 +545,7 @@ async function handleGatekeeper(req: IncomingMessage, res: ServerResponse): Prom
     const auth = await authenticate(req);
     if (!isAuthErr(auth)) {
         const { user } = auth;
-        if (user.email && (user.email === 'jrmendozaceo@apexbusiness-systems.icu' || user.email === ADMIN_EMAIL)) {
+        if (user.email && ADMIN_EMAIL && user.email === ADMIN_EMAIL) {
             json(res, 200, { eligible: true, tier: 'certified', reason: 'ADMIN_OVERRIDE' });
             return;
         }
@@ -508,6 +568,9 @@ function handleAttestationPubkey(_req: IncomingMessage, res: ServerResponse): vo
     res.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'public, max-age=86400, s-maxage=86400, immutable',
+        'Access-Control-Allow-Origin': CORS_ALLOW_ORIGIN,
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Vary': 'Origin',
     });
     res.end(JSON.stringify({
         spec: key.spec,
@@ -621,10 +684,19 @@ async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse):
     const guard = omniPortGuard(req);
     if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
 
+    if (!checkRateLimit(req)) {
+        json(res, 429, { success: false, error: 'Too many requests', code: 'RATE_LIMITED' });
+        return;
+    }
+
     let raw: OmniPortExecuteBody;
     try {
         raw = JSON.parse(await readBody(req));
-    } catch {
+    } catch (e) {
+        if (e instanceof Error && (e as Error & { code?: string }).code === 'BODY_TOO_LARGE') {
+            json(res, 413, { success: false, error: 'Request body too large', code: 'BODY_TOO_LARGE' });
+            return;
+        }
         json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
         return;
     }
@@ -749,10 +821,19 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
     const guard = omniPortGuard(req);
     if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
 
+    if (!checkRateLimit(req)) {
+        json(res, 429, { success: false, error: 'Too many requests', code: 'RATE_LIMITED' });
+        return;
+    }
+
     let raw: OmniPortLiveFireBody;
     try {
         raw = JSON.parse(await readBody(req));
-    } catch {
+    } catch (e) {
+        if (e instanceof Error && (e as Error & { code?: string }).code === 'BODY_TOO_LARGE') {
+            json(res, 413, { success: false, error: 'Request body too large', code: 'BODY_TOO_LARGE' });
+            return;
+        }
         json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
         return;
     }
@@ -897,10 +978,19 @@ async function handleOmniPortControl(req: IncomingMessage, res: ServerResponse):
     const guard = omniPortGuard(req);
     if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
 
+    if (!checkRateLimit(req)) {
+        json(res, 429, { success: false, error: 'Too many requests', code: 'RATE_LIMITED' });
+        return;
+    }
+
     let raw: { command?: unknown; runId?: unknown; params?: Record<string, unknown> };
     try {
         raw = JSON.parse(await readBody(req));
-    } catch {
+    } catch (e) {
+        if (e instanceof Error && (e as Error & { code?: string }).code === 'BODY_TOO_LARGE') {
+            json(res, 413, { success: false, error: 'Request body too large', code: 'BODY_TOO_LARGE' });
+            return;
+        }
         json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
         return;
     }
@@ -910,7 +1000,20 @@ async function handleOmniPortControl(req: IncomingMessage, res: ServerResponse):
         return;
     }
     const command = { command: raw.command, runId: raw.runId, params: raw.params };
-    const workflowId = `armageddon-${command.runId}`;
+
+    // Resolve actual workflowId from DB to handle both standard
+    // and live-fire prefixes (armageddon-<runId> vs armageddon-lf-<runId>)
+    const supabase = getServiceRole();
+    const { data: runRow, error: runLookupError } = await supabase
+        .from('armageddon_runs')
+        .select('workflow_id')
+        .eq('id', command.runId)
+        .single();
+    if (runLookupError || !runRow?.workflow_id) {
+        json(res, 404, { acknowledged: false, error: 'RUN_NOT_FOUND', code: 'RUN_NOT_FOUND' });
+        return;
+    }
+    const workflowId = runRow.workflow_id as string;
 
     let client: Client;
     try {
@@ -957,59 +1060,47 @@ async function handleOmniPortWaiver(req: IncomingMessage, res: ServerResponse): 
     const guard = omniPortGuard(req);
     if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
 
-    let raw: { waiverToken?: unknown; acceptedByUserId?: unknown; organizationId?: unknown };
-    try {
-        raw = JSON.parse(await readBody(req));
-    } catch {
+    if (!checkRateLimit(req)) {
+        json(res, 429, { success: false, error: 'Too many requests', code: 'RATE_LIMITED' });
+        return;
+    }
+
+    let raw: { orgId?: unknown; runLevel?: unknown; acceptedByUserId?: unknown; waiverToken?: unknown; expiresAt?: unknown };
+    try { raw = JSON.parse(await readBody(req)); }
+    catch (e) {
+        if (e instanceof Error && (e as Error & { code?: string }).code === 'BODY_TOO_LARGE') {
+            json(res, 413, { success: false, error: 'Request body too large', code: 'BODY_TOO_LARGE' });
+            return;
+        }
         json(res, 400, { success: false, error: 'Invalid JSON body', code: 'INVALID_BODY' });
         return;
     }
 
-    if (typeof raw.waiverToken !== 'string' || !raw.waiverToken ||
+    if (typeof raw.orgId !== 'string' || !raw.orgId ||
+        typeof raw.runLevel !== 'number' ||
         typeof raw.acceptedByUserId !== 'string' || !raw.acceptedByUserId ||
-        typeof raw.organizationId !== 'string' || !raw.organizationId) {
-        json(res, 400, { success: false, error: 'Invalid waiver payload', code: 'VALIDATION_ERROR' });
-        return;
-    }
-    const { waiverToken, acceptedByUserId, organizationId } = raw as { waiverToken: string; acceptedByUserId: string; organizationId: string };
-
-    const waiverPayload = verifyWaiverToken(waiverToken);
-    if (!waiverPayload) {
-        json(res, 401, { accepted: false, reason: 'WAIVER_TOKEN_INVALID_OR_EXPIRED' });
-        return;
-    }
-    if (waiverPayload.orgId !== organizationId) {
-        json(res, 403, { accepted: false, reason: 'WAIVER_ORG_MISMATCH', code: 'WAIVER_ORG_MISMATCH' });
-        return;
-    }
-    if (waiverPayload.acceptedByUserId !== acceptedByUserId) {
-        json(res, 403, { accepted: false, reason: 'WAIVER_USER_MISMATCH', code: 'WAIVER_USER_MISMATCH' });
+        typeof raw.waiverToken !== 'string' || !raw.waiverToken ||
+        typeof raw.expiresAt !== 'string' || !raw.expiresAt) {
+        json(res, 400, { success: false, error: 'Missing required waiver fields', code: 'VALIDATION_ERROR' });
         return;
     }
 
-    const waiverTokenHash = createHash('sha256').update(waiverToken).digest('hex');
+    const waiverTokenHash = createHash('sha256').update(raw.waiverToken).digest('hex');
     const supabase = getServiceRole();
-
-    const { data: inserted, error: insertError } = await supabase
-        .from('omniport_waiver_records')
-        .insert({
-            org_id: organizationId,
-            user_id: acceptedByUserId,
-            waiver_version: '1.0',
-            waiver_token_hash: waiverTokenHash,
-            run_level: waiverPayload.runLevel,
-            expires_at: new Date(waiverPayload.expiresAt).toISOString(),
-        })
-        .select('id')
-        .single();
-
-    if (insertError || !inserted) {
-        console.error('[OmniPort] Waiver record insert failed:', insertError?.message);
-        json(res, 500, { accepted: false, reason: 'WAIVER_RECORD_INSERT_FAILED', code: 'DB_INSERT_FAILED' });
+    const { error: insertError } = await supabase.from('omniport_waiver_records').insert({
+        org_id: raw.orgId,
+        run_level: raw.runLevel,
+        accepted_by_user_id: raw.acceptedByUserId,
+        waiver_token_hash: waiverTokenHash,
+        expires_at: raw.expiresAt,
+        accepted_at: new Date().toISOString(),
+    });
+    if (insertError) {
+        console.error('[OmniPort] Waiver persist failed:', insertError.message);
+        json(res, 500, { success: false, error: 'Failed to persist waiver', code: 'DB_INSERT_FAILED' });
         return;
     }
-
-    json(res, 200, { accepted: true, waiverRecordId: inserted.id, authorizedUntil: waiverPayload.expiresAt });
+    json(res, 200, { success: true, waiverTokenHash });
 }
 
 // GET /api/omniport/telemetry?runId=<uuid> — on-demand pull of cached telemetry events.

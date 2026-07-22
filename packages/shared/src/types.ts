@@ -5,6 +5,8 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+export const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
+
 // Canonical input type for runBattery activities
 export interface RunBatteryInput {
     runId: string;

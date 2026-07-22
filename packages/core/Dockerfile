@@ -4,7 +4,7 @@
 # DATE: 2026-02-06
 # ═══════════════════════════════════════════════════════════════════════════
 
-FROM node:20-bullseye-slim
+FROM node:22-bookworm-slim
 
 # Install Python and system dependencies
 # ca-certificates is required (not optional): this worker also runs against

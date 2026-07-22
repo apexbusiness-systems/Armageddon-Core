@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock the safety singleton so finalize doesn't depend on live env gating.
 vi.mock('../../src/core/safety', () => ({
     safetyGuard: { enforce: vi.fn() },
-    SafetyGuard: { resetForTesting: vi.fn(), getInstance: vi.fn() },
+    SafetyGuard: { resetForTesting: vi.fn(), getInstance: () => ({ enforce: vi.fn(), getStatus: vi.fn() }) },
     SystemLockdownError: class SystemLockdownError extends Error {},
 }));
 
