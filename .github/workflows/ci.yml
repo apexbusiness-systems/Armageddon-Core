@@ -27,7 +27,9 @@ jobs:
         # --ignore-scripts blocks arbitrary lifecycle scripts from transitive
         # deps during install (supply-chain hardening); we then run only the one
         # build step we trust, which postinstall would otherwise have run.
-        run: npm ci --ignore-scripts && npm run build:shared
+        run: |
+          npm ci --ignore-scripts
+          npm run build -w @armageddon/shared
 
       - name: Verify Shared Lib Build
         run: ls -F packages/shared/dist/
@@ -55,5 +57,5 @@ jobs:
       - name: Type Check (All Workspaces)
         run: npm run typecheck
 
-      - name: Run Unit Tests (All Workspaces)
-        run: npm run test
+      - name: Run Unit Tests with Coverage (All Workspaces)
+        run: npm run test -- --coverage

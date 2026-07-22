@@ -4,7 +4,7 @@
 # DATE: 2026-02-06
 # ═══════════════════════════════════════════════════════════════════════════
 
-FROM node:20-bullseye-slim
+FROM node:22-bookworm-slim
 
 # Install Python and system dependencies
 # ca-certificates is required (not optional): this worker also runs against
@@ -55,7 +55,7 @@ COPY packages/core/package*.json ./packages/core/
 # releases/<target>/index.node files. The two build RUN steps below already
 # explicitly build @armageddon/shared and armageddon-core, so nothing here
 # depends on postinstall running.
-RUN npm ci --install-links --ignore-scripts
+RUN npm ci --ignore-scripts --install-links
 
 # Copy TypeScript config and source
 COPY packages/core/tsconfig.json ./packages/core/
@@ -65,7 +65,8 @@ COPY packages/core/scripts/bundle-workflows.mjs ./packages/core/scripts/bundle-w
 # Build shared package first, then armageddon-core; fail fast if either workspace cannot compile.
 # Final step flattens dist to /app/dist for CMD.
 RUN npm run build -w @armageddon/shared && \
-    npm run build -w armageddon-core && ls -la packages/core/dist && \
+    npm run build -w armageddon-core && \
+    ls -la packages/core/dist && \
     npm run bundle:workflows -w armageddon-core && \
     npm prune --omit=dev --workspaces --include-workspace-root && \
     cp -r packages/core/dist ./dist

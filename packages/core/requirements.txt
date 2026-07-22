@@ -9,6 +9,7 @@ garak==0.9.0
 aiohttp==3.9.1
 
 # Numerical operations
+# Numerical operations
 # Pinned within the 1.26.x line this codebase targets, not latest (numpy 2.x
 # has breaking API changes untested against garak==0.9.0 / this Python engine).
 numpy==1.26.4

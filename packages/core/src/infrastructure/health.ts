@@ -3,7 +3,7 @@
 // APEX Business Systems Ltd. - Proprietary IP
 
 import { createServer, IncomingMessage, ServerResponse, Server } from 'node:http';
-import { safetyGuard } from '../core/safety.js';
+import { SafetyGuard } from '../core/safety.js';
 
 type WorkerState = 'STARTING' | 'RUNNING' | 'STOPPED' | 'DRAINING';
 
@@ -69,7 +69,7 @@ export class HealthServer {
   getPort(): number {
     if (this.server?.listening) {
       const address = this.server.address();
-      if (address && typeof address === 'object') {
+      if (typeof address === 'object' && address !== null) {
         return address.port;
       }
     }
@@ -122,7 +122,7 @@ export class HealthServer {
   private handleMetrics(res: ServerResponse): void {
     const memory = process.memoryUsage();
     const uptime = Date.now() - this.startTime;
-    const safetyStatus = safetyGuard.getStatus();
+    const safetyStatus = SafetyGuard.getInstance().getStatus();
 
     const stateValue = this.getWorkerStateValue(this.workerState);
 
@@ -180,7 +180,7 @@ armageddon_uptime_seconds ${Math.floor(uptime / 1000)}
    * Collect comprehensive health data
    */
   private collectHealthData(): HealthCheckResult {
-    const safetyStatus = safetyGuard.getStatus();
+    const safetyStatus = SafetyGuard.getInstance().getStatus();
     const memory = process.memoryUsage();
     const uptime = Date.now() - this.startTime;
 
