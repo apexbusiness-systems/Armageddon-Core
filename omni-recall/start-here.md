@@ -1,5 +1,5 @@
 ---
-version: 1.3.0
+version: 1.4.0
 last_audited: 2026-07-22
 status: verified
 ---
@@ -30,6 +30,12 @@ The system should:
 - remain honest about missing access or incomplete backfill
 
 ## Last Verified Session
+
+- Audit date: 2026-07-22, latest same-day continuation — real live-fire certification + critical sim-downgrade fix + baseline tag (see `2026-07-22-real-live-fire-and-baseline.md`)
+- Key facts: Provisioned a genuinely separate OmniHub staging deployment (new Supabase project, two new Render services) and executed real OmniPort live-fire dispatches. Found and fixed (PR #211, merged) a critical defect: every OmniPort dispatch path omitted `targetModel`, so `AdversarialEngine` silently ran the fake `SimulationProvider` for any `tier: 'CERTIFIED'` run while telemetry still claimed `engine: 'LIVE_FIRE'` — caught by noticing battery durations (2.7–3.4s) were far too fast for real LLM round trips, not by trusting the label. `AdversarialEngine` now throws instead of silently degrading; re-verified with two subsequent real dispatches (~19–24s/battery, consistent with genuine network calls). Also fixed: the OmniPort task-queue orphaning bug (silently stuck every prior live-fire dispatch on the shared deployment), leaderboard build-name + dedup, a PDF certificate box-overlap defect, and a Markdown report section that read as blank on a clean pass. `main` tagged as this session's verified baseline after full quality-gate re-confirmation (479 tests). CLAUDE.md Invariant 10 corrected (was wrongly inferring the `SIM_MODE` boot gate meant live-fire could never execute — it doesn't; the boot gate and the per-run real/simulated choice are independent). New `.understand-anything/CANONICAL_STATE_2026-07-22.md` added as a point-in-time repo-state snapshot separate from this session-history log.
+- Durable correction: never trust the `engine: 'LIVE_FIRE'` telemetry tag alone as proof a run was real — it is self-reported from `tier` alone, which is exactly what was wrong here. Cross-check independent signal (battery duration, real token/cost counts) before treating a run as genuinely live-fire.
+
+## Previous Verified Session (2026-07-22, same-day continuation — free-tier cold-start + verdict integrity)
 
 - Audit date: 2026-07-22, same-day continuation (free-tier cold-start root-cause fix + certificate verdict integrity, merged and LIVE-DEPLOY VERIFIED — see `2026-07-22b-cold-start-fix-and-verdict-integrity.md`)
 - Key facts: The user supplied real E2E credentials + a Render API key mid-session, which unblocked genuine production runs (earlier attempts were blocked by sandbox network egress, not missing access). Two PRs merged to `main`: **#206** — Wake-on-Enqueue + Active-Run Self-Sustain (root-cause fix for the free-tier idle/cold-start problem, zero cost/deps) and a real B14-telemetry code defect fix; **#207** — fixed a genuine verdict-integrity defect (a clean simulation pass was labelled `FAILED`; now three-state `CERTIFIED | VALIDATED | FAILED`) plus three real PDF layout defects, found by actually rendering a certificate and inspecting it. Both merges **confirmed live** by direct API checks against GitHub, Render, and Cloudflare (not assumed from the merge event) — see that session file for the exact commands. A clean post-deploy Level 7 run (all 5 batteries, 0 breaches, 100/100, zero telemetry gaps, no cold-start retry) produced the final certificate. `PRODUCTION_STATUS.md` and `docs/audits/PRODUCTION_RUN_DISPATCH_STUCK_2026-07-22.md` corrected to close out the P1. Root `CLAUDE.md` had a second stale claim (RATE_LIMIT_KV "not yet provisioned") found and corrected, then re-mirrored to `omni-recall/CLAUDE.md`.
