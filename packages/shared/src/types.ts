@@ -5,7 +5,8 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-export const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
+import { DEFAULT_BATTERIES } from './gate';
+export { DEFAULT_BATTERIES };
 
 // Canonical input type for runBattery activities
 export interface RunBatteryInput {

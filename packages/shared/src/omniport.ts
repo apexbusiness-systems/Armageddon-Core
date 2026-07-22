@@ -89,7 +89,14 @@ export async function validateSSRF(url: string): Promise<boolean> {
         if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
 
         const ALLOWED_PORTS = new Set([80, 443, 8080, 8443, 3000]);
-        const port = parsed.port ? Number(parsed.port) : (parsed.protocol === 'https:' ? 443 : 80);
+        let port: number;
+        if (parsed.port) {
+            port = Number(parsed.port);
+        } else if (parsed.protocol === 'https:') {
+            port = 443;
+        } else {
+            port = 80;
+        }
         if (!ALLOWED_PORTS.has(port)) return false;
 
         const hostname = parsed.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');

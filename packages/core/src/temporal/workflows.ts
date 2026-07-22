@@ -77,58 +77,36 @@ export const cancelSignal = defineSignal('cancel');
  * This bounds the event history of the parent workflow, crucial for high-iteration
  * adversarial batteries that might otherwise hit Temporal's 50k event limit.
  */
+const BATTERY_HANDLERS: Record<string, (config: BatteryConfig) => Promise<BatteryResult>> = {
+    B1: runBattery1_ChaosStress,
+    B2: runBattery2_ChaosEngine,
+    B3: runBattery3_PromptInjection,
+    B4: runBattery4_SecurityAuth,
+    B5: runBattery5_FullUnit,
+    B6: runBattery6_UnsafeGate,
+    B7: runBattery7_PlaywrightE2E,
+    B8: runBattery8_AssetSmoke,
+    B9: runBattery9_IntegrationHandshake,
+    B10: runBattery10_GoalHijack,
+    B11: runBattery11_ToolMisuse,
+    B12: runBattery12_MemoryPoison,
+    B13: runBattery13_SupplyChain,
+    B14: runBattery14_IndirectInjection,
+};
+
 export async function BatteryChildWorkflow(batteryCode: string, config: BatteryConfig): Promise<BatteryResult> {
     let childCancelled = false;
     setHandler(cancelSignal, () => { childCancelled = true; });
 
     if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
 
-    switch (batteryCode) {
-        case 'B1':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery1_ChaosStress(config);
-        case 'B2':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery2_ChaosEngine(config);
-        case 'B3':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery3_PromptInjection(config);
-        case 'B4':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery4_SecurityAuth(config);
-        case 'B5':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery5_FullUnit(config);
-        case 'B6':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery6_UnsafeGate(config);
-        case 'B7':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery7_PlaywrightE2E(config);
-        case 'B8':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery8_AssetSmoke(config);
-        case 'B9':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery9_IntegrationHandshake(config);
-        case 'B10':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery10_GoalHijack(config);
-        case 'B11':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery11_ToolMisuse(config);
-        case 'B12':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery12_MemoryPoison(config);
-        case 'B13':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery13_SupplyChain(config);
-        case 'B14':
-            if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
-            return runBattery14_IndirectInjection(config);
-        default:
-            throw new Error(`Unknown battery code: ${batteryCode}`);
+    const handler = BATTERY_HANDLERS[batteryCode];
+    if (!handler) {
+        throw new Error(`Unknown battery code: ${batteryCode}`);
     }
+
+    if (childCancelled) throw new Error(`Battery ${batteryCode} cancelled`);
+    return handler(config);
 }
 
 export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<ArmageddonReport> {

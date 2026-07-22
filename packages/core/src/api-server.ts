@@ -817,6 +817,54 @@ function validateOmniPortLiveFireBody(body: OmniPortLiveFireBody): { ok: true; v
     return { ok: true, value: { organizationId: body.organizationId, waiverToken: body.waiverToken, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl, targetSystemName: sanitizeTargetSystemName(body.targetSystemName) } };
 }
 
+type WaiverVerificationResult =
+    | { ok: true; waiverRecordId: string }
+    | { ok: false; status: 401 | 403; payload: Record<string, unknown> };
+
+async function verifyLiveFireWaiver(
+    supabase: SupabaseClient,
+    organizationId: string,
+    waiverToken: string,
+    level: number
+): Promise<WaiverVerificationResult> {
+    const waiverPayload = verifyWaiverToken(waiverToken);
+    if (!waiverPayload) {
+        return { ok: false, status: 401, payload: { authorized: false, reason: 'WAIVER_TOKEN_INVALID_OR_EXPIRED' } };
+    }
+    if (waiverPayload.orgId !== organizationId) {
+        return { ok: false, status: 403, payload: { authorized: false, reason: 'WAIVER_ORG_MISMATCH', code: 'WAIVER_ORG_MISMATCH' } };
+    }
+    if (waiverPayload.runLevel !== level) {
+        return { ok: false, status: 403, payload: { authorized: false, reason: 'WAIVER_RUN_LEVEL_MISMATCH', code: 'WAIVER_RUN_LEVEL_MISMATCH' } };
+    }
+
+    const waiverTokenHash = createHash('sha256').update(waiverToken).digest('hex');
+    const { data: waiverRecord, error: waiverError } = await supabase
+        .from('omniport_waiver_records')
+        .select('id, expires_at, waiver_token_hash')
+        .eq('org_id', organizationId)
+        .eq('run_level', level)
+        .gte('expires_at', new Date().toISOString())
+        .order('accepted_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    if (waiverError || !waiverRecord) {
+        return { ok: false, status: 403, payload: { authorized: false, reason: 'WAIVER_RECORD_NOT_FOUND' } };
+    }
+    if (waiverRecord.waiver_token_hash !== waiverTokenHash) {
+        return { ok: false, status: 403, payload: { authorized: false, reason: 'WAIVER_TOKEN_HASH_MISMATCH', code: 'WAIVER_TOKEN_HASH_MISMATCH' } };
+    }
+
+    try {
+        enforceOmniPortLiveFireGuard(waiverRecord.id as string);
+    } catch (err) {
+        return { ok: false, status: 403, payload: { authorized: false, reason: 'LIVE_FIRE_GUARD_FAILED', error: (err as Error).message } };
+    }
+
+    return { ok: true, waiverRecordId: waiverRecord.id as string };
+}
+
 async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const guard = omniPortGuard(req);
     if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
@@ -847,49 +895,14 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
         return;
     }
 
-    const waiverPayload = verifyWaiverToken(waiverToken);
-    if (!waiverPayload) {
-        json(res, 401, { authorized: false, reason: 'WAIVER_TOKEN_INVALID_OR_EXPIRED' });
-        return;
-    }
-    if (waiverPayload.orgId !== organizationId) {
-        json(res, 403, { authorized: false, reason: 'WAIVER_ORG_MISMATCH', code: 'WAIVER_ORG_MISMATCH' });
-        return;
-    }
-    if (waiverPayload.runLevel !== level) {
-        json(res, 403, { authorized: false, reason: 'WAIVER_RUN_LEVEL_MISMATCH', code: 'WAIVER_RUN_LEVEL_MISMATCH' });
-        return;
-    }
-
-    const waiverTokenHash = createHash('sha256').update(waiverToken).digest('hex');
     const supabase = getServiceRole();
-
-    const { data: waiverRecord, error: waiverError } = await supabase
-        .from('omniport_waiver_records')
-        .select('id, expires_at, waiver_token_hash')
-        .eq('org_id', organizationId)
-        .eq('run_level', level)
-        .gte('expires_at', new Date().toISOString())
-        .order('accepted_at', { ascending: false })
-        .limit(1)
-        .single();
-
-    if (waiverError || !waiverRecord) {
-        json(res, 403, { authorized: false, reason: 'WAIVER_RECORD_NOT_FOUND' });
-        return;
-    }
-    if (waiverRecord.waiver_token_hash !== waiverTokenHash) {
-        json(res, 403, { authorized: false, reason: 'WAIVER_TOKEN_HASH_MISMATCH', code: 'WAIVER_TOKEN_HASH_MISMATCH' });
+    const waiverResult = await verifyLiveFireWaiver(supabase, organizationId, waiverToken, level);
+    if (!waiverResult.ok) {
+        json(res, waiverResult.status, waiverResult.payload);
         return;
     }
 
-    try {
-        enforceOmniPortLiveFireGuard(waiverRecord.id as string);
-    } catch (err) {
-        json(res, 403, { authorized: false, reason: 'LIVE_FIRE_GUARD_FAILED', error: (err as Error).message });
-        return;
-    }
-
+    const waiverRecordId = waiverResult.waiverRecordId;
     const runId = uuidv4();
     const workflowId = `armageddon-lf-${runId}`;
     const seed = deriveRunSeed(runId, organizationId);
@@ -904,12 +917,11 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
         // sandboxed, so we record an explicit authorized marker instead of null.
         sandbox_tenant: process.env.OMNIPORT_LIVE_FIRE_TENANT || 'live-fire-authorized',
         workflow_id: workflowId,
-        status: 'pending',
         // targetModel is required here: AdversarialEngine throws rather than
         // silently simulating when tier is 'CERTIFIED' with no targetModel
         // (see packages/core/src/core/adversarial.ts) — omitting it would
         // fail every live-fire dispatch, not degrade it quietly.
-        config: { batteries: selectedBatteries, iterations, tier: 'CERTIFIED', seed, liveFire: true, waiverRecordId: waiverRecord.id, targetEndpoint: targetUrl, targetSystemName, targetModel: LIVE_FIRE_TARGET_MODEL },
+        config: { batteries: selectedBatteries, iterations, tier: 'CERTIFIED', seed, liveFire: true, waiverRecordId, targetEndpoint: targetUrl, targetSystemName, targetModel: LIVE_FIRE_TARGET_MODEL },
     });
     if (insertError) {
         console.error('[OmniPort] Live-fire run record insert failed:', insertError.message);
@@ -948,7 +960,7 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
     // Proof-critical: if this cannot be persisted we must NOT report authorized: true.
     try {
         await persistOmniPortTelemetry(supabase, runId, organizationId, 'live_fire.authorized', {
-            workflowId, level, iterations, waiverRecordId: waiverRecord.id, liveFire: true,
+            workflowId, level, iterations, waiverRecordId, liveFire: true,
         }, { required: true });
     } catch (err) {
         console.error('[OmniPort] Live-fire proof telemetry failed:', (err as Error).message);
@@ -957,7 +969,7 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
         return;
     }
 
-    json(res, 200, { authorized: true, runId, workflowId, waiverRecordId: waiverRecord.id, liveFire: true });
+    json(res, 200, { authorized: true, runId, workflowId, waiverRecordId, liveFire: true });
 }
 
 // POST /api/omniport/control — hot-edit: injects a control signal into an active workflow.

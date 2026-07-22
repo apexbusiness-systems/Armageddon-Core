@@ -156,10 +156,10 @@ const isDirectRun = process.argv[1]
     ? import.meta.url === pathToFileURL(process.argv[1]).href
     : false;
 if (isDirectRun) {
-   try {
-       await runWorker();
-   } catch (err) {
-       console.error(err);
-       process.exit(1);
-   }
+    try {
+        await runWorker();
+    } catch (err) {
+        console.error(err);
+        process.exit(1);
+    }
 }
