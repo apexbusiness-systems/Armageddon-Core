@@ -141,7 +141,9 @@ console.log('score:', parsed.score, '| grade:', parsed.grade);
 console.log('battery engine(s) actually used:', [...new Set(engines)].join(', '));
 if (orgTier === 'CERTIFIED' && attestedTier !== 'CERTIFIED') {
   console.log('\nℹ️  VERDICT INTEGRITY: org is billed CERTIFIED, but this run executed in',
-    run.sim_mode ? 'SIMULATION' : 'a non-live-fire', 'engine — so it is NOT stamped CERTIFIED.');
+    run.sim_mode ? 'SIMULATION' : 'a non-live-fire', 'engine.');
+  console.log(`   Verdict is truthfully "${parsed.verdict}", not CERTIFIED — a clean pass under simulation`);
+  console.log('   is VALIDATED (a real positive result), never dressed up as a live-fire certification.');
   console.log('   A truthful CERTIFIED verdict requires live-fire execution, which the current');
   console.log('   production deployment disables by design (SIM_MODE boot gate, CLAUDE.md Invariant 10).');
 }

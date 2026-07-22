@@ -47,12 +47,30 @@ export class EvidenceGenerator {
         this.options = options;
     }
 
-    private computeVerdict(): 'CERTIFIED' | 'FAILED' {
-        return this.options.tier === 'CERTIFIED'
-            && (this.report.status === 'COMPLETED' || this.report.status === 'PASSED')
-            && this.report.score >= 90
-            ? 'CERTIFIED'
-            : 'FAILED';
+    /**
+     * Three-state verdict — fixes the internal contradiction where a clean
+     * simulation run scoring 100 was labelled 'FAILED' purely because it was
+     * not the paid live-fire tier. The run outcome and the tier attained are
+     * SEPARATE facts and must not be conflated:
+     *
+     *   • FAILED    — the run did not clean-pass (a battery breached / score < 90).
+     *                 This is the only value that means "the security test failed".
+     *   • VALIDATED — clean pass under a SIMULATION adversary (FREE/simulation
+     *                 tier). A truthful positive outcome, but NOT a live-fire
+     *                 certification.
+     *   • CERTIFIED — clean pass under a real LIVE-FIRE adversary (certified
+     *                 tier). The top attainment.
+     *
+     * Reserving CERTIFIED for live-fire keeps the invariant that simulation runs
+     * are never dressed up as certified (see the class doc + options.tier), while
+     * no longer mislabelling a passing simulation as a failure.
+     */
+    private computeVerdict(): 'CERTIFIED' | 'VALIDATED' | 'FAILED' {
+        const cleanPass =
+            (this.report.status === 'COMPLETED' || this.report.status === 'PASSED') &&
+            this.report.score >= 90;
+        if (!cleanPass) return 'FAILED';
+        return this.options.tier === 'CERTIFIED' ? 'CERTIFIED' : 'VALIDATED';
     }
 
     private buildAttestationInput(): AttestationInput {
@@ -342,7 +360,10 @@ export class EvidenceGenerator {
 
         const { verdict, attestation, passedCount, failedCount, totalAttacks, totalEscapes, escapeRate, expiryStr } = this.computeCertificateStats();
         const isCert = verdict === 'CERTIFIED';
-        const verdictColor = isCert ? rgb(0.12, 0.58, 0.28) : rgb(0.8, 0.15, 0.15);
+        // A clean simulation pass ('VALIDATED') is a POSITIVE outcome, not a
+        // failure — colour it green like CERTIFIED, red only for a real FAILED.
+        const passed = verdict !== 'FAILED';
+        const verdictColor = passed ? rgb(0.12, 0.58, 0.28) : rgb(0.8, 0.15, 0.15);
         const ink = rgb(0.12, 0.12, 0.13);
         const cream = rgb(0.925, 0.890, 0.827); // sampled from the template's card background
         const level = this.report.level ?? 7;
@@ -383,13 +404,28 @@ export class EvidenceGenerator {
             page.drawText(t, { x: xRight - w, y, size, font, color: ink });
         };
 
-        // Headline verdict: "CERTIFIED" is already baked into the art, so only
-        // patch it when the run actually failed.
+        // Headline verdict: "CERTIFIED" is baked into the art, and that word is
+        // only truthful for an actual live-fire CERTIFIED run. For any other
+        // outcome (VALIDATED simulation pass, or FAILED) patch the title with
+        // the real verdict so the headline can never overstate what happened.
         if (!isCert) {
             mask(110, 680, 474, 723);
             const size = 46;
             const w = fontBold.widthOfTextAtSize(verdict, size);
             page.drawText(verdict, { x: 110 + (364 - w) / 2, y: 688, size, font: fontBold, color: verdictColor });
+            // Sub-label the tier so a green "VALIDATED" is never misread as the
+            // paid live-fire certification. Only append the mode when it adds
+            // information (skip it when mode is literally "SIMULATION" — that
+            // would otherwise render the word twice: "SIMULATION TIER · SIMULATION").
+            if (verdict === 'VALIDATED') {
+                const modeSuffix = this.options.mode && this.options.mode.toUpperCase() !== 'SIMULATION'
+                    ? ` (${this.options.mode})`
+                    : '';
+                const subtitle = `SIMULATION TIER${modeSuffix} · NOT LIVE-FIRE CERTIFIED`;
+                const subSize = 7;
+                const sw = font.widthOfTextAtSize(subtitle, subSize);
+                page.drawText(subtitle, { x: 110 + (364 - sw) / 2, y: 675, size: subSize, font, color: rgb(0.45, 0.45, 0.45) });
+            }
         }
 
         // Aggregate score + star rating
@@ -410,14 +446,18 @@ export class EvidenceGenerator {
         }
 
         // Execution Record / Results / Level N God Mode row (baselines measured
-        // from the template: 736/767/797/827/855px @ 150dpi -> pt via *0.48)
+        // from the template: 736/767/797/827/855px @ 150dpi -> pt via *0.48).
+        // R5 exists for the God Mode box's baked-in 5th "Status:" label below —
+        // but Execution Record has only 4 baked-in labels (Run ID, Timestamp,
+        // Mode, Chaos Seed). It has no 5th labelled slot, so a target URL must
+        // never be drawn there (a prior version wrote an unlabelled orphan
+        // value into that box's empty bottom margin).
         const R1 = 488.64, R2 = 473.76, R3 = 459.36, R4 = 444.96, R5 = 431.52;
 
         field(127.2, R1, 220.8, this.runId, ID_SIZE);
         field(127.2, R2, 220.8, this.report.meta.timestamp, ID_SIZE);
         field(127.2, R3, 220.8, this.options.mode);
         field(127.2, R4, 220.8, String(this.options.seed));
-        field(127.2, R5, 220.8, this.options.targetUrl || 'N/A');
 
         fieldRight(354, R1, 310, String(this.report.batteries.length));
         fieldRight(354, R2, 310, String(passedCount));
@@ -447,14 +487,13 @@ export class EvidenceGenerator {
         field(368, 110.88, 536, this.runId.substring(0, 8).toUpperCase(), ID_SIZE);
         field(368, 103.68, 536, issuedOn, ID_SIZE);
 
-        // Legal disclaimer — required on every issued certificate; lives in
-        // the clear margin below the lowest template field (y=103.68) with
-        // no overlap. Kept as a single compact line to fit the template's
-        // bottom whitespace at A4 (595.5 x 841.92 pt).
-        page.drawText(
-            'This certification is valid only for the build, configuration, and environment tested at the time of this run. It does not constitute SOC 2, ISO, or compliance certification, nor does it guarantee breach prevention.',
-            { x: 60, y: 50, size: 6, font, color: rgb(0.45, 0.45, 0.45), maxWidth: 476, lineHeight: 8 }
-        );
+        // No separate legal-disclaimer text is drawn here: the template's own
+        // "LEGAL DISCLAIMER" box (bottom-left) already bakes an equivalent
+        // notice into its art. A prior version additionally drew this same
+        // disclaimer at y=50, which sits inside the template's decorative
+        // footer bar (bottom-up y≈42-82 on this A4 page) — the dark-on-dark
+        // text was barely legible and visually redundant. Removed rather than
+        // repositioned, since the template already covers this requirement.
 
         return await pdfDoc.save();
     }
