@@ -147,14 +147,10 @@ jobs:
           smoke_url "https://$ZONE_NAME" "$ZONE_NAME"
           smoke_url "https://$ZONE_NAME/intake/" "$ZONE_NAME"
 
-<<<<<<< HEAD
           # --proto '=https' --proto-redir '=https': the initial request and any
           # redirect it follows must stay HTTPS — never downgrade to http even if
           # the server issues an http:// Location (Sonar S5332).
           WORKERS_DEV_HTTP=$(curl -sS -L --proto '=https' --proto-redir '=https' -o /dev/null -w "%{http_code}" --max-time 20 "https://$WORKERS_DEV_HOST" || echo "FAIL")
-=======
-          WORKERS_DEV_HTTP=$(curl -sS -L --proto '=https' -o /dev/null -w "%{http_code}" --max-time 20 "https://$WORKERS_DEV_HOST" || echo "FAIL")
->>>>>>> e11797e (fix(sonar): resolve all SonarQube audit code smells, vulnerabilities, and level integrity gate issues)
           echo "$WORKERS_DEV_HOST → HTTP $WORKERS_DEV_HTTP"
           [ "$WORKERS_DEV_HTTP" = "200" ] || { echo "❌ Expected Workers.dev 200, got $WORKERS_DEV_HTTP"; exit 1; }
           echo "✅ Smoke test passed"

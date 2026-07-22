@@ -38,7 +38,7 @@ WORKDIR /app
 # setup.py ever executes during install. Regeneration steps are in the lock
 # file's own header comment.
 COPY packages/core/requirements.txt packages/core/requirements.lock.txt ./
-RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.lock.txt || pip install --no-cache-dir --only-binary :all: -r requirements.txt
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.lock.txt
 
 # Copy workspace package (@armageddon/shared) required by armageddon-core
 COPY packages/shared ./packages/shared

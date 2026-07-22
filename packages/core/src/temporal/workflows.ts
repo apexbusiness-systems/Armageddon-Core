@@ -109,17 +109,53 @@ export async function BatteryChildWorkflow(batteryCode: string, config: BatteryC
     return handler(config);
 }
 
+function resolveBatterySpecs(normalizedConfig: BatteryConfig): Array<{ code: string; id: string }> {
+    const requestedCodes = (normalizedConfig.batteries && normalizedConfig.batteries.length > 0)
+        ? normalizedConfig.batteries
+        : DEFAULT_BATTERIES;
+
+    return requestedCodes.map((code: string) => {
+        const id = BATTERY_IDS[code as keyof typeof BATTERY_IDS];
+        return { code, id: id || `${code}_UNKNOWN` };
+    });
+}
+
+function mapSettledResults(
+    settledResults: PromiseSettledResult<BatteryResult>[],
+    batterySpecs: Array<{ code: string; id: string }>
+): BatteryResult[] {
+    return settledResults.map((result, index) => {
+        const { id } = batterySpecs[index];
+        if (result.status === 'fulfilled') {
+            return result.value;
+        }
+        const errorMessage = result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason);
+
+        return {
+            batteryId: id,
+            status: STATUS.FAILED,
+            iterations: 0,
+            blockedCount: 0,
+            breachCount: 0,
+            driftScore: 0,
+            duration: 0,
+            details: {
+                error: errorMessage,
+                logs: [`CRITICAL FAILURE: ${errorMessage}`],
+            },
+        };
+    });
+}
+
 export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<ArmageddonReport> {
-    // Normalize iterations at the workflow boundary
     const normalizedIterations = normalizeIterations(config.iterations);
-    
-    // Create normalized config
     const normalizedConfig: BatteryConfig = {
         ...config,
         iterations: normalizedIterations,
     };
 
-    // 1. Initialize State
     let cancelled = false;
     setHandler(cancelSignal, () => { cancelled = true; });
 
@@ -132,17 +168,8 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
     };
 
     try {
-        // Filter requested batteries. If none specified, use default battery set.
-        const requestedCodes = (normalizedConfig.batteries && normalizedConfig.batteries.length > 0)
-            ? normalizedConfig.batteries
-            : DEFAULT_BATTERIES;
+        const batterySpecs = resolveBatterySpecs(normalizedConfig);
 
-        const batterySpecs = requestedCodes.map((code: string) => {
-            const id = BATTERY_IDS[code as keyof typeof BATTERY_IDS];
-            return { code, id: id || `${code}_UNKNOWN` };
-        });
-
-        // Check for pre-execution cancellation BEFORE fanning out
         if (cancelled) {
             state.status = STATUS.CANCELLED;
             const report = await generateReport(state);
@@ -155,11 +182,8 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
             return report;
         }
 
-        // 2. Execute Batteries via Child Workflows
-        // We use Promise.allSettled to ensure that a single battery failure
-        // does not crash the entire certification run.
         const settledResults = await Promise.allSettled(
-            batterySpecs.map((spec: { code: string; id: string }) => {
+            batterySpecs.map((spec) => {
                 if (cancelled) return Promise.reject(new Error('Cancelled before dispatch'));
                 return executeChild(BatteryChildWorkflow, {
                     args: [spec.code, normalizedConfig],
@@ -169,50 +193,18 @@ export async function ArmageddonLevel7Workflow(config: BatteryConfig): Promise<A
             })
         );
 
-        state.results = settledResults.map((result: PromiseSettledResult<BatteryResult>, index: number) => {
-            const { id } = batterySpecs[index];
+        state.results = mapSettledResults(settledResults, batterySpecs);
 
-            if (result.status === 'fulfilled') {
-                return result.value;
-            } else {
-                // Handle rejected promise - create a FAILED battery result
-                const errorMessage = result.reason instanceof Error
-                    ? result.reason.message
-                    : String(result.reason);
-
-                return {
-                    batteryId: id,
-                    status: STATUS.FAILED,
-                    iterations: 0,
-                    blockedCount: 0,
-                    breachCount: 0,
-                    driftScore: 0,
-                    duration: 0,
-                    details: {
-                        error: errorMessage,
-                        logs: [`CRITICAL FAILURE: ${errorMessage}`],
-                    },
-                };
-            }
-        });
-
-        // 3. Aggregate Results
-        const failureCount = state.results.filter(r => r.status === STATUS.FAILED).length;
-
-        // Final Status Determination
         if (cancelled) {
             state.status = STATUS.CANCELLED;
-        } else if (failureCount > 0) {
+        } else if (state.results.some(r => r.status === STATUS.FAILED)) {
             state.status = STATUS.FAILED;
         } else {
             state.status = STATUS.COMPLETED;
         }
 
-        // 4. Generate Final Report
         const report = await generateReport(state);
 
-        // 5. Persist terminal state — DURABLE PROOF. If this throws, the workflow
-        // fails and never reports success without a finalized row in the database.
         await finalizeRunActivity({
             runId: config.runId,
             status: TERMINAL_STATUS_MAP[state.status] ?? 'failed',

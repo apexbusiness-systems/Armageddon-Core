@@ -680,6 +680,36 @@ function validateOmniPortExecuteBody(body: OmniPortExecuteBody): { ok: true; val
     return { ok: true, value: { organizationId: body.organizationId, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl, targetSystemName: sanitizeTargetSystemName(body.targetSystemName) } };
 }
 
+async function dispatchOmniPortWorkflow(
+    supabase: SupabaseClient,
+    organizationId: string,
+    workflowId: string,
+    runId: string,
+    args: unknown[]
+): Promise<{ ok: true; firstExecutionRunId: string } | { ok: false; status: 500 | 503; code: string; message: string }> {
+    let client: Client;
+    try {
+        client = await getTemporalClient();
+    } catch (err) {
+        console.error('[OmniPort] Temporal unavailable:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        return { ok: false, status: 503, code: 'TEMPORAL_UNAVAILABLE', message: 'Temporal workflow engine unavailable' };
+    }
+
+    try {
+        const handle = await client.workflow.start('ArmageddonLevel7Workflow', {
+            workflowId,
+            taskQueue: resolveOmniPortTaskQueue(organizationId),
+            args,
+        });
+        return { ok: true, firstExecutionRunId: handle.firstExecutionRunId };
+    } catch (err) {
+        console.error('[OmniPort] Workflow start failed:', (err as Error).message);
+        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
+        return { ok: false, status: 500, code: 'WORKFLOW_START_FAILED', message: 'Failed to start workflow' };
+    }
+}
+
 async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const guard = omniPortGuard(req);
     if (guard) { json(res, guard.status, { success: false, error: guard.error, code: guard.code }); return; }
@@ -736,32 +766,17 @@ async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse):
         return;
     }
 
-    let client: Client;
-    try {
-        client = await getTemporalClient();
-    } catch (err) {
-        console.error('[OmniPort] Temporal unavailable:', (err as Error).message);
-        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-        json(res, 503, { success: false, error: 'Temporal workflow engine unavailable', code: 'TEMPORAL_UNAVAILABLE' });
-        return;
-    }
+    const dispatchResult = await dispatchOmniPortWorkflow(supabase, organizationId, workflowId, runId, [
+        { runId, organizationId, iterations, tier: 'FREE', seed, batteries, targetEndpoint: targetUrl }
+    ]);
 
-    let handle;
-    try {
-        handle = await client.workflow.start('ArmageddonLevel7Workflow', {
-            workflowId,
-            taskQueue: resolveOmniPortTaskQueue(organizationId),
-            args: [{ runId, organizationId, iterations, tier: 'FREE', seed, batteries, targetEndpoint: targetUrl }],
-        });
-    } catch (err) {
-        console.error('[OmniPort] Workflow start failed:', (err as Error).message);
-        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-        json(res, 500, { success: false, error: 'Failed to start workflow', code: 'WORKFLOW_START_FAILED' });
+    if (!dispatchResult.ok) {
+        json(res, dispatchResult.status, { success: false, error: dispatchResult.message, code: dispatchResult.code });
         return;
     }
 
     await supabase.from('armageddon_runs')
-        .update({ workflow_run_id: handle.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
+        .update({ workflow_run_id: dispatchResult.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
         .eq('id', runId);
 
     if (isOmniPortEnabled()) {
@@ -929,32 +944,17 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
         return;
     }
 
-    let client: Client;
-    try {
-        client = await getTemporalClient();
-    } catch (err) {
-        console.error('[OmniPort] Live-fire Temporal unavailable:', (err as Error).message);
-        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-        json(res, 503, { authorized: false, reason: 'TEMPORAL_UNAVAILABLE', code: 'TEMPORAL_UNAVAILABLE' });
-        return;
-    }
+    const dispatchResult = await dispatchOmniPortWorkflow(supabase, organizationId, workflowId, runId, [
+        { runId, organizationId, iterations, tier: 'CERTIFIED', seed, batteries: selectedBatteries, targetEndpoint: targetUrl, targetModel: LIVE_FIRE_TARGET_MODEL }
+    ]);
 
-    let handle;
-    try {
-        handle = await client.workflow.start('ArmageddonLevel7Workflow', {
-            workflowId,
-            taskQueue: resolveOmniPortTaskQueue(organizationId),
-            args: [{ runId, organizationId, iterations, tier: 'CERTIFIED', seed, batteries: selectedBatteries, targetEndpoint: targetUrl, targetModel: LIVE_FIRE_TARGET_MODEL }],
-        });
-    } catch (err) {
-        console.error('[OmniPort] Live-fire workflow start failed:', (err as Error).message);
-        await supabase.from('armageddon_runs').update({ status: 'failed' }).eq('id', runId);
-        json(res, 500, { authorized: false, reason: 'WORKFLOW_START_FAILED', code: 'WORKFLOW_START_FAILED' });
+    if (!dispatchResult.ok) {
+        json(res, dispatchResult.status, { authorized: false, reason: dispatchResult.code, code: dispatchResult.code });
         return;
     }
 
     await supabase.from('armageddon_runs')
-        .update({ workflow_run_id: handle.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
+        .update({ workflow_run_id: dispatchResult.firstExecutionRunId, status: 'running', started_at: new Date().toISOString() })
         .eq('id', runId);
 
     // Proof-critical: if this cannot be persisted we must NOT report authorized: true.

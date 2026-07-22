@@ -216,40 +216,53 @@ export async function runBattery1_ChaosStress(config: BatteryConfig): Promise<Ba
     };
 }
 
+function buildSanitizedEnv(config: BatteryConfig, safePath: string): NodeJS.ProcessEnv {
+    return {
+        NODE_ENV: 'test',
+        PATH: safePath,
+        CHAOS_SEED: resolveSeed(config).toString(),
+        AWS_ACCESS_KEY_ID: undefined,
+        DATABASE_URL: undefined,
+        OPENAI_API_KEY: undefined
+    };
+}
+
+function resolveExecFileParams(useContainer: boolean, isWin: boolean) {
+    const nodeDir = path.dirname(process.execPath);
+    const absoluteNpm = path.join(nodeDir, isWin ? 'npm.cmd' : 'npm');
+
+    if (useContainer) {
+        const cwd = path.resolve(process.cwd());
+        const args = ['run', '--rm', '-v', `${cwd}:/app`, 'test-runner', 'npm', 'run', 'test:json'];
+        const dockerPath = isWin ? 'docker.exe' : '/usr/bin/docker';
+        return { file: dockerPath, args };
+    }
+    if (isWin) {
+        const args = ['/c', absoluteNpm, 'run', 'test', '--', '--reporter=json'];
+        return { file: String.raw`C:\Windows\System32\cmd.exe`, args };
+    }
+    const args = ['run', 'test', '--', '--reporter=json'];
+    return { file: absoluteNpm, args };
+}
+
 export async function runBattery5_FullUnit(config: BatteryConfig): Promise<BatteryResult> {
     safetyGuard.enforce('Battery5_FullUnit');
     const start = Date.now();
     const reporter = createReporter(config.runId);
     await reporter.pushEvent('B5', 'BATTERY_STARTED', { mode: 'ISOLATED_EXECUTION' });
 
-    // APEX-DEV: "Portable & Secure"
-    // Dynamic Path Resolution for OS Agnosticism (Windows/Linux/Mac)
     const isWin = os.platform() === 'win32';
 
     return new Promise((resolve) => {
-        // Strict Whitelist for PATH
         const safePath = isWin 
-            ? process.env.PATH // Windows PATH is complex, inherit but warn in audit log
-            : '/usr/local/bin:/usr/bin:/bin'; // Linux/Mac Zero Trust Whitelist
+            ? process.env.PATH 
+            : '/usr/local/bin:/usr/bin:/bin';
 
-        const sanitizedEnv: NodeJS.ProcessEnv = {
-            NODE_ENV: 'test',
-            PATH: safePath,
-            CHAOS_SEED: resolveSeed(config).toString(),
-            // SECURITY: Explicitly strip sensitive keys
-            AWS_ACCESS_KEY_ID: undefined,
-            DATABASE_URL: undefined,
-            OPENAI_API_KEY: undefined
-        };
-
-        // APEX-DEV: "Future Proof"
-        // Certified runs in Docker (Container). Free runs in Process (Sanitized).
+        const sanitizedEnv = buildSanitizedEnv(config, safePath ?? '');
         const useContainer = config.tier === 'CERTIFIED';
         
-        // APEX-DEV: Callback logic for execution results
         const handleExecResult = async (error: Error | null, stdout: string, stderr: string) => {
             const duration = Date.now() - start;
-
             let passed = 0;
             let parseError = false;
 
@@ -263,7 +276,6 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
                 console.error("[B5] JSON Parse Failure");
             }
 
-            // Logic: If error exists OR 0 tests passed, it's a FAIL.
             const status = (error || passed === 0) ? 'FAILED' : 'PASSED';
 
             if (status === 'FAILED') {
@@ -293,28 +305,11 @@ export async function runBattery5_FullUnit(config: BatteryConfig): Promise<Batte
             maxBuffer: 5 * 1024 * 1024,
             env: sanitizedEnv, 
             timeout: 30000,
-            shell: false // INVARIANT: Never use shell to prevent command injection
+            shell: false
         };
 
-        // ARCHITECTURAL INVARIANT: Use absolute paths for executables to satisfy SonarCloud S4036.
-        // This prevents searching the PATH environment variable.
-        const nodeDir = path.dirname(process.execPath);
-        const absoluteNpm = path.join(nodeDir, isWin ? 'npm.cmd' : 'npm');
-
-        if (useContainer) {
-            const cwd = path.resolve(process.cwd());
-            const args = ['run', '--rm', '-v', `${cwd}:/app`, 'test-runner', 'npm', 'run', 'test:json'];
-            // SonarCloud: Use absolute path for docker. Usually /usr/bin/docker on Linux.
-            const dockerPath = isWin ? 'docker.exe' : '/usr/bin/docker';
-            execFile(dockerPath, args, execOptions, handleExecResult);
-        } else if (isWin) {
-            const args = ['/c', absoluteNpm, 'run', 'test', '--', '--reporter=json'];
-            // Use absolute path for cmd.exe on Windows.
-            execFile(String.raw`C:\Windows\System32\cmd.exe`, args, execOptions, handleExecResult);
-        } else {
-            const args = ['run', 'test', '--', '--reporter=json'];
-            execFile(absoluteNpm, args, execOptions, handleExecResult);
-        }
+        const { file, args } = resolveExecFileParams(useContainer, isWin);
+        execFile(file, args, execOptions, handleExecResult);
     });
 }
 

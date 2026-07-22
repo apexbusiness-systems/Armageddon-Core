@@ -58,7 +58,8 @@ const UPGRADE_URLS: Record<OrganizationTier, string> = {
     certified: '', // Already at max
 };
 
-export const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
+import { DEFAULT_BATTERIES } from './types';
+export { DEFAULT_BATTERIES };
 
 const TIER_FEATURES: Record<OrganizationTier, {
     canCustomizeBatteries: boolean;
