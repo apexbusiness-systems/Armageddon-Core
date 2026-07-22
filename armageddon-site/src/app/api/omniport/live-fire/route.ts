@@ -25,6 +25,13 @@ import {
     type OmniPortLiveFireRequest,
 } from '@/lib/omniport';
 
+// Same default real adversary model intake-handler.ts's defaultTargetModel()
+// and dispatchPendingRun's resolvedTargetModel fallback use for a certified
+// run. Required on every live-fire dispatch: AdversarialEngine now throws
+// rather than silently simulating when tier is 'CERTIFIED' with no
+// targetModel (packages/core/src/core/adversarial.ts).
+const LIVE_FIRE_TARGET_MODEL = 'claude-sonnet-4-6';
+
 // ─── Live-fire parallel guard ────────────────────────────────────────────────
 // This guard is the ONLY authorization check that may bypass SIM_MODE.
 // It does NOT call enforceSafetyGuard() — that function would throw on SIM_MODE=false.
@@ -136,6 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 liveFire: true,
                 waiverRecordId: waiverRecord.id,
                 targetEndpoint: targetUrl,
+                targetModel: LIVE_FIRE_TARGET_MODEL,
             },
         });
 
@@ -173,6 +181,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 seed,
                 batteries: selectedBatteries,
                 targetEndpoint: targetUrl,
+                targetModel: LIVE_FIRE_TARGET_MODEL,
             }],
         });
     } catch (err) {
