@@ -125,6 +125,7 @@ const options = {
   seed: run.config?.seed ?? 0,
   mode: run.sim_mode ? 'SIMULATION' : 'LIVE_FIRE',
   targetUrl: run.config?.targetEndpoint ?? undefined,
+  targetSystemName: run.config?.targetSystemName ?? null,
   // Honest tier: what executed, never what was billed.
   tier: attestedTier,
 };

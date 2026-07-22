@@ -234,9 +234,9 @@ const fr: Dictionary = {
         batteryGrid: {
             eyebrow: 'Manifeste de Batteries Adverses',
             title: 'Les 13 Batteries',
-            description: "Operations adverses simultanees. Les batteries 10 et 13 executent de veritables attaques adverses PAIR sur le niveau Certifie : attaquant, cible et juge LLM en direct. Le niveau Simulation execute 10 000 iterations statistiques avec un seuil d'evasion <0,01 %. Destruction en sandbox uniquement.",
+            description: "Operations adverses simultanees. Toutes les batteries s'executent actuellement sous simulation statistique haute fidelite : 10 000 iterations par batterie avec un seuil d'evasion <0,01 %. Les batteries 10 et 13 integrent un moteur adverse PAIR (attaquant, cible et juge LLM en direct) reserve aux deploiements autorises en tir reel. Destruction en sandbox uniquement.",
             statTotalBatteries: 'Total des Batteries',
-            statRealAdversarialEngine: 'Moteur Adverse Reel',
+            statRealAdversarialEngine: 'Moteur Adverse',
             statEscapeThreshold: "Seuil d'Evasion",
             statConcurrency: 'Concurrence',
         },

@@ -498,7 +498,16 @@ interface RunInput {
   level: number;
   requestedBatteries: string[] | null;
   targetEndpoint: string | null;
+  targetSystemName: string | null;
 }
+
+// Human-readable "what is being tested" label, e.g. "Checkout API" — captured
+// at onboarding (see armageddon-site/src/app/onboarding/page.tsx targetSystemName
+// field) but was previously dropped at this boundary: it never reached
+// armageddon_runs.config, so no certificate could ever show what build/system
+// a run actually certified. Capped defensively; this is display metadata only
+// and must never influence battery execution or eligibility.
+const MAX_TARGET_SYSTEM_NAME_LENGTH = 160;
 
 function parseRunInput(body: Record<string, unknown>): RunInput | { error: string } {
   const organizationId = typeof body.organizationId === 'string' ? body.organizationId : null;
@@ -509,6 +518,7 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
   const targetEndpoint = typeof body.targetEndpoint === 'string' && body.targetEndpoint.trim()
     ? body.targetEndpoint.trim()
     : null;
+  const targetSystemName = stripHtml(body.targetSystemName, MAX_TARGET_SYSTEM_NAME_LENGTH) || null;
 
   if (!organizationId) return { error: 'organizationId is required.' };
   // Defensive: organization_id is a Postgres UUID FK. Reject malformed ids at
@@ -518,7 +528,7 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
   }
   if (level < 1 || level > 7) return { error: 'level must be 1–7.' };
   if (targetEndpoint && !isAllowedTargetEndpoint(targetEndpoint)) return { error: 'targetEndpoint failed SSRF validation.' };
-  return { organizationId, level, requestedBatteries, targetEndpoint };
+  return { organizationId, level, requestedBatteries, targetEndpoint, targetSystemName };
 }
 
 function isBlockedTargetHost(hostname: string): boolean {
@@ -682,6 +692,7 @@ interface CreateRunParams {
   batteries: string[];
   tier: string;
   targetEndpoint: string | null;
+  targetSystemName: string | null;
 }
 
 async function createRunRecord(
@@ -690,7 +701,7 @@ async function createRunRecord(
   params: CreateRunParams,
   ctx?: EdgeExecutionContext,
 ): Promise<Response> {
-  const { organizationId, level, batteries, tier, targetEndpoint } = params;
+  const { organizationId, level, batteries, tier, targetEndpoint, targetSystemName } = params;
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
   // Public marketing claim (all locales): "Simulation tier runs 10,000
@@ -712,7 +723,7 @@ async function createRunRecord(
     status: 'pending',
     // Store the org's actual tier so api-server can dispatch CERTIFIED runs
     // correctly; targetModel selects the real PAIR engine on CERTIFIED tier.
-    config: { batteries, iterations, tier, seed, targetModel: defaultTargetModel(tier), targetEndpoint },
+    config: { batteries, iterations, tier, seed, targetModel: defaultTargetModel(tier), targetEndpoint, targetSystemName },
   });
 
   if (insertError) {
@@ -759,6 +770,7 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
     batteries: access.batteries,
     tier: access.tier,
     targetEndpoint: input.targetEndpoint,
+    targetSystemName: input.targetSystemName,
   }, ctx);
 }
 

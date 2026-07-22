@@ -120,6 +120,17 @@ describe('EvidenceGenerator', () => {
             expect(parsed.tier).toBe('FREE');
             expect(parsed.verdict).toBe('VALIDATED');
         });
+
+        it('includes the captured target system name so the certificate can name the build under test', () => {
+            const gen = new EvidenceGenerator(mockReport, 'run-5', { ...mockOptions, targetSystemName: 'Checkout API' });
+            const parsed = JSON.parse(gen.generateReportJson());
+            expect(parsed.target_system_name).toBe('Checkout API');
+        });
+
+        it('reports target_system_name as null when not captured, rather than omitting or fabricating it', () => {
+            const parsed = JSON.parse(generator.generateReportJson());
+            expect(parsed.target_system_name).toBeNull();
+        });
     });
 
     describe('generateReportMd', () => {
@@ -132,6 +143,15 @@ describe('EvidenceGenerator', () => {
             expect(md).toContain('| 10 | Goal Hijack | ❌ FAILED |');
             expect(md).toContain('### Goal Hijack (FAILED)'); // Detailed findings for failed battery
         });
+
+        it('includes the target system name when captured', () => {
+            const gen = new EvidenceGenerator(mockReport, 'run-6', { ...mockOptions, targetSystemName: 'Checkout API' });
+            expect(gen.generateReportMd()).toContain('**System Under Test:** Checkout API');
+        });
+
+        it('omits the System Under Test line when no name was captured', () => {
+            expect(generator.generateReportMd()).not.toContain('System Under Test');
+        });
     });
 
     describe('generateCertificatePdf', () => {
@@ -139,6 +159,16 @@ describe('EvidenceGenerator', () => {
             const pdfBytes = await generator.generateCertificatePdf();
             expect(pdfBytes).toBeInstanceOf(Uint8Array);
             expect(pdfBytes.length).toBeGreaterThan(0);
+        });
+
+        it('renders without error when a target system name is captured (long or short)', async () => {
+            const shortGen = new EvidenceGenerator(mockReport, 'run-7', { ...mockOptions, targetSystemName: 'Checkout API' });
+            const longGen = new EvidenceGenerator(mockReport, 'run-8', {
+                ...mockOptions,
+                targetSystemName: 'A'.repeat(200), // exceeds the 80-char summary display cap — must truncate, not throw or overflow
+            });
+            await expect(shortGen.generateCertificatePdf()).resolves.toBeInstanceOf(Uint8Array);
+            await expect(longGen.generateCertificatePdf()).resolves.toBeInstanceOf(Uint8Array);
         });
     });
 

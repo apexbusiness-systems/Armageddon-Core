@@ -25,6 +25,20 @@ interface RunRequest {
     iterations?: number;
     batteries?: string[]; // Optional battery selection for Verified/Certified tiers
     targetEndpoint?: string;
+    targetSystemName?: string; // human-readable "what is being tested" label, e.g. "Checkout API" — display metadata only
+}
+
+const MAX_TARGET_SYSTEM_NAME_LENGTH = 160;
+
+function sanitizeTargetSystemName(value: string | undefined): string | null {
+    if (typeof value !== 'string') return null;
+    const cleaned = value
+        .replace(/[<>]/g, ' ')
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, MAX_TARGET_SYSTEM_NAME_LENGTH);
+    return cleaned || null;
 }
 
 interface RunResponse {
@@ -245,7 +259,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // Parse request body
         const body: RunRequest = await request.json();
-        const { organizationId, level = 7, batteries, targetEndpoint } = body;
+        const { organizationId, level = 7, batteries, targetEndpoint, targetSystemName } = body;
+        const sanitizedTargetSystemName = sanitizeTargetSystemName(targetSystemName);
 
         const ssrfGuard = await enforceSsrfGuard(targetEndpoint);
         if (ssrfGuard) return ssrfGuard;
@@ -314,6 +329,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                     tier: workflowTier,
                     seed: workflowSeed,
                     targetEndpoint,
+                    targetSystemName: sanitizedTargetSystemName,
                 },
             });
 

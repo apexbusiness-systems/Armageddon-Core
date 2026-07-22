@@ -149,7 +149,7 @@ interface BuildReadinessItemsParams {
 // HELPER FUNCTIONS (Extracted to reduce Component Complexity)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function startWorkflowApi(orgId: string, level: number, batteries: string[], accessToken: string, targetEndpoint?: string) {
+async function startWorkflowApi(orgId: string, level: number, batteries: string[], accessToken: string, targetEndpoint?: string, targetSystemName?: string) {
     // Routed to the configured external backend; callers must gate on
     // isApiConfigured() first so this never hits a non-existent static route.
     // /api/run requires the Supabase access token (membership is verified server-side).
@@ -159,7 +159,7 @@ async function startWorkflowApi(orgId: string, level: number, batteries: string[
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ organizationId: orgId, level, batteries, targetEndpoint }),
+        body: JSON.stringify({ organizationId: orgId, level, batteries, targetEndpoint, targetSystemName }),
     });
     const data = (await res.json()) as RunResponse;
     return { ok: res.ok, status: res.status, data };
@@ -695,7 +695,7 @@ export default function DestructionConsole({
         const targetUrl = savedTarget.endpointUrl;
 
         try {
-            const { ok, status, data } = await startWorkflowApi(orgId, targetLevel, selectedBatteries, org.accessToken, targetUrl);
+            const { ok, status, data } = await startWorkflowApi(orgId, targetLevel, selectedBatteries, org.accessToken, targetUrl, savedTarget.label);
 
             if (!ok || !data.runId) {
                 if (status === 403) {

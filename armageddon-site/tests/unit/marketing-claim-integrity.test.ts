@@ -13,6 +13,13 @@
  *  - "<0.01% escape threshold" present consistently in copy.
  *  - The homepage leaderboard is never labeled "LIVE" while backed by the
  *     static TOP_AGENTS sample array.
+ *  - The Batteries 10 & 13 PAIR engine copy never claims live LLM attacks run
+ *     today: every locale that mentions PAIR must also state the engine is
+ *     reserved/gated for live-fire-authorized deployments (corrected 2026-07-22
+ *     — the prior copy claimed "Batteries 10 & 13 execute real PAIR
+ *     adversarial attacks on Certified tier", which is false in this
+ *     deployment since packages/core/src/worker.ts refuses to boot unless
+ *     SIM_MODE=true, so no tier ever gets live-fire execution).
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -45,6 +52,21 @@ describe('marketing claim integrity', () => {
             expect(txt, `${f} must reference 10,000`).toMatch(/10[\s., ]?000/);
             // Threshold: "<0.01%" (en/es/zh) or "<0,01%" / "<0,01 %" (de/fr/it/pt).
             expect(txt, `${f} must reference <0.01% threshold`).toMatch(/0[.,]01\s*%/);
+        }
+    });
+
+    it('every locale gates the PAIR engine claim behind live-fire authorization, never presenting it as active today', () => {
+        // Words indicating the engine is gated/reserved rather than running live, one per locale.
+        const gatingWords = /reserved|reserviert|reservado|reserve|riservato|预留/i;
+        // The specific overclaim this shield exists to prevent: framing PAIR as
+        // something that already "executes real" attacks unconditionally.
+        const activeOverclaim = /execute[nsz]?\s+(real|echte|reales?|de veritables|veri|reais?)\s+PAIR/i;
+        expect(dictFiles.length).toBeGreaterThanOrEqual(7);
+        for (const f of dictFiles) {
+            const txt = readFileSync(join(dictDir, f), 'utf8');
+            if (!txt.includes('PAIR')) continue;
+            expect(txt, `${f} must not claim PAIR attacks execute unconditionally`).not.toMatch(activeOverclaim);
+            expect(txt, `${f} must gate the PAIR engine behind live-fire authorization`).toMatch(gatingWords);
         }
     });
 

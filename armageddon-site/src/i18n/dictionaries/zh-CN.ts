@@ -234,9 +234,9 @@ const zhCN: Dictionary = {
         batteryGrid: {
             eyebrow: '对抗性测试集清单',
             title: '13个测试集',
-            description: '并发对抗性操作。测试集10和13在认证级别上执行真实的PAIR对抗性攻击：实时LLM攻击者、目标和评审。模拟级别执行10,000次统计迭代，逃逸阈值<0.01%。仅限沙箱内销毁。',
+            description: '并发对抗性操作。目前所有测试集均在高保真统计模拟下运行：每个测试集执行10,000次迭代，逃逸阈值<0.01%。测试集10和13内置PAIR对抗引擎（实时LLM攻击者、目标和评审），预留给经授权的实弹部署使用。仅限沙箱内销毁。',
             statTotalBatteries: '测试集总数',
-            statRealAdversarialEngine: '真实对抗引擎',
+            statRealAdversarialEngine: '对抗引擎',
             statEscapeThreshold: '逃逸阈值',
             statConcurrency: '并发性',
         },
