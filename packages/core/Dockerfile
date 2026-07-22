@@ -41,7 +41,15 @@ COPY packages/shared ./packages/shared
 # Copy root package files for workspace resolution
 COPY package.json package-lock.json ./
 COPY packages/core/package*.json ./packages/core/
-RUN npm ci --install-links
+# --ignore-scripts blocks arbitrary lifecycle scripts from transitive deps
+# (supply-chain hardening). Safe here: @temporalio/core-bridge (the only
+# native-binding dep) has no install/postinstall script and ships prebuilt
+# .node binaries per-platform in the package itself — verified directly
+# against node_modules/@temporalio/core-bridge/package.json and its
+# releases/<target>/index.node files. The two build RUN steps below already
+# explicitly build @armageddon/shared and armageddon-core, so nothing here
+# depends on postinstall running.
+RUN npm ci --install-links --ignore-scripts
 
 # Copy TypeScript config and source
 COPY packages/core/tsconfig.json ./packages/core/

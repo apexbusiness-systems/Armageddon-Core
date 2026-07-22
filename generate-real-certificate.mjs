@@ -59,9 +59,14 @@ const batteries = executedIds.map((fullId) => {
   const durationMs = entry.started && entry.completed
     ? new Date(entry.completed.created_at).getTime() - new Date(entry.started.created_at).getTime()
     : null;
+  let status;
+  if (passedSet.has(fullId)) status = 'PASSED';
+  else if (run.batteries_failed?.includes(fullId)) status = 'FAILED';
+  else status = 'UNKNOWN';
+
   return {
     batteryId: fullId,
-    status: passedSet.has(fullId) ? 'PASSED' : (run.batteries_failed?.includes(fullId) ? 'FAILED' : 'UNKNOWN'),
+    status,
     // NO_TELEMETRY: honest gap, not a fabricated number. This battery produced
     // no BATTERY_STARTED/COMPLETED events in armageddon_events despite being
     // marked executed/failed on the run row — do not guess at its iteration
@@ -83,7 +88,11 @@ const batteries = executedIds.map((fullId) => {
 const totalIterations = run.total_iterations ?? batteries.reduce((s, b) => s + b.iterations, 0);
 const passCount = batteries.filter((b) => b.status === 'PASSED').length;
 const score = batteries.length > 0 ? Math.round((passCount / batteries.length) * 100) : 0;
-const grade = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : 'F';
+let grade;
+if (score >= 90) grade = 'A';
+else if (score >= 75) grade = 'B';
+else if (score >= 60) grade = 'C';
+else grade = 'F';
 
 const report = {
   meta: { timestamp: run.completed_at, duration: run.duration_ms ?? 0 },

@@ -1171,6 +1171,19 @@ export async function generateReport(state: WorkflowState): Promise<ArmageddonRe
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function runBattery14_IndirectInjection(config: BatteryConfig): Promise<BatteryResult> {
+    // Unlike B10-B13 (runGenericAdversarialBattery), this battery delegates to
+    // a separate engine module that tracks its own internal event log
+    // (result.events) but never persists to armageddon_events. Push the same
+    // STARTED/COMPLETED pair every other battery pushes so this run's
+    // telemetry — and any certificate generated from it — isn't silently
+    // missing this battery (see docs/audits/PRODUCTION_RUN_DISPATCH_STUCK_2026-07-22.md,
+    // run 6d608387: B14 was marked executed/failed with zero events).
+    const reporter = createReporter(config.runId);
+    await reporter.pushEvent('B14', 'BATTERY_STARTED', {
+        tier: config.tier,
+        engine: config.tier === 'CERTIFIED' ? 'LIVE_FIRE' : 'SIMULATION',
+    });
+
     const { runBattery14IndirectInjection } = await import('../core/engine/activities.js');
     const result = await runBattery14IndirectInjection(config.runId, {
         iterations: config.iterations,
@@ -1178,6 +1191,8 @@ export async function runBattery14_IndirectInjection(config: BatteryConfig): Pro
     });
 
     const passed = result.passed;
+    await reporter.pushEvent('B14', 'BATTERY_COMPLETED', { blocked: result.blocked, breaches: result.breaches });
+
     return {
         batteryId: 'B14_INDIRECT_INJECTION',
         status: passed ? 'PASSED' : 'FAILED',
