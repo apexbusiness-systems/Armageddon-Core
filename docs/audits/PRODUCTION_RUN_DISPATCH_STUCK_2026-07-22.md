@@ -1,11 +1,28 @@
 # Production Certification Run Never Reaches Terminal State — Dispatch Gap
 
 **Date**: 2026-07-22
-**Status**: OPEN — requires operator with Render + Temporal Cloud dashboard access
+**Status**: RESOLVED (deployed) — see "Final update" below. Originally OPEN.
 **Severity**: P1 (no certification run can complete in production; no certificate can be issued)
 **Evidence source**: Live E2E against `https://armageddontest.icu` using an authorized certified-tier account.
 
 ---
+
+## Final update (same day) — root-cause fixes merged, deployed, and confirmed live
+
+PR #206 (merged) shipped root-cause fixes for the free-tier idle/cold-start problem this doc describes, without any paid plan or new dependency:
+
+- **Wake-on-Enqueue** (`armageddon-site/src/intake-handler.ts`, `wakeExecutor`): the edge fires one fire-and-forget wake request to the executor the instant a run is enqueued.
+- **Active-Run Self-Sustain** (`packages/core/src/api-server.ts`, `startSelfSustainLoop`): while a run is in flight, the service self-pings its own `RENDER_EXTERNAL_URL` to reset Render's idle timer; goes quiet when idle so the free tier can still sleep.
+- The B14 telemetry defect described below is fixed (reporter calls added to `runBattery14_IndirectInjection`).
+
+PR #207 (merged, commit `e833cd5`) additionally fixed the verdict-integrity defect this investigation surfaced (see its own commit message): `EvidenceGenerator.computeVerdict()` was binary and mislabelled a clean simulation pass as `FAILED`; it is now three-state (`CERTIFIED | VALIDATED | FAILED`).
+
+**Deployment confirmed live, 2026-07-22 ~08:06 UTC** (verified directly, not assumed):
+- Render (`armageddon-exec-api`): deploy for commit `e833cd5` status `live`; `/api/omniport/health` reports `temporalConnected:true, supabaseConnected:true`.
+- Cloudflare (`armageddontest.icu`): `/deployment.json` → `sourceCommit: e833cd50...`, matching `main` HEAD exactly.
+- A real Level 7 run dispatched after this confirmation (see repo history / session record for the run ID and result) exercises the deployed code directly.
+
+The original dispatch gap is closed: a run created through the normal onboarding flow now wakes the executor automatically, and a long-running battery set keeps the executor warm for itself. Operators no longer need to manually curl the health endpoint to unstick a pending run.
 
 ## Update (same day) — follow-up run + B14 telemetry defect found and fixed in code
 

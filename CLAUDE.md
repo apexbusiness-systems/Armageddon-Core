@@ -96,7 +96,7 @@ Only the last 8 messages are forwarded to Anthropic. Do not increase this limit 
 **Invariant 6 — Rate limit graceful degradation**
 Rate limiting is skipped when `env.RATE_LIMIT_KV` is not bound. This is intentional to allow staging deployments without KV. Do not change it to fail-closed without operator agreement.
 
-> **Known production gap (confirmed 2026-06-24):** The `RATE_LIMIT_KV` binding is **not yet provisioned** in the Cloudflare dashboard — only the `ASSETS` binding is present. Rate limiting is currently being skipped gracefully. Runbook 5.2 (`ATLAS_RATE_LIMIT_KV_UNBOUND`) in `OPS_RUNBOOKS.md` applies. The operator must create the namespace and update `wrangler.jsonc` before rate limiting becomes active.
+> **Corrected 2026-07-22** (was: "Known production gap (confirmed 2026-06-24)"): `armageddon-site/wrangler.jsonc` has carried a real `RATE_LIMIT_KV` namespace ID (not the `REPLACE_WITH_KV_NAMESPACE_ID` placeholder) since 2026-07-05 — the repository-config blocker described below is resolved. Whether that namespace is bound and reachable in the live Cloudflare dashboard is UNVERIFIED without a direct Cloudflare API/dashboard check (not attempted this session — only Render's API was available). Runbook 5.2 (`ATLAS_RATE_LIMIT_KV_UNBOUND`) in `OPS_RUNBOOKS.md` still applies if an operator finds the binding actually missing.
 
 ---
 
