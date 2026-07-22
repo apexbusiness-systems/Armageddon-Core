@@ -28,6 +28,12 @@ This status file reports what can be proven from the repository checkout. Public
 
 ---
 
+## ⚠️ OPEN P1 (live-verified 2026-07-22): certification runs stuck at `pending`
+
+A real authenticated certified-tier run created against production (`POST /api/run` ✅) **never reached a terminal state** — it stayed `pending` for 300s with zero `armageddon_events`, and `/api/omniport/health` reports `temporalConnected:false`. The Node `api-server` pending-run dispatcher (`packages/core/src/api-server.ts` `startPendingRunsLoop`) is not draining runs in the deployed environment. This means **no certification run can complete and no certificate can be issued in production today.** Full evidence, root cause, and operator next-steps: [`docs/audits/PRODUCTION_RUN_DISPATCH_STUCK_2026-07-22.md`](docs/audits/PRODUCTION_RUN_DISPATCH_STUCK_2026-07-22.md). This is a deployment/runtime gap, not a repository code defect.
+
+---
+
 ## Required release verification commands
 
 Run from the repository root before release approval:
