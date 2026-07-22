@@ -676,16 +676,21 @@ export function wakeExecutor(env: IntakeEnv, ctx?: EdgeExecutionContext): boolea
   return true;
 }
 
+interface CreateRunParams {
+  organizationId: string;
+  level: number;
+  batteries: string[];
+  tier: string;
+  targetEndpoint: string | null;
+}
+
 async function createRunRecord(
   env: IntakeEnv,
   canonicalHost: string,
-  organizationId: string,
-  level: number,
-  batteries: string[],
-  tier: string,
-  targetEndpoint: string | null,
+  params: CreateRunParams,
   ctx?: EdgeExecutionContext,
 ): Promise<Response> {
+  const { organizationId, level, batteries, tier, targetEndpoint } = params;
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
   // Public marketing claim (all locales): "Simulation tier runs 10,000
@@ -748,7 +753,13 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
   const access = await evaluateRunAccess(env, user, input);
   if (!access.ok) return jsonResponse(access.body, canonicalHost, access.status);
 
-  return createRunRecord(env, canonicalHost, input.organizationId, input.level, access.batteries, access.tier, input.targetEndpoint, ctx);
+  return createRunRecord(env, canonicalHost, {
+    organizationId: input.organizationId,
+    level: input.level,
+    batteries: access.batteries,
+    tier: access.tier,
+    targetEndpoint: input.targetEndpoint,
+  }, ctx);
 }
 
 // ── Intake form handler (unchanged) ──────────────────────────────────────────
