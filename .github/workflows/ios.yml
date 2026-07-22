@@ -29,7 +29,7 @@ jobs:
       - name: Sync Capacitor iOS project
         if: hashFiles('armageddon-site/capacitor.config.*') != '' && hashFiles('armageddon-site/ios/App/App.xcodeproj/project.pbxproj') != ''
         working-directory: armageddon-site
-        run: npx cap sync ios
+        run: npx --package=@capacitor/cli@8.4.2 -- cap sync ios
 
       - name: Install iOS pods
         if: hashFiles('armageddon-site/ios/App/Podfile') != '' && hashFiles('armageddon-site/ios/App/App.xcodeproj/project.pbxproj') != ''

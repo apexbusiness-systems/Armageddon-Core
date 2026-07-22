@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Trophy } from 'lucide-react';
+import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
 
 export type Status = 'idle' | 'calibrating' | 'rejected' | 'certified';
 
@@ -11,15 +12,59 @@ interface LeaderboardWidgetProps {
     status: Status;
 }
 
-// Illustrative sample board (labeled "SAMPLE" in the header, never "LIVE").
-// These are demonstration placeholders, not real operators — do NOT relabel
-// the widget "LIVE" while this static array is the data source.
-const TOP_AGENTS = [
+interface LeaderboardAgent {
+    rank: number;
+    id: string;
+    score: string;
+    status: string;
+}
+
+interface LeaderboardApiResponse {
+    live: boolean;
+    agents: Array<{ rank: number; id: string; score: number; status: string }>;
+}
+
+// Illustrative sample board — shown only as a fallback when the real
+// leaderboard endpoint is unreachable or returns no completed runs yet.
+// Never label this data "LIVE"; the honest default is "SAMPLE".
+const TOP_AGENTS: LeaderboardAgent[] = [
     { rank: 1, id: 'APEX-01', score: '99.9%', status: 'GOD_MODE' },
     { rank: 2, id: 'NOVA-X', score: '98.4%', status: 'CERTIFIED' },
     { rank: 3, id: 'VOID-9', score: '97.1%', status: 'CERTIFIED' },
     { rank: 4, id: 'ECHO-7', score: '96.8%', status: 'CERTIFIED' },
 ];
+
+// Fetches real, anonymized standings from /api/leaderboard (backed by
+// armageddon_runs — see intake-handler.ts's handleLeaderboard). Falls back to
+// the static sample on any failure or empty result, never fabricating a
+// "LIVE" label over data that isn't.
+function useLeaderboardAgents(): { agents: LeaderboardAgent[]; live: boolean } {
+    const [state, setState] = useState<{ agents: LeaderboardAgent[]; live: boolean }>({ agents: TOP_AGENTS, live: false });
+
+    useEffect(() => {
+        if (!isApiConfigured()) return;
+        let cancelled = false;
+
+        void (async () => {
+            try {
+                const res = await apiFetch('/api/leaderboard');
+                if (!res.ok) return;
+                const data = (await res.json()) as LeaderboardApiResponse;
+                if (cancelled || !data.live || data.agents.length === 0) return;
+                setState({
+                    live: true,
+                    agents: data.agents.map((a) => ({ ...a, score: `${a.score}%` })),
+                });
+            } catch {
+                // Network/parse failure — keep the sample board, never fabricate LIVE.
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, []);
+
+    return state;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HOOK: useScramble
@@ -60,12 +105,12 @@ function useScramble(active: boolean) {
 // SUBCOMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TopAgentsList({ isCalibrating }: { readonly isCalibrating: boolean }) {
+function TopAgentsList({ isCalibrating, agents }: { readonly isCalibrating: boolean; readonly agents: LeaderboardAgent[] }) {
     return (
         <div className={cn("space-y-1 transition-opacity duration-300",
             isCalibrating ? "opacity-30" : "opacity-100"
         )}>
-            {TOP_AGENTS.map((agent) => (
+            {agents.map((agent) => (
                 <div key={agent.id} className="flex items-center justify-between text-xs py-1.5 px-2 bg-white/5 rounded-sm border border-transparent hover:border-white/10">
                     <div className="flex items-center gap-3">
                         <span className="text-white/30 font-bold w-4">0{agent.rank}</span>
@@ -178,6 +223,7 @@ function UserStatusRow({
 // ═══════════════════════════════════════════════════════════════════════════
 export default function LeaderboardWidget({ status }: { readonly status: Status }) {
     const scrambleText = useScramble(status === 'calibrating');
+    const { agents, live } = useLeaderboardAgents();
 
     // Derived Visual States
     const isRejected = status === 'rejected';
@@ -232,18 +278,23 @@ export default function LeaderboardWidget({ status }: { readonly status: Status 
                             return "bg-green-500";
                         })()
                     )} />
-                    {/* Honest label: this widget renders an illustrative sample
-                        board (TOP_AGENTS below), NOT a live global feed. Claiming
-                        "LIVE" over static demo data is an unvalidated claim — we
-                        ship evidenced UI. Wire to a real aggregated endpoint over
-                        armageddon_runs to restore a "LIVE" label. */}
-                    <span className="text-[10px] text-white/30" title="Illustrative sample — not a live feed">SAMPLE</span>
+                    {/* Honest label: LIVE only when useLeaderboardAgents actually
+                        fetched real, non-empty standings from /api/leaderboard
+                        (backed by armageddon_runs). Any fetch failure or empty
+                        result falls back to the static TOP_AGENTS sample above,
+                        and this label falls back to SAMPLE with it — never
+                        claim LIVE over data that isn't. */}
+                    {live ? (
+                        <span className="text-[10px] text-green-400/70" title="Real standings from armageddon_runs">LIVE</span>
+                    ) : (
+                        <span className="text-[10px] text-white/30" title="Illustrative sample — not a live feed">SAMPLE</span>
+                    )}
                 </div>
             </div>
 
             {/* CONTENT */}
             <div className="p-4 space-y-3">
-                <TopAgentsList isCalibrating={isCalibrating} />
+                <TopAgentsList isCalibrating={isCalibrating} agents={agents} />
 
                 <UserStatusRow
                     status={status}

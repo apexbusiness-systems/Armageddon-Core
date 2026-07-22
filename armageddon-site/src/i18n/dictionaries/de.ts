@@ -234,9 +234,9 @@ const de: Dictionary = {
         batteryGrid: {
             eyebrow: 'Adversariales Batterie-Manifest',
             title: 'Die 13 Batterien',
-            description: 'Gleichzeitige adversariale Operationen. Batterien 10 und 13 fuhren echte PAIR-Angriffe auf der Stufe Certified aus: Live-LLM-Angreifer, Ziel und Richter. Die Simulationsstufe fuhrt 10.000 statistische Iterationen mit einer Fluchtschwelle <0,01% aus. Nur Sandbox-Zerstorung.',
+            description: 'Gleichzeitige adversariale Operationen. Alle Batterien laufen derzeit unter hochpraziser statistischer Simulation: 10.000 Iterationen pro Batterie mit einer Fluchtschwelle <0,01%. Die Batterien 10 und 13 enthalten eine eingebaute PAIR-Adversarial-Engine (Live-LLM-Angreifer, Ziel und Richter), reserviert fur Live-Fire-autorisierte Bereitstellungen. Nur Sandbox-Zerstorung.',
             statTotalBatteries: 'Batterien Gesamt',
-            statRealAdversarialEngine: 'Echte Adversariale Engine',
+            statRealAdversarialEngine: 'Adversariale Engine',
             statEscapeThreshold: 'Fluchtschwelle',
             statConcurrency: 'Parallelitat',
         },

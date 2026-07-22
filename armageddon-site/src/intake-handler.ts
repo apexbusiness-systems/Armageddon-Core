@@ -345,6 +345,50 @@ function computeHealthStatus(supabaseConnected: boolean, temporalConnected: bool
   return { status: 'unavailable', httpStatus: 503 };
 }
 
+interface LeaderboardRunRow {
+  id: string;
+  escape_rate: number | null;
+  breaches: number | null;
+  sim_mode: boolean;
+  config: { tier?: string } | null;
+  completed_at: string | null;
+}
+
+const LEADERBOARD_LIMIT = 10;
+
+// Anonymized by construction: the query below never selects organization_id
+// or any identifying column, and the display id is a short deterministic
+// codename derived from the run id — never the real organization name.
+function leaderboardDisplayId(runId: string): string {
+  return `OP-${runId.replaceAll('-', '').slice(0, 6).toUpperCase()}`;
+}
+
+async function handleLeaderboard(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+
+  const params = [
+    'select=id,escape_rate,breaches,sim_mode,config,completed_at',
+    'status=eq.passed',
+    'completed_at=not.is.null',
+    'order=escape_rate.asc,breaches.asc,completed_at.desc',
+    `limit=${LEADERBOARD_LIMIT}`,
+  ].join('&');
+
+  const { data, error } = await supabaseQuery<LeaderboardRunRow>(env, 'armageddon_runs', params);
+  if (error || !data) {
+    return jsonResponse({ live: false, agents: [], error: error ?? 'QUERY_FAILED' }, canonicalHost, 200);
+  }
+
+  const agents = data.map((row, index) => ({
+    rank: index + 1,
+    id: leaderboardDisplayId(row.id),
+    score: Math.max(0, Math.min(100, Math.round((1 - (row.escape_rate ?? 0)) * 100))),
+    status: (!row.sim_mode && row.config?.tier === 'CERTIFIED') ? 'GOD_MODE' : 'CERTIFIED',
+  }));
+
+  return jsonResponse({ live: true, agents, generatedAt: Date.now() }, canonicalHost, 200);
+}
+
 async function handleOmniportHealth(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
 
@@ -437,6 +481,15 @@ const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
  */
 const SIM_STATISTICAL_ITERATIONS = 10000;
 
+/**
+ * Requested iteration count for CERTIFIED-tier (live-fire) runs. Real PAIR
+ * calls cost real money, so this is intentionally far below
+ * SIM_STATISTICAL_ITERATIONS — must stay <= LIVE_FIRE_MAX_VECTORS in
+ * packages/core/src/temporal/activities.ts, which enforces the actual hard
+ * cap at execution time regardless of what's requested here.
+ */
+const CERTIFIED_REQUESTED_ITERATIONS = 50;
+
 // ── Temporal Cloud HTTP API helper ────────────────────────────────────────────
 
 function temporalHost(env: IntakeEnv): string {
@@ -498,7 +551,16 @@ interface RunInput {
   level: number;
   requestedBatteries: string[] | null;
   targetEndpoint: string | null;
+  targetSystemName: string | null;
 }
+
+// Human-readable "what is being tested" label, e.g. "Checkout API" — captured
+// at onboarding (see armageddon-site/src/app/onboarding/page.tsx targetSystemName
+// field) but was previously dropped at this boundary: it never reached
+// armageddon_runs.config, so no certificate could ever show what build/system
+// a run actually certified. Capped defensively; this is display metadata only
+// and must never influence battery execution or eligibility.
+const MAX_TARGET_SYSTEM_NAME_LENGTH = 160;
 
 function parseRunInput(body: Record<string, unknown>): RunInput | { error: string } {
   const organizationId = typeof body.organizationId === 'string' ? body.organizationId : null;
@@ -509,6 +571,7 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
   const targetEndpoint = typeof body.targetEndpoint === 'string' && body.targetEndpoint.trim()
     ? body.targetEndpoint.trim()
     : null;
+  const targetSystemName = stripHtml(body.targetSystemName, MAX_TARGET_SYSTEM_NAME_LENGTH) || null;
 
   if (!organizationId) return { error: 'organizationId is required.' };
   // Defensive: organization_id is a Postgres UUID FK. Reject malformed ids at
@@ -518,7 +581,7 @@ function parseRunInput(body: Record<string, unknown>): RunInput | { error: strin
   }
   if (level < 1 || level > 7) return { error: 'level must be 1–7.' };
   if (targetEndpoint && !isAllowedTargetEndpoint(targetEndpoint)) return { error: 'targetEndpoint failed SSRF validation.' };
-  return { organizationId, level, requestedBatteries, targetEndpoint };
+  return { organizationId, level, requestedBatteries, targetEndpoint, targetSystemName };
 }
 
 function isBlockedTargetHost(hostname: string): boolean {
@@ -682,6 +745,7 @@ interface CreateRunParams {
   batteries: string[];
   tier: string;
   targetEndpoint: string | null;
+  targetSystemName: string | null;
 }
 
 async function createRunRecord(
@@ -690,29 +754,36 @@ async function createRunRecord(
   params: CreateRunParams,
   ctx?: EdgeExecutionContext,
 ): Promise<Response> {
-  const { organizationId, level, batteries, tier, targetEndpoint } = params;
+  const { organizationId, level, batteries, tier, targetEndpoint, targetSystemName } = params;
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
+  const isCertified = tier === 'certified';
+  // CERTIFIED-tier orgs get real live-fire execution (LiveFireAdapter, capped
+  // at LIVE_FIRE_MAX_VECTORS per battery in activities.ts) — this was
+  // previously hardcoded to sim_mode:true for every run regardless of paid
+  // tier, so no Certified customer on this path could ever earn a genuine
+  // CERTIFIED verdict. Onboarding's mandatory authorization + acceptable-use
+  // checkboxes are the consent gate; no separate waiver is required here.
+  //
   // Public marketing claim (all locales): "Simulation tier runs 10,000
-  // statistical iterations with <0.01% escape threshold." Every run created on
-  // this edge path is sim_mode:true, so the shipped iteration count MUST match
-  // the advertised figure — we ship validated claims, not aspirational ones.
-  // Single source: SIM_STATISTICAL_ITERATIONS. Regression shield:
-  // tests/unit/marketing-claim-integrity.test.ts.
-  const iterations = SIM_STATISTICAL_ITERATIONS;
+  // statistical iterations with <0.01% escape threshold." Only applies to
+  // simulation (non-certified) runs — single source: SIM_STATISTICAL_ITERATIONS.
+  // Regression shield: tests/unit/marketing-claim-integrity.test.ts.
+  const simMode = !isCertified;
+  const iterations = isCertified ? CERTIFIED_REQUESTED_ITERATIONS : SIM_STATISTICAL_ITERATIONS;
   const seed = secureSeed();
 
   const { error: insertError } = await supabaseInsert(env, 'armageddon_runs', {
     id: runId,
     organization_id: organizationId,
     level,
-    sim_mode: true,
+    sim_mode: simMode,
     sandbox_tenant: 'armageddon-prod',
     workflow_id: workflowId,
     status: 'pending',
     // Store the org's actual tier so api-server can dispatch CERTIFIED runs
     // correctly; targetModel selects the real PAIR engine on CERTIFIED tier.
-    config: { batteries, iterations, tier, seed, targetModel: defaultTargetModel(tier), targetEndpoint },
+    config: { batteries, iterations, tier, seed, targetModel: defaultTargetModel(tier), targetEndpoint, targetSystemName },
   });
 
   if (insertError) {
@@ -759,6 +830,7 @@ async function handleRun(request: Request, env: IntakeEnv, canonicalHost: string
     batteries: access.batteries,
     tier: access.tier,
     targetEndpoint: input.targetEndpoint,
+    targetSystemName: input.targetSystemName,
   }, ctx);
 }
 
@@ -1261,6 +1333,8 @@ const intakeWorker = {
         return handleMeOrganizations(request, env, canonicalHost);
       case '/api/omniport/health':
         return handleOmniportHealth(request, env, canonicalHost);
+      case '/api/leaderboard':
+        return handleLeaderboard(request, env, canonicalHost);
       case '/api/gatekeeper':
         return handleGatekeeper(request, env, canonicalHost);
       case '/api/attestation/pubkey':

@@ -234,9 +234,9 @@ const es: Dictionary = {
         batteryGrid: {
             eyebrow: 'Manifiesto de Baterias Adversariales',
             title: 'Las 13 Baterias',
-            description: 'Operaciones adversariales simultaneas. Las baterias 10 y 13 ejecutan ataques adversariales PAIR reales en el nivel Certified: atacante, objetivo y juez LLM en vivo. El nivel de simulacion ejecuta 10.000 iteraciones estadisticas con un umbral de escape <0.01%. Destruccion solo en sandbox.',
+            description: 'Operaciones adversariales simultaneas. Todas las baterias se ejecutan actualmente bajo simulacion estadistica de alta fidelidad: 10.000 iteraciones por bateria con un umbral de escape <0.01%. Las baterias 10 y 13 incluyen un motor adversarial PAIR integrado (atacante, objetivo y juez LLM en vivo) reservado para despliegues autorizados de fuego real. Destruccion solo en sandbox.',
             statTotalBatteries: 'Total de Baterias',
-            statRealAdversarialEngine: 'Motor Adversarial Real',
+            statRealAdversarialEngine: 'Motor Adversarial',
             statEscapeThreshold: 'Umbral de Escape',
             statConcurrency: 'Concurrencia',
         },

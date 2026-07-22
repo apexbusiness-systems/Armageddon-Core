@@ -30,13 +30,13 @@ export interface I18nContextValue {
 export const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: Readonly<{ children: ReactNode }>) {
-    const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
+    const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
 
     // Resolve after mount (async to satisfy react-hooks/set-state-in-effect) so the
     // server-rendered `<html lang="en">` fallback never mismatches hydration.
     useEffect(() => {
         void (async () => {
-            setLocaleState(resolveInitialLocale());
+            setLocale(resolveInitialLocale());
         })();
     }, []);
 
@@ -44,14 +44,14 @@ export function I18nProvider({ children }: Readonly<{ children: ReactNode }>) {
         document.documentElement.lang = locale;
     }, [locale]);
 
-    const setLocale = useCallback((next: Locale) => {
-        setLocaleState(next);
+    const updateLocale = useCallback((next: Locale) => {
+        setLocale(next);
         writeStoredLocale(next);
     }, []);
 
     const value = useMemo<I18nContextValue>(
-        () => ({ locale, dictionary: DICTIONARIES[locale], setLocale }),
-        [locale, setLocale],
+        () => ({ locale, dictionary: DICTIONARIES[locale], setLocale: updateLocale }),
+        [locale, updateLocale],
     );
 
     return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

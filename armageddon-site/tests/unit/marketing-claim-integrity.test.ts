@@ -13,6 +13,13 @@
  *  - "<0.01% escape threshold" present consistently in copy.
  *  - The homepage leaderboard is never labeled "LIVE" while backed by the
  *     static TOP_AGENTS sample array.
+ *  - The Batteries 10 & 13 PAIR engine copy never claims live LLM attacks run
+ *     today: every locale that mentions PAIR must also state the engine is
+ *     reserved/gated for live-fire-authorized deployments (corrected 2026-07-22
+ *     — the prior copy claimed "Batteries 10 & 13 execute real PAIR
+ *     adversarial attacks on Certified tier", which is false in this
+ *     deployment since packages/core/src/worker.ts refuses to boot unless
+ *     SIM_MODE=true, so no tier ever gets live-fire execution).
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -48,11 +55,32 @@ describe('marketing claim integrity', () => {
         }
     });
 
-    it('leaderboard sample data is never presented under a "LIVE" label', () => {
+    it('every locale gates the PAIR engine claim behind live-fire authorization, never presenting it as active today', () => {
+        // Words indicating the engine is gated/reserved rather than running live, one per locale.
+        const gatingWords = /reserved|reserviert|reservado|reserve|riservato|预留/i;
+        // The specific overclaim this shield exists to prevent: framing PAIR as
+        // something that already "executes real" attacks unconditionally.
+        const activeOverclaim = /execute[nsz]?\s+(real|echte|reales?|de veritables|veri|reais?)\s+PAIR/i;
+        expect(dictFiles.length).toBeGreaterThanOrEqual(7);
+        for (const f of dictFiles) {
+            const txt = readFileSync(join(dictDir, f), 'utf8');
+            if (!txt.includes('PAIR')) continue;
+            expect(txt, `${f} must not claim PAIR attacks execute unconditionally`).not.toMatch(activeOverclaim);
+            expect(txt, `${f} must gate the PAIR engine behind live-fire authorization`).toMatch(gatingWords);
+        }
+    });
+
+    it('leaderboard defaults to SAMPLE and only shows LIVE behind a real, non-empty fetch', () => {
         const lb = read('components/social/LeaderboardWidget.tsx');
         expect(lb).toContain('TOP_AGENTS');
-        // A static sample array must not be labeled LIVE.
-        expect(lb).not.toMatch(/>LIVE</);
+        // Initial/SSR state must default to the sample board, never LIVE.
+        expect(lb).toMatch(/useState<\{[^}]*\}>\(\{\s*agents:\s*TOP_AGENTS,\s*live:\s*false\s*\}\)/);
+        // LIVE may only flip true inside the fetch-success branch, gated on a
+        // non-empty real result — never unconditionally, never on failure.
+        expect(lb).toMatch(/data\.live && data\.agents\.length === 0\)\s*return;|!data\.live \|\| data\.agents\.length === 0\)\s*return;/);
+        expect(lb).toMatch(/live:\s*true/);
+        // The header still renders both labels, gated on the same `live` flag.
+        expect(lb).toMatch(/>LIVE</);
         expect(lb).toMatch(/>SAMPLE</);
     });
 });

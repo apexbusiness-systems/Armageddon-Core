@@ -7,54 +7,47 @@
 \set TARGET_TABLE 'armageddon_runs'
 
 -- ─── PRE-FLIGHT: verify target table exists ─────────────────────────────
-DO $$
-DECLARE
-    tbl_name CONSTANT text := 'armageddon_runs';
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name = tbl_name
-    ) THEN
-        RAISE EXCEPTION 'PRE-FLIGHT FAILED: table "%" does not exist. Aborting migration.', tbl_name;
-    END IF;
-END
-$$;
+-- Uses psql's own \gset/\if (not a PL/pgSQL DO block) so :'TARGET_TABLE'
+-- substitution applies normally — it does not reach inside DO $$ ... $$
+-- bodies, which are opaque dollar-quoted strings to psql's lexer. The actual
+-- abort is a hardcoded, literal-free DO block: ON_ERROR_STOP turns its
+-- RAISE EXCEPTION into a real non-zero exit, and the specific-table detail
+-- was already printed by \warn above it.
+SELECT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = :'TARGET_TABLE'
+) AS target_table_exists \gset
+
+\if :target_table_exists
+\else
+    \warn 'PRE-FLIGHT FAILED: table "' :TARGET_TABLE '" does not exist. Aborting migration.'
+    DO $$ BEGIN RAISE EXCEPTION 'Aborting: pre-flight check failed (see warning above)'; END $$;
+\endif
 
 -- ─── BEGIN TRANSACTIONAL MIGRATION ──────────────────────────────────────
 BEGIN;
 
 -- Add config column to armageddon_runs
-ALTER TABLE armageddon_runs
+ALTER TABLE :"TARGET_TABLE"
 ADD COLUMN IF NOT EXISTS config jsonb DEFAULT '{}'::jsonb;
 
 -- Add index for efficient config queries
-CREATE INDEX IF NOT EXISTS idx_runs_config ON armageddon_runs USING gin(config);
+CREATE INDEX IF NOT EXISTS idx_runs_config ON :"TARGET_TABLE" USING gin(config);
 
 -- Add documentation comment
-COMMENT ON COLUMN armageddon_runs.config IS 'Run configuration including battery selection, e.g., {"batteries": ["B10", "B12"]}';
-
--- ─── POST-MIGRATION VERIFICATION ──────────────────────────────────────
-DO $$
-DECLARE
-    tbl_name CONSTANT text := 'armageddon_runs';
-    col_exists boolean;
-BEGIN
-    SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = tbl_name AND column_name = 'config'
-    ) INTO col_exists;
-
-    IF NOT col_exists THEN
-        RAISE EXCEPTION 'POST-MIGRATION FAILED: column "config" was not created. Rolling back.';
-    END IF;
-END
-$$;
+COMMENT ON COLUMN :"TARGET_TABLE".config IS 'Run configuration including battery selection, e.g., {"batteries": ["B10", "B12"]}';
 
 COMMIT;
 -- On any error above, \set ON_ERROR_STOP causes psql to abort.
 -- If running programmatically, catch the error and issue ROLLBACK explicitly.
 
--- ─── VERIFICATION OUTPUT ────────────────────────────────────────────────
+-- ─── POST-MIGRATION VERIFICATION + OUTPUT ───────────────────────────────
+-- \gset itself is the check: with ON_ERROR_STOP on, zero rows here (the
+-- column missing) makes psql abort with a non-zero exit — no separate
+-- existence check needed. A successful \gset both proves the column exists
+-- and captures the values to display below.
 SELECT column_name, data_type, column_default
 FROM information_schema.columns
-WHERE table_name = 'armageddon_runs' AND column_name = 'config';
+WHERE table_name = :'TARGET_TABLE' AND column_name = 'config' \gset
+
+\echo 'Verified column present:' :column_name :data_type :column_default

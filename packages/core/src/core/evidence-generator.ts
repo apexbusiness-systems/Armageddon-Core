@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ArmageddonReport } from '../temporal/activities.js';
 import type { OrganizationTier } from './types.js';
+import type { PDFFont, PDFPage, RGB } from 'pdf-lib';
 import {
     Attestation,
     AttestationInput,
@@ -24,6 +25,12 @@ export interface EvidenceOptions {
     seed: number;
     mode: string;
     targetUrl?: string;
+    /**
+     * Human-readable name of the build/system under test (e.g. "Checkout
+     * API"), captured at onboarding. Display metadata only — never used for
+     * routing or dispatch. Null/absent when the user didn't supply one.
+     */
+    targetSystemName?: string | null;
     /**
      * Organization tier the run actually executed under. Required to claim
      * a 'CERTIFIED' verdict — a high score alone is not enough, since FREE/
@@ -129,6 +136,7 @@ export class EvidenceGenerator {
             mode: this.options.mode,
             tier: this.options.tier ?? 'FREE',
             target_url: this.options.targetUrl,
+            target_system_name: this.options.targetSystemName ?? null,
             certification_level: this.report.level ?? 7,
             verdict: verdict,
             score: this.report.score,
@@ -173,6 +181,7 @@ export class EvidenceGenerator {
         md += `- **Score:** ${this.report.score}/100\n`;
         md += `- **Mode:** ${this.options.mode}\n`;
         md += `- **Seed:** ${this.options.seed}\n`;
+        if (this.options.targetSystemName) md += `- **System Under Test:** ${this.options.targetSystemName}\n`;
         if (this.options.targetUrl) md += `- **Target:** ${this.options.targetUrl}\n`;
 
         md += `\n## Tamper-Evident Attestation\n\n`;
@@ -350,6 +359,62 @@ export class EvidenceGenerator {
         return `${pts.join(' ')} Z`;
     }
 
+    private static truncateForDisplay(name: string, maxLen: number): string {
+        if (name.length <= maxLen) return name;
+        return `${name.slice(0, maxLen - 1)}…`;
+    }
+
+    /**
+     * Weaves the captured target-system name into the template's
+     * "CERTIFICATION SUMMARY" paragraph — the one box on the certificate with
+     * room to name the build under test (see the call site for why no other
+     * box qualifies). Falls back to the template's original wording verbatim
+     * when no name was captured. Coordinates measured directly from the
+     * rendered template (paragraph text area spans roughly x=52-292pt,
+     * y=326-387pt, 5 lines at size 7.2 / 11.33pt leading). The mask top must
+     * stay below the box's baked-in "CERTIFICATION SUMMARY" title and its
+     * divider line (measured at y≈389.1-405.7) — a prior version masked up to
+     * y=400, which erased the divider and clipped the title's descenders,
+     * producing text that visually collided with the header.
+     */
+    private renderCertificationSummary(
+        page: PDFPage,
+        font: PDFFont,
+        ink: RGB,
+        mask: (x0: number, y0: number, x1: number, y1: number) => void,
+        fit: (text: string, size: number, maxWidth: number) => string,
+    ): void {
+        const MAX_SUMMARY_NAME_DISPLAY = 80;
+        const rawName = this.options.targetSystemName?.trim();
+        const nameForSummary = rawName ? EvidenceGenerator.truncateForDisplay(rawName, MAX_SUMMARY_NAME_DISPLAY) : null;
+        const subject = nameForSummary ? `"${nameForSummary}"` : 'the specified configuration';
+        const summaryText = `This certification confirms that ${subject} has been validated in a controlled sandbox environment using the Armageddon Test Suite. Results reflect the tested build and configuration at the time of run.`;
+
+        const SUMMARY_LEFT = 52, SUMMARY_RIGHT = 270, SUMMARY_TOP_Y = 384, SUMMARY_LINE_HEIGHT = 11.33, SUMMARY_SIZE = 7.2, SUMMARY_MAX_LINES = 5;
+        const summaryWidth = SUMMARY_RIGHT - SUMMARY_LEFT;
+        mask(46, 326, 276, 387);
+
+        const words = summaryText.split(' ');
+        let line = '';
+        let y = SUMMARY_TOP_Y;
+        let linesDrawn = 0;
+        for (const word of words) {
+            if (linesDrawn >= SUMMARY_MAX_LINES) break;
+            const candidate = line ? `${line} ${word}` : word;
+            if (line && font.widthOfTextAtSize(candidate, SUMMARY_SIZE) > summaryWidth) {
+                page.drawText(line, { x: SUMMARY_LEFT, y, size: SUMMARY_SIZE, font, color: ink });
+                linesDrawn++;
+                y -= SUMMARY_LINE_HEIGHT;
+                line = word;
+            } else {
+                line = candidate;
+            }
+        }
+        if (linesDrawn < SUMMARY_MAX_LINES && line) {
+            page.drawText(fit(line, SUMMARY_SIZE, summaryWidth), { x: SUMMARY_LEFT, y, size: SUMMARY_SIZE, font, color: ink });
+        }
+    }
+
     public async generateCertificatePdf(): Promise<Uint8Array> {
         const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
         const pdfDoc = await this.loadPdfDocFromTemplate(PDFDocument);
@@ -444,6 +509,14 @@ export class EvidenceGenerator {
                 color: i < filledStars ? rgb(0.75, 0.25, 0.12) : rgb(0.55, 0.55, 0.55),
             });
         }
+
+        // Names the build under test in the "CERTIFICATION SUMMARY" box — the
+        // one place on the template with room for it. Every labelled box
+        // elsewhere (Execution Record, Run + Attestation, Issued By) is baked
+        // at exactly the height its fixed field count needs, with no spare
+        // slot for a 5th field (measured by rendering the template and
+        // inspecting pixel-for-pixel; see the Execution Record comment below).
+        this.renderCertificationSummary(page, font, ink, mask, fit);
 
         // Execution Record / Results / Level N God Mode row (baselines measured
         // from the template: 736/767/797/827/855px @ 150dpi -> pt via *0.48).

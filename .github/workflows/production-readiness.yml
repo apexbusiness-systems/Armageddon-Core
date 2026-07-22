@@ -65,7 +65,7 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
         run: |
           mkdir -p build-artifacts docs/compliance/sbom
-          npx @cyclonedx/cyclonedx-npm --output-format json --output-file build-artifacts/sbom-npm.cdx.json
+          npx --package=@cyclonedx/cyclonedx-npm@6.0.0 -- cyclonedx-npm --output-format json --output-file build-artifacts/sbom-npm.cdx.json
           cp build-artifacts/sbom-npm.cdx.json docs/compliance/sbom/sbom-npm.cdx.json
 
       - name: Upload SBOM artifact

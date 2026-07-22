@@ -25,6 +25,20 @@ interface RunRequest {
     iterations?: number;
     batteries?: string[]; // Optional battery selection for Verified/Certified tiers
     targetEndpoint?: string;
+    targetSystemName?: string; // human-readable "what is being tested" label, e.g. "Checkout API" — display metadata only
+}
+
+const MAX_TARGET_SYSTEM_NAME_LENGTH = 160;
+
+function sanitizeTargetSystemName(value: string | undefined): string | null {
+    if (typeof value !== 'string') return null;
+    const cleaned = value
+        .replace(/[<>]/g, ' ')
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, MAX_TARGET_SYSTEM_NAME_LENGTH);
+    return cleaned || null;
 }
 
 interface RunResponse {
@@ -245,7 +259,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // Parse request body
         const body: RunRequest = await request.json();
-        const { organizationId, level = 7, batteries, targetEndpoint } = body;
+        const { organizationId, level = 7, batteries, targetEndpoint, targetSystemName } = body;
+        const sanitizedTargetSystemName = sanitizeTargetSystemName(targetSystemName);
 
         const ssrfGuard = await enforceSsrfGuard(targetEndpoint);
         if (ssrfGuard) return ssrfGuard;
@@ -298,13 +313,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const workflowTier = mapWorkflowTier(eligibility.tier);
         const workflowSeed = deriveRunSeed(runId, organizationId);
 
+        // CERTIFIED-tier orgs get real live-fire execution (LiveFireAdapter,
+        // capped at LIVE_FIRE_MAX_VECTORS per battery in activities.ts) — this
+        // was previously hardcoded to `true` for every run regardless of paid
+        // tier, meaning no Certified customer using this path could ever earn
+        // a genuine CERTIFIED verdict. Onboarding's existing authorization +
+        // acceptable-use checkboxes (mandatory to complete onboarding) are the
+        // consent gate; no separate waiver is required on this path.
+        const simMode = workflowTier !== 'CERTIFIED';
+
         const { error: insertError } = await supabase
             .from('armageddon_runs')
             .insert({
                 id: runId,
                 organization_id: organizationId,
                 level,
-                sim_mode: true,
+                sim_mode: simMode,
                 sandbox_tenant: process.env.SANDBOX_TENANT || 'armageddon-test',
                 workflow_id: workflowId,
                 status: 'pending',
@@ -314,6 +338,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                     tier: workflowTier,
                     seed: workflowSeed,
                     targetEndpoint,
+                    targetSystemName: sanitizedTargetSystemName,
                 },
             });
 
