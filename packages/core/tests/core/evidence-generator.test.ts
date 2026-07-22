@@ -152,6 +152,25 @@ describe('EvidenceGenerator', () => {
         it('omits the System Under Test line when no name was captured', () => {
             expect(generator.generateReportMd()).not.toContain('System Under Test');
         });
+
+        it('lists per-battery methodology (engine, vectors, iterations) for every battery, pass or fail', () => {
+            const md = generator.generateReportMd();
+            expect(md).toContain('## Methodology');
+            expect(md).toMatch(/\*\*Chaos Stress:\*\* \d+ attack iteration\(s\) via/);
+            expect(md).toMatch(/\*\*Goal Hijack:\*\* \d+ attack iteration\(s\) via/);
+        });
+
+        it('states plainly that nothing was flagged instead of leaving Detailed Findings blank on a clean pass', () => {
+            const cleanReport = {
+                ...mockReport,
+                batteries: mockReport.batteries.map(b => ({ ...b, status: 'PASSED' as const, breachCount: 0 })),
+            };
+            const cleanGen = new EvidenceGenerator(cleanReport, 'run-clean', mockOptions);
+            const md = cleanGen.generateReportMd();
+            expect(md).toContain('## Detailed Findings');
+            expect(md).toContain('No failures or breaches were recorded');
+            expect(md).not.toContain('### Goal Hijack (FAILED)');
+        });
     });
 
     describe('generateCertificatePdf', () => {

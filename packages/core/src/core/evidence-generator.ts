@@ -203,12 +203,23 @@ export class EvidenceGenerator {
             md += `| ${id} | ${name} | ${statusIcon} ${b.status} | ${b.duration}ms | ${b.iterations} | ${b.blockedCount} | ${b.breachCount} |\n`;
         }
 
-        md += `\n## Detailed Findings\n\n`;
+        md += `\n## Methodology\n\n`;
         for (const b of this.report.batteries) {
-            if (b.status === 'FAILED' || b.breachCount > 0) {
-                 const { name } = this.parseBatteryId(b.batteryId);
-                 md += `### ${name} (${b.status})\n`;
-                 md += `**Details:**\n\`\`\`json\n${JSON.stringify(b.details, null, 2)}\n\`\`\`\n\n`;
+            const { name } = this.parseBatteryId(b.batteryId);
+            const engine = typeof b.details?.engine === 'string' ? b.details.engine : 'UNKNOWN';
+            const vectors = typeof b.details?.vectors === 'number' ? ` across ${b.details.vectors} candidate vector(s)` : '';
+            md += `- **${name}:** ${b.iterations} attack iteration(s) via ${engine}${vectors}, ${b.blockedCount} blocked / ${b.breachCount} breach(es).\n`;
+        }
+
+        md += `\n## Detailed Findings\n\n`;
+        const flagged = this.report.batteries.filter(b => b.status === 'FAILED' || b.breachCount > 0);
+        if (flagged.length === 0) {
+            md += `No failures or breaches were recorded — every battery above blocked 100% of its attack attempts.\n`;
+        } else {
+            for (const b of flagged) {
+                const { name } = this.parseBatteryId(b.batteryId);
+                md += `### ${name} (${b.status})\n`;
+                md += `**Details:**\n\`\`\`json\n${JSON.stringify(b.details, null, 2)}\n\`\`\`\n\n`;
             }
         }
 
