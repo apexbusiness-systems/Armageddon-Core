@@ -96,21 +96,29 @@ describe('EvidenceGenerator', () => {
             expect(parsed.verdict).toBe('FAILED');
         });
 
-        it('should never return CERTIFIED for a FREE/simulation-tier run, even with a high score', () => {
+        it('should never return CERTIFIED for a FREE/simulation-tier run — a clean pass is VALIDATED, not CERTIFIED', () => {
             // A high score from the SimulationAdapter (FREE tier) is not a real
-            // certification — it must never be reported as CERTIFIED.
+            // live-fire certification — it must never be reported as CERTIFIED.
+            // But it IS a clean pass, so it must not be mislabelled FAILED either:
+            // the honest, internally-consistent verdict is VALIDATED.
             const freeTierGen = new EvidenceGenerator(mockReport, 'run-3', { ...mockOptions, tier: 'FREE' });
             const parsed = JSON.parse(freeTierGen.generateReportJson());
-            expect(parsed.verdict).toBe('FAILED');
+            expect(parsed.verdict).toBe('VALIDATED');
             expect(parsed.tier).toBe('FREE');
         });
 
-        it('should default tier to FREE and verdict to FAILED when tier is omitted', () => {
+        it('a low-score FREE-tier run is FAILED, never VALIDATED (VALIDATED requires a clean pass)', () => {
+            const lowFree = new EvidenceGenerator({ ...mockReport, score: 80 }, 'run-3b', { ...mockOptions, tier: 'FREE' });
+            const parsed = JSON.parse(lowFree.generateReportJson());
+            expect(parsed.verdict).toBe('FAILED');
+        });
+
+        it('should default tier to FREE and a clean pass to VALIDATED when tier is omitted', () => {
             const { tier: _tier, ...optionsWithoutTier } = mockOptions;
             const gen = new EvidenceGenerator(mockReport, 'run-4', optionsWithoutTier);
             const parsed = JSON.parse(gen.generateReportJson());
             expect(parsed.tier).toBe('FREE');
-            expect(parsed.verdict).toBe('FAILED');
+            expect(parsed.verdict).toBe('VALIDATED');
         });
     });
 
