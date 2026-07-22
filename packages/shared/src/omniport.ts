@@ -223,13 +223,21 @@ export function deriveRunSeed(runId: string, organizationId: string): number {
  * A Moat-pulls deployment gives each operator their own Temporal task queue
  * on the shared cluster: their `docker-compose.moat.yml` (or the cloud-
  * connected variant) worker long-polls that queue only, so one operator's
- * Moat host never receives another organization's run. Falls back to the
- * single shared queue when no organizationId is available (e.g. the
- * simulation-only public console path, which never reaches an operator Moat
- * host).
+ * Moat host never receives another organization's run. That per-operator
+ * isolation is an explicit opt-in via OMNIPORT_TASK_QUEUE_PREFIX — an
+ * operator sets it, then configures their own worker's TEMPORAL_TASK_QUEUE
+ * to `${prefix}-<organizationId>` per docker-compose.moat.cloud.yml's own
+ * instructions. Without that opt-in, this is a single shared deployment
+ * with one worker polling one fixed queue (see api-server.ts's
+ * TEMPORAL_TASK_QUEUE, used identically by /api/run and the pending-run
+ * dispatcher) — computing a per-org queue here regardless would dispatch
+ * onto a queue that worker never polls, silently orphaning the workflow
+ * forever (confirmed live: the first-ever real OmniPort live-fire dispatch
+ * against the shared armageddon-exec-api sat in 'running' indefinitely).
  */
 export function resolveOmniPortTaskQueue(organizationId: string): string {
-    const prefix = process.env.OMNIPORT_TASK_QUEUE_PREFIX?.trim() || 'armageddon-moat';
+    const prefix = process.env.OMNIPORT_TASK_QUEUE_PREFIX?.trim();
+    if (!prefix) return process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
     const sanitizedOrgId = organizationId.replace(/[^A-Za-z0-9_-]/g, '');
     if (!sanitizedOrgId) return process.env.TEMPORAL_TASK_QUEUE || 'armageddon-level-7';
     return `${prefix}-${sanitizedOrgId}`;
