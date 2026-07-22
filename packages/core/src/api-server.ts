@@ -563,12 +563,31 @@ async function persistOmniPortTelemetry(
 }
 
 // POST /api/omniport/execute — mirrors /api/run, triggered by OmniHub instead of the console.
+// Matches the sanitization contract enforced for the same field on the
+// intake-handler's /api/run path (armageddon-site/src/intake-handler.ts
+// stripHtml + MAX_TARGET_SYSTEM_NAME_LENGTH) so a name captured through
+// either entrypoint is stored and displayed identically.
+const MAX_TARGET_SYSTEM_NAME_LENGTH = 160;
+
+function sanitizeTargetSystemName(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const cleaned = value
+        .replace(/[<>]/g, ' ')
+        // eslint-disable-next-line no-control-regex -- deliberately stripping C0 controls + DEL
+        .replace(/[\x00-\x1F\x7F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, MAX_TARGET_SYSTEM_NAME_LENGTH);
+    return cleaned || null;
+}
+
 interface OmniPortExecuteBody {
     organizationId?: unknown;
     level?: unknown;
     iterations?: unknown;
     batteries?: unknown;
     targetUrl?: unknown;
+    targetSystemName?: unknown;
 }
 
 interface ValidatedOmniPortExecute {
@@ -577,6 +596,7 @@ interface ValidatedOmniPortExecute {
     iterations: number;
     batteries: string[];
     targetUrl: string;
+    targetSystemName: string | null;
 }
 
 function validateOmniPortExecuteBody(body: OmniPortExecuteBody): { ok: true; value: ValidatedOmniPortExecute } | { ok: false; error: string } {
@@ -587,7 +607,7 @@ function validateOmniPortExecuteBody(body: OmniPortExecuteBody): { ok: true; val
     const batteries = Array.isArray(body.batteries) && body.batteries.every((b) => typeof b === 'string')
         ? body.batteries as string[]
         : DEFAULT_BATTERIES;
-    return { ok: true, value: { organizationId: body.organizationId, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl } };
+    return { ok: true, value: { organizationId: body.organizationId, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl, targetSystemName: sanitizeTargetSystemName(body.targetSystemName) } };
 }
 
 async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -604,7 +624,7 @@ async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse):
 
     const validated = validateOmniPortExecuteBody(raw);
     if (!validated.ok) { json(res, 400, { success: false, error: validated.error, code: 'VALIDATION_ERROR' }); return; }
-    const { organizationId, level, iterations, batteries, targetUrl } = validated.value;
+    const { organizationId, level, iterations, batteries, targetUrl, targetSystemName } = validated.value;
 
     if (!(await validateSSRF(targetUrl))) {
         json(res, 400, { success: false, error: 'targetUrl failed SSRF validation', code: 'SSRF_BLOCKED' });
@@ -625,7 +645,7 @@ async function handleOmniPortExecute(req: IncomingMessage, res: ServerResponse):
         sandbox_tenant: process.env.SANDBOX_TENANT ?? 'armageddon-test',
         workflow_id: workflowId,
         status: 'pending',
-        config: { batteries, iterations, tier: 'CERTIFIED', seed, omniPortRunRef, targetEndpoint: targetUrl },
+        config: { batteries, iterations, tier: 'CERTIFIED', seed, omniPortRunRef, targetEndpoint: targetUrl, targetSystemName },
     });
     if (insertError) {
         console.error('[OmniPort] Failed to create run record:', insertError.message);
@@ -689,6 +709,7 @@ interface OmniPortLiveFireBody {
     iterations?: unknown;
     batteries?: unknown;
     targetUrl?: unknown;
+    targetSystemName?: unknown;
 }
 
 interface ValidatedOmniPortLiveFire {
@@ -698,6 +719,7 @@ interface ValidatedOmniPortLiveFire {
     iterations: number;
     batteries: string[];
     targetUrl: string;
+    targetSystemName: string | null;
 }
 
 function validateOmniPortLiveFireBody(body: OmniPortLiveFireBody): { ok: true; value: ValidatedOmniPortLiveFire } | { ok: false; error: string } {
@@ -709,7 +731,7 @@ function validateOmniPortLiveFireBody(body: OmniPortLiveFireBody): { ok: true; v
     const batteries = Array.isArray(body.batteries) && body.batteries.every((b) => typeof b === 'string')
         ? body.batteries as string[]
         : DEFAULT_BATTERIES;
-    return { ok: true, value: { organizationId: body.organizationId, waiverToken: body.waiverToken, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl } };
+    return { ok: true, value: { organizationId: body.organizationId, waiverToken: body.waiverToken, level: body.level, iterations: body.iterations, batteries, targetUrl: body.targetUrl, targetSystemName: sanitizeTargetSystemName(body.targetSystemName) } };
 }
 
 async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -726,7 +748,7 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
 
     const validated = validateOmniPortLiveFireBody(raw);
     if (!validated.ok) { json(res, 400, { success: false, error: validated.error, code: 'VALIDATION_ERROR' }); return; }
-    const { organizationId, waiverToken, level, iterations, batteries, targetUrl } = validated.value;
+    const { organizationId, waiverToken, level, iterations, batteries, targetUrl, targetSystemName } = validated.value;
 
     if (!(await validateSSRF(targetUrl))) {
         json(res, 400, { success: false, error: 'targetUrl failed SSRF validation', code: 'SSRF_BLOCKED' });
@@ -791,7 +813,7 @@ async function handleOmniPortLiveFire(req: IncomingMessage, res: ServerResponse)
         sandbox_tenant: process.env.OMNIPORT_LIVE_FIRE_TENANT || 'live-fire-authorized',
         workflow_id: workflowId,
         status: 'pending',
-        config: { batteries: selectedBatteries, iterations, tier: 'CERTIFIED', seed, liveFire: true, waiverRecordId: waiverRecord.id, targetEndpoint: targetUrl },
+        config: { batteries: selectedBatteries, iterations, tier: 'CERTIFIED', seed, liveFire: true, waiverRecordId: waiverRecord.id, targetEndpoint: targetUrl, targetSystemName },
     });
     if (insertError) {
         console.error('[OmniPort] Live-fire run record insert failed:', insertError.message);

@@ -370,8 +370,12 @@ export class EvidenceGenerator {
      * room to name the build under test (see the call site for why no other
      * box qualifies). Falls back to the template's original wording verbatim
      * when no name was captured. Coordinates measured directly from the
-     * rendered template (paragraph box interior spans roughly x=52-292pt,
-     * y=326-400pt, 5 lines at size 7.2 / 11.33pt leading).
+     * rendered template (paragraph text area spans roughly x=52-292pt,
+     * y=326-387pt, 5 lines at size 7.2 / 11.33pt leading). The mask top must
+     * stay below the box's baked-in "CERTIFICATION SUMMARY" title and its
+     * divider line (measured at y≈389.1-405.7) — a prior version masked up to
+     * y=400, which erased the divider and clipped the title's descenders,
+     * producing text that visually collided with the header.
      */
     private renderCertificationSummary(
         page: PDFPage,
@@ -388,7 +392,7 @@ export class EvidenceGenerator {
 
         const SUMMARY_LEFT = 52, SUMMARY_RIGHT = 270, SUMMARY_TOP_Y = 384, SUMMARY_LINE_HEIGHT = 11.33, SUMMARY_SIZE = 7.2, SUMMARY_MAX_LINES = 5;
         const summaryWidth = SUMMARY_RIGHT - SUMMARY_LEFT;
-        mask(46, 326, 276, 400);
+        mask(46, 326, 276, 387);
 
         const words = summaryText.split(' ');
         let line = '';
