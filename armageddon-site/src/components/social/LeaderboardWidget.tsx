@@ -15,13 +15,14 @@ interface LeaderboardWidgetProps {
 interface LeaderboardAgent {
     rank: number;
     id: string;
+    name?: string | null;
     score: string;
     status: string;
 }
 
 interface LeaderboardApiResponse {
     live: boolean;
-    agents: Array<{ rank: number; id: string; score: number; status: string }>;
+    agents: Array<{ rank: number; id: string; name?: string | null; score: number; status: string }>;
 }
 
 // Illustrative sample board — shown only as a fallback when the real
@@ -114,7 +115,7 @@ function TopAgentsList({ isCalibrating, agents }: { readonly isCalibrating: bool
                 <div key={agent.id} className="flex items-center justify-between text-xs py-1.5 px-2 bg-white/5 rounded-sm border border-transparent hover:border-white/10">
                     <div className="flex items-center gap-3">
                         <span className="text-white/30 font-bold w-4">0{agent.rank}</span>
-                        <span className="text-white/80">{agent.id}</span>
+                        <span className="text-white/80">{agent.name ?? agent.id}</span>
                     </div>
                     <div className="flex items-center gap-4">
                         <span className={cn(

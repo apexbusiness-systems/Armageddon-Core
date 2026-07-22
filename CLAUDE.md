@@ -1,7 +1,7 @@
 # ARMAGEDDON AGENT GUARDRAILS — CLAUDE.md
 
-**Canonical version**: 2026-07-07
-**Last reviewed**: 2026-07-07
+**Canonical version**: 2026-07-22
+**Last reviewed**: 2026-07-22
 **Authority**: This file is the frozen canonical state reference. It supersedes conversational memory. All agents and contributors must read this before modifying any file listed here.
 
 ---
@@ -125,8 +125,11 @@ Mirrors the identical invariant already documented in `live-fire/route.ts`. It m
 **Invariant 9 — the OmniPort auth/crypto primitives live in `packages/shared/src/omniport.ts`, not duplicated per-workspace.**
 `armageddon-site/src/lib/omniport.ts` and `packages/core/src/api-server.ts` both import `validateSSRF`, `verifyOmniPortBearerToken`, `verifyWaiverToken`, `deriveRunSeed`, and `resolveOmniPortTaskQueue` from `@armageddon/shared/omniport`. Do not re-implement these locally in either workspace — a second copy is exactly how the SSRF allowlist or waiver signature check could silently diverge between the two surfaces.
 
-**Invariant 10 — the OmniPort connector does not make live-fire executable by itself.**
-`packages/core/src/worker.ts` calls `safetyGuard.enforce('WorkerStartup')` (see Non-negotiable rule 2 above and `packages/core/src/core/safety.ts`), which `process.exit(1)`s at boot unless `SIM_MODE==='true'`. The worker that executes battery activities therefore cannot run in a live-fire configuration today. **Do not weaken, bypass, or special-case this check to make OmniPort live-fire "work."** Enabling real live-fire execution is a separate, deliberate architectural decision (e.g. a distinct worker build/deployment for live-fire-authorized environments) that has not been made and is out of scope for the OmniPort wiring itself.
+**Invariant 10 — `SIM_MODE=true` is a required process boot-time confirmation, not a per-run simulate-only switch. Real live-fire execution is real, and already reachable via the waiver-gated OmniPort live-fire endpoint (corrected 2026-07-22).**
+`packages/core/src/worker.ts` calls `safetyGuard.enforce('WorkerStartup')` (see Non-negotiable rule 2 above and `packages/core/src/core/safety.ts`), which `process.exit(1)`s at boot unless `SIM_MODE==='true'`. This gate is independent of whether any individual dispatched run is simulated or real: a run with `tier: 'CERTIFIED'` **and** a real `targetModel` set makes that run's battery activities call a genuine LLM adversary (`AdversarialEngine` → `createAdversarialConfig`), inside the same `SIM_MODE=true`-gated worker process — `SIM_MODE` confirms the process is running in an authorized Armageddon deployment; it does not force every run inside it to simulate.
+A prior version of this invariant claimed "the worker ... cannot run in a live-fire configuration today," which was an incorrect inference from the boot gate and is now known to be false: it was empirically confirmed via two real OmniPort live-fire dispatches against `armageddon-exec-api` (waiver-gated `POST /api/omniport/live-fire`) — battery durations of ~19–23s, consistent with real multi-turn LLM round trips, versus ~3s for a genuinely simulated run of the same batteries.
+Until 2026-07-22, `targetModel` was never set on any OmniPort execute/live-fire dispatch (production `api-server.ts` or the Next.js reference routes), and `AdversarialEngine`'s constructor silently fell back to the fake `SimulationProvider` whenever `tier==='CERTIFIED'` had no `targetModel` — meaning every such run executed simulated attacks while its telemetry still said `engine: 'LIVE_FIRE'` (that tag was set from `tier` alone, decoupled from what adapter was actually constructed). Fixed: `AdversarialEngine` now throws instead of silently degrading (matching the pre-existing `'http-target'` refusal), and both live-fire dispatch paths now set `targetModel`. `handleOmniPortExecute` (no waiver gate, always `sim_mode: true`) was separately corrected to request `tier: 'FREE'` rather than a hardcoded `'CERTIFIED'` it could never truthfully deliver on.
+**Do not weaken, bypass, or special-case the `SIM_MODE` boot gate itself** — it remains a required, non-bypassable process-level confirmation, unchanged by the above. Who may reach the waiver-gated live-fire endpoint, and under what commercial/legal terms, is a separate question, still enforced by `enforceOmniPortLiveFireGuard` + a signed, time-boxed waiver token — nothing about that authorization boundary changed.
 
 **Invariant 11 — Administrative overrides require exact matching.**
 The `ADMIN_EMAIL` verification logic (e.g., in `/api/run` or `intake-handler.ts`) MUST use exact, case-sensitive equality (`===`). The use of `.includes()`, `indexOf()`, or open regex for identity/authorization checks is strictly prohibited to prevent arbitrary domain registration bypasses.
@@ -156,7 +159,7 @@ Before the OmniPort connector (`/api/omniport/*` on `packages/core/src/api-serve
 1. **Set `OMNIPORT_ENABLED=true`** for that deployment only. It defaults unset (routes return `503 OMNIPORT_DISABLED`) everywhere today — this is the safe default and must stay that way until an operator explicitly opts in.
 2. **Provision `OMNIPORT_API_KEY`, `OMNIPORT_WEBHOOK_SECRET`, `OMNIPORT_LIVE_FIRE_SECRET`** — coordinate with the APEX-OmniHub platform; these are shared secrets, not generated by this repo.
 3. **Provision a per-operator Temporal task queue.** Set `OMNIPORT_TASK_QUEUE_PREFIX` (or accept the `armageddon-moat` default) and point that operator's `TEMPORAL_TASK_QUEUE` in `.env.moat` at `${prefix}-<organizationId>` (see `docker-compose.moat.cloud.yml`). If connecting to Temporal Cloud rather than a local `temporal` service, also set `TEMPORAL_API_KEY` (both `packages/core/src/worker.ts` and `api-server.ts` use it for TLS + API-key auth when present).
-4. **Do not treat this as enabling live-fire.** Even fully provisioned, `packages/core/src/worker.ts` still refuses to start unless `SIM_MODE=true` (Invariant 10 above) — that gate is intentionally out of scope here and requires its own separate decision.
+4. **`packages/core/src/worker.ts` still refuses to start unless `SIM_MODE=true`** (Invariant 10 above) — that boot gate is unrelated to and does not need to be reconsidered for this provisioning. It confirms the process is running in an authorized deployment; it does not prevent an individual `tier: 'CERTIFIED'` run (with `targetModel` set) from executing real live-fire once these secrets are provisioned and a waiver is accepted.
 
 ---
 
