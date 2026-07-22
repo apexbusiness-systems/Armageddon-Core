@@ -45,25 +45,38 @@ for (const ev of events) {
 const executedIds = run.batteries_executed ?? [];
 const passedSet = new Set(run.batteries_passed ?? []);
 
-const batteries = executedIds.map((shortId) => {
-  const full = events.find((e) => e.battery_id === shortId)?.battery_id ? shortId : shortId;
+// run.batteries_executed/passed/failed use the FULL battery id (e.g.
+// "B10_GOAL_HIJACK"), but armageddon_events.battery_id uses the SHORT id
+// (e.g. "B10") — derive the short id to key into byBattery correctly.
+const batteries = executedIds.map((fullId) => {
+  const shortId = /^B\d+/.exec(fullId)?.[0] ?? fullId;
   const entry = byBattery.get(shortId) ?? {};
-  const completedPayload = entry.completed?.payload ?? {};
-  const startedPayload = entry.started?.payload ?? {};
-  const blocked = completedPayload.blocked ?? null;
-  const breaches = completedPayload.breaches ?? 0;
+  const completedPayload = entry.completed?.payload ?? null;
+  const startedPayload = entry.started?.payload ?? null;
+  const hasTelemetry = completedPayload !== null;
+  const blocked = completedPayload?.blocked ?? null;
+  const breaches = completedPayload?.breaches ?? null;
   const durationMs = entry.started && entry.completed
     ? new Date(entry.completed.created_at).getTime() - new Date(entry.started.created_at).getTime()
-    : 0;
+    : null;
   return {
-    batteryId: full,
-    status: passedSet.has(shortId) ? 'PASSED' : (run.batteries_failed?.includes(shortId) ? 'FAILED' : 'UNKNOWN'),
-    iterations: blocked !== null ? blocked + breaches : (run.total_iterations ?? 0),
-    blockedCount: blocked ?? 0,
-    breachCount: breaches,
-    driftScore: run.escape_rate ?? 0,
-    duration: durationMs,
-    details: { engine: startedPayload.engine ?? 'unknown', tier: startedPayload.tier ?? 'unknown', vectors: startedPayload.vectors ?? null },
+    batteryId: fullId,
+    status: passedSet.has(fullId) ? 'PASSED' : (run.batteries_failed?.includes(fullId) ? 'FAILED' : 'UNKNOWN'),
+    // NO_TELEMETRY: honest gap, not a fabricated number. This battery produced
+    // no BATTERY_STARTED/COMPLETED events in armageddon_events despite being
+    // marked executed/failed on the run row — do not guess at its iteration
+    // count or blocked/breach split.
+    iterations: hasTelemetry ? blocked + breaches : 'NO_TELEMETRY',
+    blockedCount: hasTelemetry ? blocked : 'NO_TELEMETRY',
+    breachCount: hasTelemetry ? breaches : 'NO_TELEMETRY',
+    driftScore: hasTelemetry ? run.escape_rate ?? 0 : 'NO_TELEMETRY',
+    duration: durationMs ?? 'NO_TELEMETRY',
+    details: {
+      engine: startedPayload?.engine ?? 'NO_TELEMETRY',
+      tier: startedPayload?.tier ?? 'NO_TELEMETRY',
+      vectors: startedPayload?.vectors ?? null,
+      hasTelemetry,
+    },
   };
 });
 
@@ -103,3 +116,20 @@ console.log('battery engine(s) actually used:', [...new Set(batteries.map(b => b
 console.log('attestation.keyId:', parsed.attestation.keyId, '| chainId:', parsed.attestation.chainId);
 console.log('attestation.signature (base64, first 40):', parsed.attestation.signature?.slice(0, 40) + '...');
 console.log('Written to:', process.env.OUT_JSON ?? 'certificate-report.json');
+
+const noTelemetry = batteries.filter((b) => !b.details.hasTelemetry).map((b) => b.batteryId);
+if (noTelemetry.length > 0) {
+  console.log('\n⚠️  CAVEAT: no BATTERY_STARTED/COMPLETED telemetry found for:', noTelemetry.join(', '));
+  console.log('   These batteries are marked executed/' + run.status + ' on the run row, but their');
+  console.log('   iteration/blocked/breach counts could not be verified from armageddon_events.');
+  console.log(`   The run-level total (breaches=${run.breaches}) cannot be attributed to a specific`);
+  console.log('   battery from available data. Treat per-battery numbers for these as UNKNOWN, not zero.');
+}
+const startCounts = new Map();
+for (const ev of events) if (ev.event_type === 'BATTERY_STARTED') startCounts.set(ev.battery_id, (startCounts.get(ev.battery_id) ?? 0) + 1);
+const retried = [...startCounts.entries()].filter(([, n]) => n > 1);
+if (retried.length > 0) {
+  console.log('\n⚠️  CAVEAT: multiple BATTERY_STARTED events observed for:', retried.map(([id, n]) => `${id}(x${n})`).join(', '));
+  console.log('   Consistent with the known Render free-tier idle/cold-start pattern (see');
+  console.log('   docs/audits/PRODUCTION_RUN_DISPATCH_STUCK_2026-07-22.md) causing a mid-run retry.');
+}

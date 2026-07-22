@@ -1134,11 +1134,10 @@ export async function runBattery8_AssetSmoke(config: BatteryConfig): Promise<Bat
     const assets = ['/manifest.webmanifest', '/favicon.ico'];
     const details: Record<string, number> = {};
 
-    const isLocalTarget = !!config.targetEndpoint
-        && (config.targetEndpoint.includes('localhost') || config.targetEndpoint.includes('127.0.0.1'));
-
-    const { passedCount, failedCount } = isLocalTarget
-        ? await probeAssetsLive(assets, config.targetEndpoint as string, details)
+    const { targetEndpoint } = config;
+    const { passedCount, failedCount } = targetEndpoint
+        && (targetEndpoint.includes('localhost') || targetEndpoint.includes('127.0.0.1'))
+        ? await probeAssetsLive(assets, targetEndpoint, details)
         : probeAssetsSimulated(assets, config, details);
 
     const passed = failedCount === 0;
