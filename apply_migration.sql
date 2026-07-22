@@ -37,23 +37,17 @@ CREATE INDEX IF NOT EXISTS idx_runs_config ON :"TARGET_TABLE" USING gin(config);
 -- Add documentation comment
 COMMENT ON COLUMN :"TARGET_TABLE".config IS 'Run configuration including battery selection, e.g., {"batteries": ["B10", "B12"]}';
 
--- ─── POST-MIGRATION VERIFICATION ──────────────────────────────────────
-SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = :'TARGET_TABLE' AND column_name = 'config'
-) AS config_column_exists \gset
-
-\if :config_column_exists
-\else
-    \warn 'POST-MIGRATION FAILED: column "config" was not created on "' :TARGET_TABLE '". Rolling back.'
-    DO $$ BEGIN RAISE EXCEPTION 'Aborting: post-migration check failed (see warning above)'; END $$;
-\endif
-
 COMMIT;
 -- On any error above, \set ON_ERROR_STOP causes psql to abort.
 -- If running programmatically, catch the error and issue ROLLBACK explicitly.
 
--- ─── VERIFICATION OUTPUT ────────────────────────────────────────────────
+-- ─── POST-MIGRATION VERIFICATION + OUTPUT ───────────────────────────────
+-- \gset itself is the check: with ON_ERROR_STOP on, zero rows here (the
+-- column missing) makes psql abort with a non-zero exit — no separate
+-- existence check needed. A successful \gset both proves the column exists
+-- and captures the values to display below.
 SELECT column_name, data_type, column_default
 FROM information_schema.columns
-WHERE table_name = :'TARGET_TABLE' AND column_name = 'config';
+WHERE table_name = :'TARGET_TABLE' AND column_name = 'config' \gset
+
+\echo 'Verified column present:' :column_name :data_type :column_default
