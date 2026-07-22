@@ -437,6 +437,15 @@ const DEFAULT_BATTERIES = ['B10', 'B11', 'B12', 'B13', 'B14'];
  */
 const SIM_STATISTICAL_ITERATIONS = 10000;
 
+/**
+ * Requested iteration count for CERTIFIED-tier (live-fire) runs. Real PAIR
+ * calls cost real money, so this is intentionally far below
+ * SIM_STATISTICAL_ITERATIONS — must stay <= LIVE_FIRE_MAX_VECTORS in
+ * packages/core/src/temporal/activities.ts, which enforces the actual hard
+ * cap at execution time regardless of what's requested here.
+ */
+const CERTIFIED_REQUESTED_ITERATIONS = 50;
+
 // ── Temporal Cloud HTTP API helper ────────────────────────────────────────────
 
 function temporalHost(env: IntakeEnv): string {
@@ -704,20 +713,27 @@ async function createRunRecord(
   const { organizationId, level, batteries, tier, targetEndpoint, targetSystemName } = params;
   const runId = crypto.randomUUID();
   const workflowId = `armageddon-${runId}`;
+  const isCertified = tier === 'certified';
+  // CERTIFIED-tier orgs get real live-fire execution (LiveFireAdapter, capped
+  // at LIVE_FIRE_MAX_VECTORS per battery in activities.ts) — this was
+  // previously hardcoded to sim_mode:true for every run regardless of paid
+  // tier, so no Certified customer on this path could ever earn a genuine
+  // CERTIFIED verdict. Onboarding's mandatory authorization + acceptable-use
+  // checkboxes are the consent gate; no separate waiver is required here.
+  //
   // Public marketing claim (all locales): "Simulation tier runs 10,000
-  // statistical iterations with <0.01% escape threshold." Every run created on
-  // this edge path is sim_mode:true, so the shipped iteration count MUST match
-  // the advertised figure — we ship validated claims, not aspirational ones.
-  // Single source: SIM_STATISTICAL_ITERATIONS. Regression shield:
-  // tests/unit/marketing-claim-integrity.test.ts.
-  const iterations = SIM_STATISTICAL_ITERATIONS;
+  // statistical iterations with <0.01% escape threshold." Only applies to
+  // simulation (non-certified) runs — single source: SIM_STATISTICAL_ITERATIONS.
+  // Regression shield: tests/unit/marketing-claim-integrity.test.ts.
+  const simMode = !isCertified;
+  const iterations = isCertified ? CERTIFIED_REQUESTED_ITERATIONS : SIM_STATISTICAL_ITERATIONS;
   const seed = secureSeed();
 
   const { error: insertError } = await supabaseInsert(env, 'armageddon_runs', {
     id: runId,
     organization_id: organizationId,
     level,
-    sim_mode: true,
+    sim_mode: simMode,
     sandbox_tenant: 'armageddon-prod',
     workflow_id: workflowId,
     status: 'pending',

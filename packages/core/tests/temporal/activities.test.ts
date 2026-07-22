@@ -18,7 +18,8 @@ vi.mock('@supabase/supabase-js', () => ({
     createClient: vi.fn(() => ({ from: fromMock })),
 }));
 
-import { finalizeRunActivity, ArmageddonReport } from '../../src/temporal/activities';
+import { finalizeRunActivity, ArmageddonReport, capIterationsForLiveFire, LIVE_FIRE_MAX_VECTORS } from '../../src/temporal/activities';
+import type { BatteryConfig } from '../../src/temporal/activities';
 
 function makeReport(): ArmageddonReport {
     return {
@@ -97,5 +98,30 @@ describe('finalizeRunActivity — durable terminal persistence', () => {
         await expect(
             finalizeRunActivity({ runId: 'missing', status: 'passed', startedAt: Date.now(), report: makeReport() })
         ).rejects.toThrow(/no matching run row/);
+    });
+});
+
+describe('capIterationsForLiveFire — real-money cost cap for CERTIFIED (live-fire) batteries', () => {
+    const baseConfig: BatteryConfig = {
+        runId: 'r1',
+        iterations: 10000,
+        tier: 'FREE',
+        seed: 1,
+        batteries: ['B10', 'B11', 'B12', 'B13'],
+    };
+
+    it('caps CERTIFIED-tier iterations at LIVE_FIRE_MAX_VECTORS regardless of what was requested', () => {
+        const capped = capIterationsForLiveFire({ ...baseConfig, tier: 'CERTIFIED', iterations: 10000 });
+        expect(capped.iterations).toBe(LIVE_FIRE_MAX_VECTORS);
+    });
+
+    it('does not raise a CERTIFIED request that already sits below the cap', () => {
+        const capped = capIterationsForLiveFire({ ...baseConfig, tier: 'CERTIFIED', iterations: 10 });
+        expect(capped.iterations).toBe(10);
+    });
+
+    it('leaves FREE/simulation-tier iterations completely unchanged, even above the cap value', () => {
+        const uncapped = capIterationsForLiveFire({ ...baseConfig, tier: 'FREE', iterations: 10000 });
+        expect(uncapped.iterations).toBe(10000);
     });
 });

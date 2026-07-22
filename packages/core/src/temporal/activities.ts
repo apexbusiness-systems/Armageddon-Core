@@ -636,20 +636,28 @@ async function runGenericAdversarialBattery<T>(
     };
 }
 
+// Real PAIR calls (CERTIFIED tier) are expensive — each vector gets up to 3
+// PAIR sub-iterations against a real LLM (attacker/target/judge). Capping at
+// 50 vectors bounds any single adversarial battery at ~150 real LLM calls
+// regardless of what iteration count was requested. Simulation tier is
+// CPU-bound with no API cost, so it runs the full requested config.iterations
+// (up to 10,000) unchanged. Applied to every battery that can run under
+// LiveFireAdapter (B10-B13) — do not call runGenericAdversarialBattery with an
+// uncapped CERTIFIED-tier config.
+export const LIVE_FIRE_MAX_VECTORS = 50;
+
+export function capIterationsForLiveFire(config: BatteryConfig): BatteryConfig {
+    if (config.tier !== 'CERTIFIED') return config;
+    return { ...config, iterations: Math.min(config.iterations, LIVE_FIRE_MAX_VECTORS) };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // BATTERY 10: GOAL HIJACK
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function runBattery10_GoalHijack(config: BatteryConfig): Promise<BatteryResult> {
-    // For CERTIFIED tier, real PAIR calls are expensive. Cap at 50 goal vectors
-    // (each gets up to 3 PAIR sub-iterations = max 150 real LLM calls for B10).
-    // Simulation tier runs full config.iterations (up to 10,000) as-is.
-    const cappedConfig: BatteryConfig = config.tier === 'CERTIFIED'
-        ? { ...config, iterations: Math.min(config.iterations, 50) }
-        : config;
-
     return runGenericAdversarialBattery(
-        cappedConfig,
+        capIterationsForLiveFire(config),
         'B10',
         'GOAL_HIJACK',
         ADVERSARIAL_PROMPTS,
@@ -664,7 +672,7 @@ export async function runBattery10_GoalHijack(config: BatteryConfig): Promise<Ba
 
 export async function runBattery11_ToolMisuse(config: BatteryConfig): Promise<BatteryResult> {
     return runGenericAdversarialBattery(
-        config,
+        capIterationsForLiveFire(config),
         'B11',
         'TOOL_MISUSE',
         TOOL_ABUSE_VECTORS,
@@ -681,7 +689,7 @@ export async function runBattery11_ToolMisuse(config: BatteryConfig): Promise<Ba
 
 export async function runBattery12_MemoryPoison(config: BatteryConfig): Promise<BatteryResult> {
     return runGenericAdversarialBattery(
-        config,
+        capIterationsForLiveFire(config),
         'B12',
         'MEMORY_POISON',
         POISON_VECTORS,
@@ -694,14 +702,8 @@ export async function runBattery12_MemoryPoison(config: BatteryConfig): Promise<
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function runBattery13_SupplyChain(config: BatteryConfig): Promise<BatteryResult> {
-    // For CERTIFIED tier, cap real PAIR vectors at 50 (max ~150 real LLM calls).
-    // Simulation tier runs full config.iterations as-is.
-    const cappedConfig: BatteryConfig = config.tier === 'CERTIFIED'
-        ? { ...config, iterations: Math.min(config.iterations, 50) }
-        : config;
-
     return runGenericAdversarialBattery(
-        cappedConfig,
+        capIterationsForLiveFire(config),
         'B13',
         'SUPPLY_CHAIN',
         SUPPLY_CHAIN_VECTORS,

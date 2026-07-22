@@ -313,13 +313,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const workflowTier = mapWorkflowTier(eligibility.tier);
         const workflowSeed = deriveRunSeed(runId, organizationId);
 
+        // CERTIFIED-tier orgs get real live-fire execution (LiveFireAdapter,
+        // capped at LIVE_FIRE_MAX_VECTORS per battery in activities.ts) — this
+        // was previously hardcoded to `true` for every run regardless of paid
+        // tier, meaning no Certified customer using this path could ever earn
+        // a genuine CERTIFIED verdict. Onboarding's existing authorization +
+        // acceptable-use checkboxes (mandatory to complete onboarding) are the
+        // consent gate; no separate waiver is required on this path.
+        const simMode = workflowTier !== 'CERTIFIED';
+
         const { error: insertError } = await supabase
             .from('armageddon_runs')
             .insert({
                 id: runId,
                 organization_id: organizationId,
                 level,
-                sim_mode: true,
+                sim_mode: simMode,
                 sandbox_tenant: process.env.SANDBOX_TENANT || 'armageddon-test',
                 workflow_id: workflowId,
                 status: 'pending',
