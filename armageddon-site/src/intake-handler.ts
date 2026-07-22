@@ -345,6 +345,50 @@ function computeHealthStatus(supabaseConnected: boolean, temporalConnected: bool
   return { status: 'unavailable', httpStatus: 503 };
 }
 
+interface LeaderboardRunRow {
+  id: string;
+  escape_rate: number | null;
+  breaches: number | null;
+  sim_mode: boolean;
+  config: { tier?: string } | null;
+  completed_at: string | null;
+}
+
+const LEADERBOARD_LIMIT = 10;
+
+// Anonymized by construction: the query below never selects organization_id
+// or any identifying column, and the display id is a short deterministic
+// codename derived from the run id — never the real organization name.
+function leaderboardDisplayId(runId: string): string {
+  return `OP-${runId.replaceAll('-', '').slice(0, 6).toUpperCase()}`;
+}
+
+async function handleLeaderboard(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
+  if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
+
+  const params = [
+    'select=id,escape_rate,breaches,sim_mode,config,completed_at',
+    'status=eq.passed',
+    'completed_at=not.is.null',
+    'order=escape_rate.asc,breaches.asc,completed_at.desc',
+    `limit=${LEADERBOARD_LIMIT}`,
+  ].join('&');
+
+  const { data, error } = await supabaseQuery<LeaderboardRunRow>(env, 'armageddon_runs', params);
+  if (error || !data) {
+    return jsonResponse({ live: false, agents: [], error: error ?? 'QUERY_FAILED' }, canonicalHost, 200);
+  }
+
+  const agents = data.map((row, index) => ({
+    rank: index + 1,
+    id: leaderboardDisplayId(row.id),
+    score: Math.max(0, Math.min(100, Math.round((1 - (row.escape_rate ?? 0)) * 100))),
+    status: (!row.sim_mode && row.config?.tier === 'CERTIFIED') ? 'GOD_MODE' : 'CERTIFIED',
+  }));
+
+  return jsonResponse({ live: true, agents, generatedAt: Date.now() }, canonicalHost, 200);
+}
+
 async function handleOmniportHealth(request: Request, env: IntakeEnv, canonicalHost: string): Promise<Response> {
   if (request.method !== 'GET') return jsonResponse({ error: 'Method not allowed.' }, canonicalHost, 405);
 
@@ -1289,6 +1333,8 @@ const intakeWorker = {
         return handleMeOrganizations(request, env, canonicalHost);
       case '/api/omniport/health':
         return handleOmniportHealth(request, env, canonicalHost);
+      case '/api/leaderboard':
+        return handleLeaderboard(request, env, canonicalHost);
       case '/api/gatekeeper':
         return handleGatekeeper(request, env, canonicalHost);
       case '/api/attestation/pubkey':

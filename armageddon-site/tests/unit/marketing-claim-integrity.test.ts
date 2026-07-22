@@ -70,11 +70,17 @@ describe('marketing claim integrity', () => {
         }
     });
 
-    it('leaderboard sample data is never presented under a "LIVE" label', () => {
+    it('leaderboard defaults to SAMPLE and only shows LIVE behind a real, non-empty fetch', () => {
         const lb = read('components/social/LeaderboardWidget.tsx');
         expect(lb).toContain('TOP_AGENTS');
-        // A static sample array must not be labeled LIVE.
-        expect(lb).not.toMatch(/>LIVE</);
+        // Initial/SSR state must default to the sample board, never LIVE.
+        expect(lb).toMatch(/useState<\{[^}]*\}>\(\{\s*agents:\s*TOP_AGENTS,\s*live:\s*false\s*\}\)/);
+        // LIVE may only flip true inside the fetch-success branch, gated on a
+        // non-empty real result — never unconditionally, never on failure.
+        expect(lb).toMatch(/data\.live && data\.agents\.length === 0\)\s*return;|!data\.live \|\| data\.agents\.length === 0\)\s*return;/);
+        expect(lb).toMatch(/live:\s*true/);
+        // The header still renders both labels, gated on the same `live` flag.
+        expect(lb).toMatch(/>LIVE</);
         expect(lb).toMatch(/>SAMPLE</);
     });
 });
