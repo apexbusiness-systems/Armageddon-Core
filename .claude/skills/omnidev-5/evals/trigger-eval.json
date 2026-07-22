@@ -1,0 +1,22 @@
+[
+  {"query": "terraform apply keeps failing with a state lock error, can you help me debug it", "should_trigger": true},
+  {"query": "can you write a multi-stage dockerfile for my go service, need the final image minimal", "should_trigger": true},
+  {"query": "my redis KEYS * call is timing out in prod, what should i use instead", "should_trigger": true},
+  {"query": "how do i call upstash redis from a cloudflare worker without a persistent connection", "should_trigger": true},
+  {"query": "can you write a render.yaml blueprint with a web service and a key value cache", "should_trigger": true},
+  {"query": "our render blueprint sync keeps failing on the keyvalue service, something about ipAllowList", "should_trigger": true},
+  {"query": "set up the official render terraform provider alongside our existing aws terraform config", "should_trigger": true},
+  {"query": "should i use upstash qstash or redis pub/sub for a webhook retry queue", "should_trigger": true},
+  {"query": "docker compose healthcheck isn't waiting for redis before starting the api container", "should_trigger": true},
+  {"query": "terraform plan shows a forced replacement on this resource i didn't expect, why", "should_trigger": true},
+  {"query": "compare render key value vs upstash for a serverless next.js app's rate limiting", "should_trigger": true},
+  {"query": "docker build works locally but fails in ci with the exact same dockerfile, no idea why", "should_trigger": true},
+  {"query": "write a kubernetes deployment yaml with 3 replicas and a liveness probe for this same api", "should_trigger": false},
+  {"query": "help me set up a pulumi stack in python for an azure resource group instead of terraform", "should_trigger": false},
+  {"query": "i want to provision this on aws cdk instead, can you write the stack", "should_trigger": false},
+  {"query": "we're moving off render to fly.io, can you write the fly.toml for this app", "should_trigger": false},
+  {"query": "write unit tests for this python function that reads from a database, using pytest", "should_trigger": false},
+  {"query": "explain how oauth2 authorization code flow works at a high level for our new login page", "should_trigger": false},
+  {"query": "draft a go-to-market plan for our new pricing tier launch next quarter", "should_trigger": false},
+  {"query": "review this legal contract clause about indemnification before i sign it", "should_trigger": false}
+]

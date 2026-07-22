@@ -1,0 +1,18 @@
+{
+  "name": "omnidev-5",
+  "version": "1.0.0",
+  "description": "Command references, config patterns, and failure diagnostics for Terraform, Docker, Redis, Upstash, and Render.",
+  "author": "APEX Business Systems Ltd.",
+  "license": "Proprietary",
+  "spec": "agent-skills-open-format",
+  "runtime": "Claude Code / Agent Skills (file + shell access)",
+  "install": {
+    "skills_sh": "npx skills add <REPO_URL> --skill omnidev-5",
+    "claude_code": "unzip omnidev-5.zip -d ~/.claude/skills/",
+    "claude_ai": "upload dist/omnidev-5-1.0.0.skill"
+  },
+  "evidence": {
+    "scorecard": "scorecard.json",
+    "trigger_eval": "evals/trigger-eval.json"
+  }
+}
