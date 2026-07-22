@@ -350,11 +350,15 @@ interface LeaderboardRunRow {
   escape_rate: number | null;
   breaches: number | null;
   sim_mode: boolean;
-  config: { tier?: string } | null;
+  config: { tier?: string; targetSystemName?: string | null } | null;
   completed_at: string | null;
 }
 
 const LEADERBOARD_LIMIT = 10;
+// Fetch a larger pool than the display limit so that deduping multiple runs
+// of the same named build down to its best result still leaves enough
+// distinct builds to fill the board, rather than under-filling it.
+const LEADERBOARD_POOL_SIZE = 50;
 
 // Anonymized by construction: the query below never selects organization_id
 // or any identifying column, and the display id is a short deterministic
@@ -371,7 +375,7 @@ async function handleLeaderboard(request: Request, env: IntakeEnv, canonicalHost
     'status=eq.passed',
     'completed_at=not.is.null',
     'order=escape_rate.asc,breaches.asc,completed_at.desc',
-    `limit=${LEADERBOARD_LIMIT}`,
+    `limit=${LEADERBOARD_POOL_SIZE}`,
   ].join('&');
 
   const { data, error } = await supabaseQuery<LeaderboardRunRow>(env, 'armageddon_runs', params);
@@ -379,9 +383,25 @@ async function handleLeaderboard(request: Request, env: IntakeEnv, canonicalHost
     return jsonResponse({ live: false, agents: [], error: error ?? 'QUERY_FAILED' }, canonicalHost, 200);
   }
 
-  const agents = data.map((row, index) => ({
+  // Rows already arrive best-first (escape_rate asc, breaches asc). Keep only
+  // the first (i.e. best) row per named build so one build can't occupy
+  // multiple leaderboard slots; runs with no captured name are never merged
+  // together (each is its own anonymous entry, keyed by run id).
+  const seenBuildNames = new Set<string>();
+  const deduped: LeaderboardRunRow[] = [];
+  for (const row of data) {
+    const name = row.config?.targetSystemName?.trim() || null;
+    const dedupeKey = name ? `name:${name}` : `id:${row.id}`;
+    if (seenBuildNames.has(dedupeKey)) continue;
+    seenBuildNames.add(dedupeKey);
+    deduped.push(row);
+    if (deduped.length >= LEADERBOARD_LIMIT) break;
+  }
+
+  const agents = deduped.map((row, index) => ({
     rank: index + 1,
     id: leaderboardDisplayId(row.id),
+    name: row.config?.targetSystemName?.trim() || null,
     score: Math.max(0, Math.min(100, Math.round((1 - (row.escape_rate ?? 0)) * 100))),
     status: (!row.sim_mode && row.config?.tier === 'CERTIFIED') ? 'GOD_MODE' : 'CERTIFIED',
   }));

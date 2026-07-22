@@ -28,7 +28,7 @@ The product ships as **two coordinated surfaces**:
 2. **Execution engine** (`packages/core/`) — a Node.js Temporal worker + API server that actually drains pending runs and executes adversarial batteries, optionally bridging into a Python engine. It can run locally via the Docker "Moat" (`docker-compose.moat.yml`) or against Temporal Cloud from a hosted process (`packages/core/src/api-server.ts`).
 
 - **Tamper-Evident Receipts**: Every certification report is Ed25519-signed with a SHA-256 Merkle audit tree (RFC 6962). Third parties verify offline with the shipped `verify.mjs` — zero dependencies. The public verification key is served from `/api/attestation/pubkey` on the edge Worker (`handleAttestationPubkey` in `intake-handler.ts`).
-- **Zero-Failure Tolerance**: `packages/core/src/worker.ts` refuses to start (`process.exit(1)`) unless `SIM_MODE=true` — a deliberate, non-bypassable safety gate. Live-fire (Level 7/8) execution is a separate, explicit deployment decision that has not been made in this repository as shipped; see `CLAUDE.md` Invariant 10.
+- **Zero-Failure Tolerance**: `packages/core/src/worker.ts` refuses to start (`process.exit(1)`) unless `SIM_MODE=true` — a deliberate, non-bypassable process-level safety gate. This does not mean every run inside that process simulates: real Level 7 live-fire execution (a genuine LLM adversary, not the fake `SimulationProvider`) is reachable today through the waiver-gated `POST /api/omniport/live-fire` connector, and is confirmed working end-to-end (real dispatch → real Temporal execution → real signed certificate). Level 8 ("Kinetic Moat," air-gapped local Docker) remains a separate, not-yet-exercised deployment path. See `CLAUDE.md` Invariant 10 for the exact mechanics and a 2026-07-22 correctness fix (a silent live-fire→simulation downgrade bug in the OmniPort dispatch paths).
 
 ## 🏗 ARCHITECTURE
 
@@ -112,7 +112,7 @@ In case of containment breach:
 
 ## ✅ CI QUALITY GATES (ROOT)
 
-Repository-root validation uses npm command entrypoints defined in `package.json` (re-verified green 2026-07-22 — 447 tests passed across `packages/core` and `armageddon-site`, plus a full onboarding→console user-shoes browser validation):
+Repository-root validation uses npm command entrypoints defined in `package.json` (re-verified green 2026-07-22 — 476 tests passed across `packages/core` and `armageddon-site`, plus a full onboarding→console user-shoes browser validation):
 
 ```bash
 npm ci

@@ -61,6 +61,25 @@ describe('GET /api/leaderboard — handleLeaderboard contract', () => {
         expect(body.agents[1].rank).toBe(2);
     });
 
+    it('shows the human-readable build name and keeps only the best run per named build', async () => {
+        const rows = [
+            { id: 'aaaaaaaa-0000-0000-0000-000000000000', escape_rate: 0, breaches: 0, sim_mode: false, config: { tier: 'CERTIFIED', targetSystemName: 'Checkout API' }, completed_at: '2026-07-22T00:00:00Z' },
+            { id: 'bbbbbbbb-0000-0000-0000-000000000000', escape_rate: 0.1, breaches: 2, sim_mode: false, config: { tier: 'CERTIFIED', targetSystemName: 'Checkout API' }, completed_at: '2026-07-21T00:00:00Z' },
+            { id: 'cccccccc-0000-0000-0000-000000000000', escape_rate: 0.02, breaches: 0, sim_mode: false, config: { tier: 'CERTIFIED', targetSystemName: null }, completed_at: '2026-07-20T00:00:00Z' },
+        ];
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(rows), { status: 200 })));
+
+        const res = await callLeaderboard();
+        const body = await res.json() as { agents: Array<{ id: string; name: string | null }> };
+
+        // The weaker second run for "Checkout API" is dropped entirely.
+        expect(body.agents).toHaveLength(2);
+        expect(body.agents[0].name).toBe('Checkout API');
+        expect(body.agents.filter(a => a.name === 'Checkout API')).toHaveLength(1);
+        // Unnamed runs are never merged with each other or with named ones.
+        expect(body.agents[1].name).toBeNull();
+    });
+
     it('returns live:false with an empty list when the query fails, never fabricating standings', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('db unreachable', { status: 500 })));
 
