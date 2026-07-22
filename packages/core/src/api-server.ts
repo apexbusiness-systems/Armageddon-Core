@@ -1150,6 +1150,77 @@ async function startPendingRunsLoop(): Promise<void> {
     }
 }
 
+// ── Active-Run Self-Sustain (execution-plane warmth during in-flight work) ──────
+//
+// Wake-on-Enqueue (edge) solves the *start* of a run on a spun-down free-tier
+// service. This solves the *middle*: a free web service's idle timer only
+// watches INBOUND HTTP, not CPU, so a multi-battery run that emits no inbound
+// requests for ~15 min gets its host killed mid-flight (observed on run
+// 6d608387: B10-B13 each retried ~10 min apart). While — and only while — a run
+// is actually in flight, the service issues a lightweight request to its OWN
+// public URL (Render injects RENDER_EXTERNAL_URL automatically), which routes
+// back in as inbound traffic and resets the idle timer. When no work is in
+// flight the pings stop, so the service is still free to sleep and conserve the
+// free tier's monthly hours. Zero cost, zero new dependency, zero operator
+// config on Render.
+const SELF_SUSTAIN_INTERVAL_MS = 10 * 60 * 1000; // < Render's ~15 min idle window
+// Bound "active" to the workflow execution timeout (3600s) so a crashed run
+// stuck in 'running' can never keep the service warm — and billed — forever.
+const SELF_SUSTAIN_ACTIVE_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Pure decision: should the service self-ping this tick?
+ * Exported for the regression shield (tests/core/self-sustain.test.ts).
+ * True only when a valid http(s) external URL is configured AND work is in
+ * flight — so an idle service (or a non-Render/local host) never self-pings.
+ */
+export function shouldSelfSustain(externalUrl: string | undefined, hasActiveWork: boolean): boolean {
+    if (!hasActiveWork) return false;
+    const url = externalUrl?.trim();
+    return Boolean(url) && /^https?:\/\//i.test(url as string);
+}
+
+async function hasActiveRun(sb: SupabaseClient): Promise<boolean> {
+    const cutoff = new Date(Date.now() - SELF_SUSTAIN_ACTIVE_WINDOW_MS).toISOString();
+    const { data, error } = await sb
+        .from('armageddon_runs')
+        .select('id')
+        .in('status', ['pending', 'running'])
+        .gte('created_at', cutoff)
+        .limit(1);
+    if (error) {
+        console.warn('[SelfSustain] active-work query failed:', error.message);
+        return false;
+    }
+    return Boolean(data && data.length > 0);
+}
+
+async function startSelfSustainLoop(): Promise<void> {
+    const externalUrl = process.env.RENDER_EXTERNAL_URL?.trim();
+    if (!externalUrl) {
+        console.log('[SelfSustain] RENDER_EXTERNAL_URL not set — self-sustain disabled (local/dev or non-Render host).');
+        return;
+    }
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+    console.log(`[SelfSustain] Active-run self-sustain armed (interval ${SELF_SUSTAIN_INTERVAL_MS / 60000}m).`);
+    const sb = getServiceRole();
+    const healthUrl = `${trimTrailingChar(externalUrl, '/')}/health`;
+
+    while (true) {
+        await new Promise<void>(resolve => setTimeout(resolve, SELF_SUSTAIN_INTERVAL_MS));
+        try {
+            const active = await hasActiveRun(sb);
+            if (shouldSelfSustain(externalUrl, active)) {
+                await fetch(healthUrl, { method: 'GET', signal: AbortSignal.timeout(10000), headers: { 'x-armageddon-self-sustain': '1' } })
+                    .then(() => undefined)
+                    .catch((e) => console.warn('[SelfSustain] self-ping failed:', (e as Error).message));
+            }
+        } catch (err) {
+            console.error('[SelfSustain] Unexpected error:', (err as Error).message);
+        }
+    }
+}
+
 // ── Startup ────────────────────────────────────────────────────────────────────
 
 console.log('[Armageddon API] Starting...');
@@ -1167,6 +1238,7 @@ const server = createServer((req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`[Armageddon API] Listening on port ${PORT}`);
     void startPendingRunsLoop();
+    void startSelfSustainLoop();
 });
 
 server.on('error', (err) => {

@@ -104,12 +104,29 @@ const report = {
 };
 
 const orgTier = (run.config?.tier ?? 'free_dry').toUpperCase();
-// EvidenceGenerator only allows a 'CERTIFIED' verdict when options.tier === 'CERTIFIED'.
+
+// VERDICT INTEGRITY (true root cause): EvidenceGenerator.computeVerdict() stamps
+// 'CERTIFIED' when options.tier === 'CERTIFIED' + score>=90 + PASSED. If we fed
+// it the org's BILLING tier, a certified-billing org's *simulation* run scoring
+// 100 would be falsely stamped CERTIFIED — contradicting evidence-generator.ts's
+// own stated invariant ("simulation runs ... must never be reported as certified
+// regardless of their meaningless score"). A certification must attest to what
+// ACTUALLY EXECUTED, not to what the customer pays for. So we derive the tier
+// from the real, telemetry-observed adversary engine, and only claim CERTIFIED
+// when EVERY battery is proven to have run under a real (LIVE_FIRE) engine.
+const engines = batteries.map((b) => b.details.engine);
+const executedLiveFire =
+  batteries.length > 0 &&
+  batteries.every((b) => b.details.hasTelemetry && b.details.engine === 'LIVE_FIRE') &&
+  run.sim_mode === false;
+const attestedTier = executedLiveFire ? 'CERTIFIED' : 'FREE';
+
 const options = {
   seed: run.config?.seed ?? 0,
   mode: run.sim_mode ? 'SIMULATION' : 'LIVE_FIRE',
   targetUrl: run.config?.targetEndpoint ?? undefined,
-  tier: orgTier,
+  // Honest tier: what executed, never what was billed.
+  tier: attestedTier,
 };
 
 const gen = new EvidenceGenerator(report, runId, options);
@@ -119,9 +136,15 @@ const parsed = JSON.parse(reportJson);
 writeFileSync(process.env.OUT_JSON ?? 'certificate-report.json', reportJson);
 console.log('=== REAL CERTIFICATE (from actual run data) ===');
 console.log('runId:', runId);
-console.log('level:', run.level, '| orgTier(config):', orgTier, '| verdict:', parsed.verdict);
+console.log('level:', run.level, '| billingTier(config):', orgTier, '| attestedTier(executed):', attestedTier, '| verdict:', parsed.verdict);
 console.log('score:', parsed.score, '| grade:', parsed.grade);
-console.log('battery engine(s) actually used:', [...new Set(batteries.map(b => b.details.engine))].join(', '));
+console.log('battery engine(s) actually used:', [...new Set(engines)].join(', '));
+if (orgTier === 'CERTIFIED' && attestedTier !== 'CERTIFIED') {
+  console.log('\nℹ️  VERDICT INTEGRITY: org is billed CERTIFIED, but this run executed in',
+    run.sim_mode ? 'SIMULATION' : 'a non-live-fire', 'engine — so it is NOT stamped CERTIFIED.');
+  console.log('   A truthful CERTIFIED verdict requires live-fire execution, which the current');
+  console.log('   production deployment disables by design (SIM_MODE boot gate, CLAUDE.md Invariant 10).');
+}
 console.log('attestation.keyId:', parsed.attestation.keyId, '| chainId:', parsed.attestation.chainId);
 console.log('attestation.signature (base64, first 40):', parsed.attestation.signature?.slice(0, 40) + '...');
 console.log('Written to:', process.env.OUT_JSON ?? 'certificate-report.json');
