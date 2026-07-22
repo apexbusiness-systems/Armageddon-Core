@@ -31,8 +31,13 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 WORKDIR /app
 
 # Install Python dependencies first (for layer caching)
-COPY packages/core/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# requirements.lock.txt exact-pins the full resolved dependency closure
+# (including transitive deps) so the build never floats on an unpinned
+# transitive version; --only-binary :all: refuses any source distribution,
+# so no third-party setup.py ever executes during install. Regeneration
+# steps are in the lock file's own header comment.
+COPY packages/core/requirements.txt packages/core/requirements.lock.txt ./
+RUN pip install --no-cache-dir --only-binary :all: -r requirements.lock.txt
 
 # Copy workspace package (@armageddon/shared) required by armageddon-core
 COPY packages/shared ./packages/shared
@@ -57,10 +62,10 @@ COPY packages/core/src ./packages/core/src
 COPY packages/core/scripts/bundle-workflows.mjs ./packages/core/scripts/bundle-workflows.mjs
 
 # Build shared package first, then armageddon-core; fail fast if either workspace cannot compile.
-RUN npm run build -w @armageddon/shared
-RUN npm run build -w armageddon-core && ls -la packages/core/dist
-RUN npm run bundle:workflows -w armageddon-core
-RUN npm prune --omit=dev --workspaces --include-workspace-root
+RUN npm run build -w @armageddon/shared && \
+    npm run build -w armageddon-core && ls -la packages/core/dist && \
+    npm run bundle:workflows -w armageddon-core && \
+    npm prune --omit=dev --workspaces --include-workspace-root
 
 # Flatten dist to /app/dist for CMD
 RUN cp -r packages/core/dist ./dist

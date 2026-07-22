@@ -13,13 +13,14 @@ FROM node:20-bullseye-slim
 # (ca-certificates is a Recommends of curl, not a hard Depends), which is
 # exactly why the worker failed with NativeCertsNotFound while the API
 # server's fetch()-based Temporal calls kept working.
+# Build-time guard (chained into the same RUN as the install below): fail the
+# BUILD loudly if the cert bundle isn't actually present, instead of shipping
+# an image that only fails at runtime.
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     update-ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
-# Build-time guard: fail the BUILD loudly if the cert bundle isn't actually
-# present, instead of shipping an image that only fails at runtime.
-RUN test -s /etc/ssl/certs/ca-certificates.crt || (echo "FATAL: ca-certificates bundle missing after update-ca-certificates" && exit 1)
+    rm -rf /var/lib/apt/lists/* && \
+    test -s /etc/ssl/certs/ca-certificates.crt || \
+    (echo "FATAL: ca-certificates bundle missing after update-ca-certificates" && exit 1)
 
 WORKDIR /app
 

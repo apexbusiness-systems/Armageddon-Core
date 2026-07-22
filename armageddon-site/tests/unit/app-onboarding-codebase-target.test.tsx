@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 async function completeCommonFields() {
-    await waitFor(() => expect(screen.getByLabelText(/Organization Name/i)).toBeInTheDocument());
+    await screen.findByLabelText(/Organization Name/i);
     await new Promise((resolve) => setTimeout(resolve, 0));
     fireEvent.change(screen.getByLabelText(/Organization Name/i), { target: { value: 'ACME Corp' } });
     fireEvent.change(screen.getByLabelText(/Contact Email/i), { target: { value: 'security@acme.test' } });

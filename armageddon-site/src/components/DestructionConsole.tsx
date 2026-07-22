@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useReducer, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
 import { endSupabaseSession } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
@@ -189,6 +189,85 @@ async function resolveActiveOrg(): Promise<OrgResolution> {
         return { ok: false, reason: 'no-org' };
     }
     return { ok: true, organizationId, accessToken: session.access_token };
+}
+
+interface RunTelemetrySubscriptionParams {
+    readonly supabase: SupabaseClient;
+    readonly runId: string;
+    readonly addLine: (prefix: string, content: string, type: TerminalLine['type']) => void;
+    readonly dispatchTelemetry: React.Dispatch<Parameters<typeof telemetryReducer>[1]>;
+    readonly handleTrapTrigger: () => void;
+    readonly handleRunCompletion: (run: ArmageddonRun) => void;
+    readonly subscriptionRefs: React.MutableRefObject<RealtimeChannel[]>;
+    readonly setCurrentBattery: (n: number) => void;
+}
+
+// Wires the two realtime channels (per-event telemetry + run-status terminal
+// detection) that back a live run. Extracted out of initiateSequence purely
+// to reduce that function's cognitive complexity — behavior is unchanged.
+function subscribeToRunTelemetry({
+    supabase, runId, addLine, dispatchTelemetry, handleTrapTrigger, handleRunCompletion, subscriptionRefs, setCurrentBattery,
+}: RunTelemetrySubscriptionParams): void {
+    const eventsChannel = supabase
+        .channel(`run_telemetry_${runId}`)
+        .on('postgres_changes',
+            { event: EVENTS.INSERT, schema: TABLE.SCHEMA, table: TABLE.EVENTS, filter: `run_id=eq.${runId}` },
+            (payload: { new: ArmageddonEvent }) => {
+                const event = payload.new;
+                if (event.event_type === EVENTS.TRAP) {
+                    handleTrapTrigger();
+                    return;
+                }
+
+                // Feed the live telemetry deck from the same real event (single
+                // source — no extra channel). Idempotent: the reducer de-dupes by id.
+                dispatchTelemetry({ type: 'event', event });
+
+                const typeMap: Record<string, TerminalLine['type']> = {
+                    'BATTERY_STARTED': MSG_TYPE.COMMAND,
+                    'BATTERY_COMPLETED': MSG_TYPE.SUCCESS,
+                    'ATTACK_BLOCKED': MSG_TYPE.BLOCKED,
+                    'BREACH': MSG_TYPE.ERROR,
+                    'TRAP_TRIGGERED': MSG_TYPE.WARNING,
+                };
+
+                addLine(
+                    event.battery_id || LABELS.SYS,
+                    event.message || event.event_type,
+                    typeMap[event.event_type] || MSG_TYPE.SYSTEM
+                );
+
+                const batteryNum = Number.parseInt(event.battery_id?.replace('B', '') || '0', 10);
+                if (batteryNum > 0) setCurrentBattery(batteryNum);
+            }
+        );
+
+    eventsChannel.subscribe();
+    subscriptionRefs.current.push(eventsChannel);
+
+    const runsChannel = supabase
+        .channel(`runs-${runId}`)
+        .on('postgres_changes',
+            { event: EVENTS.UPDATE, schema: TABLE.SCHEMA, table: TABLE.RUNS, filter: `id=eq.${runId}` },
+            (payload: { new: ArmageddonRun }) => {
+                const run = payload.new;
+                // Live progress (escape rate, breaches, iteration cap) feeds the deck
+                // on every update — not only at terminal state.
+                dispatchTelemetry({ type: 'run', run });
+                if (isTerminalStatus(run.status)) {
+                    supabase.removeChannel(eventsChannel);
+                    supabase.removeChannel(runsChannel);
+
+                    // Remove from refs too
+                    subscriptionRefs.current = subscriptionRefs.current.filter(c => c !== eventsChannel && c !== runsChannel);
+
+                    handleRunCompletion(run);
+                }
+            }
+        );
+
+    runsChannel.subscribe();
+    subscriptionRefs.current.push(runsChannel);
 }
 
 function signedInReadinessItem(userReady: boolean): ReadinessItem {
@@ -735,66 +814,10 @@ export default function DestructionConsole({
             return;
         }
 
-        const eventsChannel = supabase
-            .channel(`run_telemetry_${runId}`)
-            .on('postgres_changes',
-                { event: EVENTS.INSERT, schema: TABLE.SCHEMA, table: TABLE.EVENTS, filter: `run_id=eq.${runId}` },
-                (payload: { new: ArmageddonEvent }) => {
-                    const event = payload.new;
-                    if (event.event_type === EVENTS.TRAP) {
-                        handleTrapTrigger();
-                        return;
-                    }
-
-                    // Feed the live telemetry deck from the same real event (single
-                    // source — no extra channel). Idempotent: the reducer de-dupes by id.
-                    dispatchTelemetry({ type: 'event', event });
-
-                    const typeMap: Record<string, TerminalLine['type']> = {
-                        'BATTERY_STARTED': MSG_TYPE.COMMAND,
-                        'BATTERY_COMPLETED': MSG_TYPE.SUCCESS,
-                        'ATTACK_BLOCKED': MSG_TYPE.BLOCKED,
-                        'BREACH': MSG_TYPE.ERROR,
-                        'TRAP_TRIGGERED': MSG_TYPE.WARNING,
-                    };
-
-                    addLine(
-                        event.battery_id || LABELS.SYS,
-                        event.message || event.event_type,
-                        typeMap[event.event_type] || MSG_TYPE.SYSTEM
-                    );
-
-                    const batteryNum = Number.parseInt(event.battery_id?.replace('B', '') || '0', 10);
-                    if (batteryNum > 0) setCurrentBattery(batteryNum);
-                }
-            );
-
-        eventsChannel.subscribe();
-        subscriptionRefs.current.push(eventsChannel);
-
-        const runsChannel = supabase
-            .channel(`runs-${runId}`)
-            .on('postgres_changes',
-                { event: EVENTS.UPDATE, schema: TABLE.SCHEMA, table: TABLE.RUNS, filter: `id=eq.${runId}` },
-                (payload: { new: ArmageddonRun }) => {
-                    const run = payload.new;
-                    // Live progress (escape rate, breaches, iteration cap) feeds the deck
-                    // on every update — not only at terminal state.
-                    dispatchTelemetry({ type: 'run', run });
-                    if (isTerminalStatus(run.status)) {
-                        supabase.removeChannel(eventsChannel);
-                        supabase.removeChannel(runsChannel);
-
-                        // Remove from refs too
-                        subscriptionRefs.current = subscriptionRefs.current.filter(c => c !== eventsChannel && c !== runsChannel);
-
-                        handleRunCompletion(run);
-                    }
-                }
-            );
-
-        runsChannel.subscribe();
-        subscriptionRefs.current.push(runsChannel);
+        subscribeToRunTelemetry({
+            supabase, runId, addLine, dispatchTelemetry, handleTrapTrigger, handleRunCompletion,
+            subscriptionRefs, setCurrentBattery,
+        });
 
     }, [isRunning, readinessItems, addLine, onStatusChange, selectedBatteries, handleTrapTrigger, handleRunCompletion, t, userTier]);
 

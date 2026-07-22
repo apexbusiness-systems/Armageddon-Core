@@ -6,10 +6,16 @@
 \set ON_ERROR_STOP on
 \set TARGET_TABLE 'armageddon_runs'
 
+-- Publish the target table name as a session-level setting so the PL/pgSQL
+-- blocks below can read it via current_setting() instead of re-embedding the
+-- literal — psql's :'VAR' substitution does not reach inside DO $$ ... $$
+-- bodies (they're opaque dollar-quoted strings to psql's own lexer).
+SELECT set_config('armageddon.target_table', :'TARGET_TABLE', false);
+
 -- ─── PRE-FLIGHT: verify target table exists ─────────────────────────────
 DO $$
 DECLARE
-    tbl_name CONSTANT text := 'armageddon_runs';
+    tbl_name CONSTANT text := current_setting('armageddon.target_table');
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.tables
@@ -24,19 +30,19 @@ $$;
 BEGIN;
 
 -- Add config column to armageddon_runs
-ALTER TABLE armageddon_runs
+ALTER TABLE :"TARGET_TABLE"
 ADD COLUMN IF NOT EXISTS config jsonb DEFAULT '{}'::jsonb;
 
 -- Add index for efficient config queries
-CREATE INDEX IF NOT EXISTS idx_runs_config ON armageddon_runs USING gin(config);
+CREATE INDEX IF NOT EXISTS idx_runs_config ON :"TARGET_TABLE" USING gin(config);
 
 -- Add documentation comment
-COMMENT ON COLUMN armageddon_runs.config IS 'Run configuration including battery selection, e.g., {"batteries": ["B10", "B12"]}';
+COMMENT ON COLUMN :"TARGET_TABLE".config IS 'Run configuration including battery selection, e.g., {"batteries": ["B10", "B12"]}';
 
 -- ─── POST-MIGRATION VERIFICATION ──────────────────────────────────────
 DO $$
 DECLARE
-    tbl_name CONSTANT text := 'armageddon_runs';
+    tbl_name CONSTANT text := current_setting('armageddon.target_table');
     col_exists boolean;
 BEGIN
     SELECT EXISTS (
@@ -57,4 +63,4 @@ COMMIT;
 -- ─── VERIFICATION OUTPUT ────────────────────────────────────────────────
 SELECT column_name, data_type, column_default
 FROM information_schema.columns
-WHERE table_name = 'armageddon_runs' AND column_name = 'config';
+WHERE table_name = :'TARGET_TABLE' AND column_name = 'config';
