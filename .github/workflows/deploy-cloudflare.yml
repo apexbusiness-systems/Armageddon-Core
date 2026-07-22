@@ -51,7 +51,7 @@ jobs:
 
       # ─── Install (postinstall builds @armageddon/shared) ──────────────
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts && npm run build:shared
 
       - name: Validate Production Environment
         working-directory: armageddon-site

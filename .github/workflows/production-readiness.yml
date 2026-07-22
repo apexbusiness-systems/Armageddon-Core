@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts && npm run build:shared
 
       - name: Audit dependencies (critical, core workspace)
         run: node scripts/audit-check.js
