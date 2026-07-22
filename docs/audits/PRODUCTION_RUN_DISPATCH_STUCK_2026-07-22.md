@@ -7,6 +7,16 @@
 
 ---
 
+## Update (same day) — follow-up run + B14 telemetry defect found and fixed in code
+
+After waking the idle Render service directly (`https://armageddon-exec-api.onrender.com/health`), a fresh Level 7 run (id `6d608387-98ab-4a72-9ee5-e87f35034e14`, all 5 batteries B10-B14) reached a real terminal state: `failed`, score 80/100, 1 breach. This confirms the dispatcher *does* work once the free-tier service is awake — the P1 above is specifically about it going idle, not a logic defect in the dispatch code path.
+
+That run surfaced a second, distinct, code-level defect: **B14_INDIRECT_INJECTION emitted zero `armageddon_events` rows** despite being marked `executed`/`failed` on the run record — every other battery (B10-B13) had start/complete telemetry. Root cause: `runBattery14_IndirectInjection` (`packages/core/src/temporal/activities.ts`) is the only battery that delegates to a separate legacy engine module (`core/engine/activities.ts`) and never called the reporter itself. **Fixed** (commit `2a3499f` on this branch) by pushing the same `BATTERY_STARTED`/`BATTERY_COMPLETED` events every other battery pushes, with a new regression test in `certification-pipeline.test.ts`. Not yet live — `render.yaml` only auto-deploys from `main`, and this fix has not been merged.
+
+Also resolved with certainty while investigating: telemetry showing `engine=SIMULATION` for a CERTIFIED-tier run is **intentional, not a bug** — `api-server.ts:1080` forces `workflowTier='FREE'` whenever `SIM_MODE==='true'`, and the deployed worker requires `SIM_MODE=true` to boot at all (`CLAUDE.md` Invariant 10). Live-fire cannot execute in this deployment for any tier today, by design.
+
+---
+
 ## Summary
 
 A real, authenticated certification run was created in production but **never progressed past `status='pending'`**. The user-facing onboarding→console flow is healthy; the **backend execution pipeline does not drain pending runs**, so no run reaches `passed`/`failed` and no attestation/certificate is ever produced.
