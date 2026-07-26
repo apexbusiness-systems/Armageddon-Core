@@ -20,16 +20,9 @@ const PUB = join(__dirname, '..', '..', 'public');
 const read = (f: string) => readFileSync(join(PUB, f), 'utf8');
 
 describe('SEO/GEO discoverability assets', () => {
-    it('robots.txt allows crawl, blocks app surfaces, and references the sitemap', () => {
+    it('robots.txt completely blocks all crawlers (Access Hardening Phase 1)', () => {
         const robots = read('robots.txt');
-        expect(robots).toMatch(/^User-agent: \*/m);
-        expect(robots).toMatch(/^Disallow: \/console/m);
-        expect(robots).toMatch(/^Disallow: \/api\//m);
-        expect(robots).toContain('Sitemap: https://armageddontest.icu/sitemap.xml');
-        // AI answer-engine crawlers must remain explicitly allowed (GEO)
-        for (const bot of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']) {
-            expect(robots).toContain(`User-agent: ${bot}`);
-        }
+        expect(robots.trim().replace(/\r\n/g, '\n')).toBe('User-agent: *\nDisallow: /');
     });
 
     it('sitemap.xml is well-formed and lists all canonical marketing pages', () => {
