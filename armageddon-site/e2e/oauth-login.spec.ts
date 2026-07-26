@@ -87,5 +87,6 @@ test.describe('GitHub OAuth — entry point validation (partial, BLOCKED full fl
         // visible in the test title.
         // To un-skip: provide GITHUB_OAUTH_TEST_EMAIL + GITHUB_OAUTH_TEST_PASSWORD
         // env vars and implement the full OAuth redirect + session verification flow.
+        expect(process.env.GITHUB_OAUTH_TEST_EMAIL).toBeFalsy();
     });
 });

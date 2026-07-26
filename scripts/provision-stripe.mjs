@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,7 +82,9 @@ async function main() {
     console.log('Successfully appended URLs to armageddon-site/.env.local');
 }
 
-main().catch(e => {
+try {
+    await main();
+} catch (e) {
     console.error(e);
     process.exit(1);
-});
+}

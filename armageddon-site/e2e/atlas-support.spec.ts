@@ -62,8 +62,8 @@ test.describe('ATLAS support chat — live response validation', () => {
             { timeout: 30000 }
         ).catch(() => { /* timeout is acceptable if the indicator is a CSS class */ });
 
-        // More reliable: wait for a new ATLAS message block to appear after our user msg.
-        await page.waitForTimeout(2000); // let streaming settle
+        // More reliable: wait for the network response interceptor to capture the body.
+        await expect.poll(() => chatResponseBody, { timeout: 15000 }).not.toBe('').catch(() => null);
 
         // ── Step 7: Capture the transcript ────────────────────────────────────
         const allMessages = await page.locator('div.flex.flex-col.gap-1').allInnerTexts();

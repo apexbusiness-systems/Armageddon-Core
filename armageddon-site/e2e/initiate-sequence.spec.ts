@@ -107,7 +107,21 @@ test.describe('Initiate Sequence — free-tier console flow', () => {
         // "AWAITING SEQUENCE INITIATION" is the idle state — we expect something DIFFERENT.
         const terminalContainer = page.locator('text=/ARMAGEDDON|SEQUENCE INITIATED|BACKEND NOT CONNECTED|RUN BLOCKED|SIGN IN|TARGET/i').first();
         // Also acceptable: a named blocker message with specific reason text (not generic "Failed to fetch").
-        await page.waitForTimeout(3000); // Let async readiness checks + API call settle
+        // Wait for the UI to transition from the default idle state
+        await expect.poll(async () => {
+            const text = await page.locator('body').innerText();
+            return /ARMAGEDDON LEVEL.*SEQUENCE INITIATED/i.test(text)
+                || /Connecting to Temporal workflow/i.test(text)
+                || /LIVE-FIRE BACKEND NOT CONNECTED/i.test(text)
+                || /backend is not connected/i.test(text)
+                || /complete.*readiness/i.test(text)
+                || /Sign in/i.test(text)
+                || /Set the target/i.test(text)
+                || /Access denied/i.test(text)
+                || /run blocked/i.test(text)
+                || /Failed to fetch/i.test(text)
+                || runRequestIntercepted;
+        }, { timeout: 15000 }).toBeTruthy().catch(() => null);
 
         // ── Step 7: Capture screenshot AFTER clicking ──────────────────────────
         await page.screenshot({ path: 'test-results/initiate-sequence-after.png', fullPage: false });
