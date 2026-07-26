@@ -216,7 +216,7 @@ export default function PrivacyPageClient() {
         <div className="flex items-center gap-6">
           <Link href="/" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">{dictionary.common.nav.home}</Link>
           <Link href="/support" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">Support</Link>
-          <a href="https://github.com/apexbusiness-systems/armageddon-test-suite" target="_blank" rel="noopener noreferrer" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">{dictionary.common.nav.docs}</a>
+          <a href="https://github.com/apexbusiness-systems/Armageddon-Core" target="_blank" rel="noopener noreferrer" className="mono-small text-[var(--signal-dim)] hover:text-[var(--signal)] transition-colors">{dictionary.common.nav.docs}</a>
         </div>
       </nav>
 
