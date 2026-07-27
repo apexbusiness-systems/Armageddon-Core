@@ -217,3 +217,18 @@ The 2026-05-15 audit remains a historical baseline. This addendum records releas
 | --- | --- | --- |
 | `docs/audits/BUILD_VERIFICATION_2026-07-04.log` | Generated audit evidence | Verbatim `npm run build` output captured on 2026-07-04 with exit code 0; regenerate only by rerunning the command and recording the new dated evidence file. |
 | `docs/audits/KV_BINDING_VERIFICATION_REQUIRED_2026-07-04.md` | Blocking audit action | Created 2026-07-04 after `npx wrangler kv namespace list` could not run without `CLOUDFLARE_API_TOKEN`; operators must inject Cloudflare credentials through the shell environment (never pasted into logs or docs), then use the listed Wrangler and Cloudflare Dashboard/API checks before rerunning Work Package 2. |
+
+## Addendum — 2026-07-26 release-gate, E2E test suite & access hardening
+
+The 2026-05-15 audit remains a historical baseline. This addendum records the E2E test suite, Stripe provisioning automation, search indexing hardening, and omni-recall session logs added for PRs #213, #214, and #215.
+
+| File / Test file | Status | Maintenance rule |
+| --- | --- | --- |
+| `omni-recall/2026-07-26-ccasp-remediation-and-access-hardening.md` | Canonical session log | Preserves 2026-07-26 release gate audit, E2E test suite, and search indexing hardening evidence. |
+| `armageddon-site/e2e/stripe-revenue-gate.spec.ts` | Enforcement (E2E) | Validates live Stripe checkout link routing and price parameter resolution. |
+| `armageddon-site/e2e/initiate-sequence.spec.ts` | Enforcement (E2E) | Validates honest initiate-sequence UI gating and state progression. |
+| `armageddon-site/e2e/atlas-support.spec.ts` | Enforcement (E2E) | Validates ATLAS support chat rate-limiting and prompt injection filter boundaries. |
+| `armageddon-site/e2e/oauth-login.spec.ts` | Enforcement (E2E) | Validates OAuth login flow and session persistence UI elements. |
+| `armageddon-site/e2e/docs-link-regression.spec.ts` | Enforcement (E2E) | Validates documentation link integrity across site surfaces. |
+| `scripts/provision-stripe.mjs` | Automation | Automated script for provisioning Stripe products, prices, and payment links via Stripe API. |
+

@@ -1,6 +1,6 @@
 ---
-version: 1.4.0
-last_audited: 2026-07-22
+version: 1.5.0
+last_audited: 2026-07-26
 status: verified
 ---
 
@@ -30,6 +30,15 @@ The system should:
 - remain honest about missing access or incomplete backfill
 
 ## Last Verified Session
+
+- Audit date: 2026-07-26 — CCASP Remediation (Release Gate Audit v1 + Playwright E2E Suite + Phase 1 Access Hardening — see `2026-07-26-ccasp-remediation-and-access-hardening.md`)
+- Key facts:
+  1. Merged PR #213 (`6b03c06`): Resolved Docker build bundle limit, decoupled workflow bundle from `@armageddon/shared` barrel, enforced level-integrity regex, and fixed SonarQube code smells.
+  2. Merged PR #214 (`19531af`): Landed automated Playwright E2E testing suite under `armageddon-site/e2e/` covering Stripe Revenue Gate (`stripe-revenue-gate.spec.ts`), Honest Initiate Sequence Gating (`initiate-sequence.spec.ts`), ATLAS Support Chat (`atlas-support.spec.ts`), OAuth Login (`oauth-login.spec.ts`), and Docs Link Integrity (`docs-link-regression.spec.ts`). Included automated Stripe product provisioning script `scripts/provision-stripe.mjs`.
+  3. Merged PR #215 (`5379a55`): Hardened search engine indexing controls for test environment (`armageddontest.icu`) across `robots.txt`, `_headers`, and SEO discoverability test suite.
+- Durable correction: always verify E2E checkout routing and search indexing headers via Playwright/curl prior to declaring a release gate closed.
+
+## Previous Verified Session (2026-07-22 — real live-fire certification + baseline tag)
 
 - Audit date: 2026-07-22, latest same-day continuation — real live-fire certification + critical sim-downgrade fix + baseline tag (see `2026-07-22-real-live-fire-and-baseline.md`)
 - Key facts: Provisioned a genuinely separate OmniHub staging deployment (new Supabase project, two new Render services) and executed real OmniPort live-fire dispatches. Found and fixed (PR #211, merged) a critical defect: every OmniPort dispatch path omitted `targetModel`, so `AdversarialEngine` silently ran the fake `SimulationProvider` for any `tier: 'CERTIFIED'` run while telemetry still claimed `engine: 'LIVE_FIRE'` — caught by noticing battery durations (2.7–3.4s) were far too fast for real LLM round trips, not by trusting the label. `AdversarialEngine` now throws instead of silently degrading; re-verified with two subsequent real dispatches (~19–24s/battery, consistent with genuine network calls). Also fixed: the OmniPort task-queue orphaning bug (silently stuck every prior live-fire dispatch on the shared deployment), leaderboard build-name + dedup, a PDF certificate box-overlap defect, and a Markdown report section that read as blank on a clean pass. `main` tagged as this session's verified baseline after full quality-gate re-confirmation (479 tests). CLAUDE.md Invariant 10 corrected (was wrongly inferring the `SIM_MODE` boot gate meant live-fire could never execute — it doesn't; the boot gate and the per-run real/simulated choice are independent). New `.understand-anything/CANONICAL_STATE_2026-07-22.md` added as a point-in-time repo-state snapshot separate from this session-history log.

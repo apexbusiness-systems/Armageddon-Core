@@ -1,10 +1,27 @@
 # Feature Registry — ARMAGEDDON Test Suite
 
-**Docs version**: 2026.07.07<br>
-**Last updated**: 2026-07-07<br>
-**Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts`, the standalone API runtime in `packages/core/src/api-server.ts`, and site pages in `armageddon-site/src/app/`.
+**Docs version**: 2026.07.26<br>
+**Last updated**: 2026-07-26<br>
+**Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts`, the standalone API runtime in `packages/core/src/api-server.ts`, site pages and Playwright E2E suites under `armageddon-site/`.
 
-## Domain: Release Gate & Execution Engine (NEW — PRs #181–#189, 2026-07-06/07)
+## Domain: Release Gate & E2E Testing Suite (NEW — PRs #213–#215, 2026-07-26)
+
+- **Feature:** Playwright E2E Verification Suite
+  - **Location:** `armageddon-site/playwright.config.ts`; `armageddon-site/e2e/` (`stripe-revenue-gate.spec.ts`, `initiate-sequence.spec.ts`, `atlas-support.spec.ts`, `oauth-login.spec.ts`, `docs-link-regression.spec.ts`)
+  - **Scope:** Automated browser verification for Stripe checkout pricing and URL generation, honest Initiate Sequence UI gating, ATLAS support chat prompt injection and rate-limiting rules, OAuth login buttons, and documentation navigation link integrity.
+  - **Status:** Implemented (PR #214).
+
+- **Feature:** Search Engine Indexing Protection (armageddontest.icu)
+  - **Location:** `armageddon-site/public/robots.txt`; `armageddon-site/public/_headers`; `armageddon-site/tests/unit/seo-discoverability.test.ts`
+  - **Scope:** Strict indexing shield on test environment. `robots.txt` sets `Disallow: /`; `_headers` sets `X-Robots-Tag: noindex, nofollow, noarchive`.
+  - **Status:** Implemented (PR #215).
+
+- **Feature:** Automated Stripe Provisioning Tool
+  - **Location:** `scripts/provision-stripe.mjs`
+  - **Scope:** Automated creation and verification of Stripe products, prices, and payment links via the Stripe API.
+  - **Status:** Implemented (PR #214).
+
+## Domain: Release Gate & Execution Engine (PRs #181–#189, 2026-07-06/07)
 
 - **Feature:** Attestation public-key endpoint on the edge worker
   - **Location:** `armageddon-site/src/intake-handler.ts` → `handleAttestationPubkey` (`/api/attestation/pubkey`)

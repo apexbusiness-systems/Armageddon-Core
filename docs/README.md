@@ -1,7 +1,7 @@
 # Armageddon Documentation Hub
 
-**Docs version**: 2026.07.07<br>
-**Last reviewed**: 2026-07-07<br>
+**Docs version**: 2026.07.26<br>
+**Last reviewed**: 2026-07-26<br>
 **Primary package manager**: npm<br>
 **Runtime baseline**: Node.js 22 in CI, Node.js >=20 for workspaces
 
