@@ -18,8 +18,8 @@ const syne = Syne({ subsets: ['latin'], weight: ['400', '500', '600', '700', '80
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false, // HARDWARE LOCK
+    maximumScale: 5,
+    userScalable: true,
     themeColor: '#000000',
 };
 
@@ -162,17 +162,17 @@ export default function RootLayout({
                         <div className="scanline" aria-hidden="true" />
 
                         {/* SYSTEM STATUS INDICATOR — reflects actual build wiring, not a fixed string */}
-                        <div className="fixed top-5 left-5 z-[10000] pointer-events-none">
-                            <div className="flex items-center gap-3 bg-[var(--void)]/95 border border-[var(--tungsten)] px-4 py-2 backdrop-blur-sm">
+                        <div className="fixed top-4 left-4 sm:top-5 sm:left-5 z-[10000] pointer-events-none max-w-[calc(100vw-16rem)] sm:max-w-none">
+                            <div className="flex items-center gap-2 sm:gap-3 bg-[var(--void)]/95 border border-[var(--tungsten)] px-2.5 py-1 sm:px-4 sm:py-2 backdrop-blur-sm">
                                 <div
-                                    className={`w-2 h-2 rounded-full animate-pulse ${
+                                    className={`w-2 h-2 rounded-full animate-pulse shrink-0 ${
                                         backendWired
                                             ? 'bg-[var(--safe)] shadow-[0_0_8px_var(--safe)]'
                                             : 'bg-[var(--warning)] shadow-[0_0_8px_var(--warning)]'
                                     }`}
                                 />
                                 <span
-                                    className={`mono-small tracking-widest ${
+                                    className={`mono-small text-[10px] sm:text-xs tracking-widest truncate ${
                                         backendWired ? 'text-[var(--safe)]/80' : 'text-[var(--warning)]/80'
                                     }`}
                                 >

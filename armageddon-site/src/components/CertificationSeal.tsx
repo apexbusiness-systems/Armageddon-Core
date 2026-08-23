@@ -50,7 +50,9 @@ export default function CertificationSeal() {
                 >
                     <button
                         type="button"
-                        className="seal-container relative cursor-pointer bg-transparent border-none p-0"
+                        aria-label="Inspect ARMAGEDDON certification seal metadata"
+                        aria-expanded={isHovered}
+                        className="seal-container relative cursor-pointer bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aerospace)]"
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
                         onClick={() => setIsHovered(!isHovered)}

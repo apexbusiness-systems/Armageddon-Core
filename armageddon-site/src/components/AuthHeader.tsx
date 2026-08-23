@@ -119,7 +119,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
     return (
         <>
             <div
-                className="fixed top-6 right-6 z-[9999] flex items-center gap-3"
+                className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] flex flex-wrap items-center justify-end gap-2 sm:gap-3 max-w-[calc(100vw-2rem)]"
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
             >
@@ -159,7 +159,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                             type="button"
                             aria-label={dictionary.common.nav.logoutAria}
                             onClick={onLogout}
-                            className="relative px-7 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
+                            className="relative px-4 py-1.5 sm:px-7 sm:py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.3em] uppercase"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >
@@ -176,7 +176,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                             type="button"
                             aria-label={dictionary.common.nav.signupAria}
                             onClick={() => openModal('signup')}
-                            className="relative px-6 py-2.5 bg-[var(--aerospace)] text-black font-bold shadow-[0_0_24px_rgba(255,51,0,0.5)] transition-all duration-300 text-sm tracking-[0.3em] uppercase hover:bg-white"
+                            className="relative px-3.5 py-1.5 sm:px-6 sm:py-2.5 bg-[var(--aerospace)] text-black font-bold shadow-[0_0_24px_rgba(255,51,0,0.5)] transition-all duration-300 text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.3em] uppercase hover:bg-white"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >
@@ -188,7 +188,7 @@ export default function AuthHeader({ user, onLogout }: AuthHeaderProps) {
                             type="button"
                             aria-label={dictionary.common.nav.loginAria}
                             onClick={() => openModal('signin')}
-                            className="relative px-6 py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-sm tracking-[0.3em] uppercase"
+                            className="relative px-3.5 py-1.5 sm:px-6 sm:py-2.5 border border-[var(--safe)] bg-[var(--safe)]/15 text-[var(--safe)] shadow-[0_0_18px_rgba(0,255,136,0.35)] transition-all duration-300 text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.3em] uppercase"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >

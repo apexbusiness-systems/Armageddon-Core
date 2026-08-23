@@ -923,7 +923,7 @@ export default function DestructionConsole({
     // ────────────────────────────────────────────────────────────────────────
 
     return (
-        <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
+        <section className={`relative min-h-[600px] flex flex-col items-center justify-center p-3 sm:p-6 overflow-hidden ${standalone ? 'bg-[var(--void)] grid-bg' : ''}`}>
             {standalone && <AuthHeader user={user} onLogout={handleLogout} />}
 
             <AnimatePresence>
@@ -950,12 +950,13 @@ export default function DestructionConsole({
                 </>
             )}
 
-            <div className="relative z-10 w-full max-w-6xl mx-auto h-full flex flex-col">
+            <div className="relative z-10 w-full max-w-6xl mx-auto h-full flex flex-col px-2 sm:px-4">
                 <motion.div
                     className="text-center mb-8"
                     initial={false} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
+                    <h1 className="sr-only">ARMAGEDDON Test Suite — Adversarial AI Security Certification</h1>
                     <div className="flex justify-center mb-4 relative z-20">
                         {/*
                           * LCP hero. Served as a multi-format <picture> (AVIF→WebP→PNG)

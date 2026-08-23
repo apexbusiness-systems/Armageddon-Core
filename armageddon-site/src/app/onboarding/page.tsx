@@ -209,8 +209,8 @@ export default function OnboardingPage() {
 
     if (backendPending) {
         return (
-            <main className="min-h-screen grid-bg flex items-center justify-center p-6">
-                <div className="max-w-md w-full border border-white/10 bg-black/80 p-8 rounded-sm text-center">
+            <main className="min-h-screen grid-bg flex items-center justify-center p-4 sm:p-6">
+                <div className="max-w-md w-full border border-white/10 bg-black/80 p-5 sm:p-8 rounded-sm text-center">
                     <h1 className="text-xl font-mono text-signal mb-3 tracking-widest uppercase">{t.backendPending.title}</h1>
                     <p className="text-signal/80 text-sm mb-6">
                         {t.backendPending.body}
@@ -229,13 +229,13 @@ export default function OnboardingPage() {
     }
 
     return (
-        <main className="min-h-screen grid-bg flex items-center justify-center p-6">
+        <main className="min-h-screen grid-bg flex items-center justify-center p-4 sm:p-6">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="max-w-lg w-full border border-white/10 bg-black/80 p-8 rounded-sm"
+                className="max-w-lg w-full border border-white/10 bg-black/80 p-5 sm:p-8 rounded-sm"
             >
-                <h1 className="text-2xl font-mono text-signal mb-2 tracking-widest uppercase">{t.title}</h1>
+                <h1 className="text-xl sm:text-2xl font-mono text-signal mb-2 tracking-widest uppercase">{t.title}</h1>
                 <p className="mono-small text-signal/70 mb-6">
                     {t.planPrefix}: <span className="text-[var(--aerospace)]">{selectedPlan.name}</span>
                     {paymentPending && <span className="text-amber-400"> · {t.paymentPending}</span>}

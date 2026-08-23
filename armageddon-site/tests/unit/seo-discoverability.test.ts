@@ -20,9 +20,19 @@ const PUB = join(__dirname, '..', '..', 'public');
 const read = (f: string) => readFileSync(join(PUB, f), 'utf8');
 
 describe('SEO/GEO discoverability assets', () => {
-    it('robots.txt completely blocks all crawlers (Access Hardening Phase 1)', () => {
+    it('robots.txt allows canonical marketing pages and blocks private app routes', () => {
         const robots = read('robots.txt');
-        expect(robots.trim().replace(/\r\n/g, '\n')).toBe('User-agent: *\nDisallow: /');
+        const normalized = robots.trim().replace(/\r\n/g, '\n');
+        expect(normalized).toContain('User-agent: *');
+        expect(normalized).toContain('Allow: /');
+        expect(normalized).toContain('Allow: /pricing');
+        expect(normalized).toContain('Allow: /intake');
+        expect(normalized).toContain('Allow: /support');
+        expect(normalized).toContain('Allow: /privacy');
+        expect(normalized).toContain('Disallow: /console');
+        expect(normalized).toContain('Disallow: /onboarding');
+        expect(normalized).toContain('Disallow: /auth/');
+        expect(normalized).toContain('Sitemap: https://armageddontest.icu/sitemap.xml');
     });
 
     it('sitemap.xml is well-formed and lists all canonical marketing pages', () => {

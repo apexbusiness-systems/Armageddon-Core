@@ -29,10 +29,20 @@ export default function BatteryCard({
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: index * 0.05 }}
             onClick={onToggle}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onToggle();
+                }
+            }}
             onMouseEnter={() => onHoverChange(true)}
             onMouseLeave={() => onHoverChange(false)}
+            role="button"
+            tabIndex={0}
+            aria-expanded={isExpanded}
+            aria-label={`Battery ${battery.id}: ${battery.name}${battery.godMode ? ' (God Mode)' : ''}. ${isExpanded ? 'Expanded' : 'Collapsed'}`}
             className={`
-                card-panel cursor-pointer
+                card-panel cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aerospace)]
                 ${battery.godMode ? 'card-highlight' : ''}
                 ${isLarge ? 'lg:col-span-2 lg:max-w-[calc(50%-0.5rem)] lg:mx-auto' : ''}
             `}

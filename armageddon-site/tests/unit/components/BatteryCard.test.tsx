@@ -112,6 +112,18 @@ describe('BatteryCard', () => {
 
         fireEvent.mouseLeave(card);
         expect(defaultProps.onHoverChange).toHaveBeenCalledWith(false);
+
+        // Keyboard navigation
+        fireEvent.keyDown(card, { key: 'Enter' });
+        expect(defaultProps.onToggle).toHaveBeenCalledTimes(2);
+
+        fireEvent.keyDown(card, { key: ' ' });
+        expect(defaultProps.onToggle).toHaveBeenCalledTimes(3);
+
+        // Semantics
+        expect(card).toHaveAttribute('role', 'button');
+        expect(card).toHaveAttribute('tabIndex', '0');
+        expect(card).toHaveAttribute('aria-expanded', 'false');
     } else {
         throw new Error('Card panel not found');
     }

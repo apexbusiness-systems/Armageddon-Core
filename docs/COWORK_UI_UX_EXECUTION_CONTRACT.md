@@ -219,8 +219,8 @@ This is the journey the stuck `EXECUTING 0/13` screen fails. It has two accepted
 
 ## 14. J9 — Privacy, accessibility, responsive, theme
 
-- **Actions:** `/privacy` renders legal copy. Run an a11y pass (axe) on `/`, `/pricing`, `/support`: assert no critical violations (focusable CTAs, labelled inputs, contrast). Test viewports 375px / 768px / 1440px: **no horizontal body scroll**; wide panels scroll internally. Toggle light/dark: both themes legible.
-- **Gate:** PASS iff no critical a11y violations, no body-level horizontal overflow, both themes render.
+- **Actions:** `/privacy` renders legal copy. Run an a11y pass (axe) on `/`, `/pricing`, `/support`: assert no critical violations (focusable CTAs, labelled inputs, contrast). Test viewports 375px / 768px / 1440px: **no horizontal body scroll**; wide panels scroll internally. Theme integrity: single high-contrast dark theme (void/signal/aerospace) renders consistently across surfaces.
+- **Gate:** PASS iff no critical a11y violations, no body-level horizontal overflow, high-contrast dark theme renders cleanly.
 
 ## 15. J10 — Negative & security matrix (drive the API)
 
