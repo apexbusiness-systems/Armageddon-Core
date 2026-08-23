@@ -1109,3 +1109,35 @@ body {
 .text-brimstone-live {
   animation: magmaBreathe 6s ease-in-out infinite alternate;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY — PREFERS REDUCED MOTION (WCAG 2.2.2 / 2.3.3)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .scanline {
+    animation: none !important;
+    display: none !important;
+  }
+
+  .fire-glow {
+    animation: none !important;
+    opacity: 0.8 !important;
+  }
+
+  .glitch-text,
+  .text-brimstone-live,
+  .animate-in {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}

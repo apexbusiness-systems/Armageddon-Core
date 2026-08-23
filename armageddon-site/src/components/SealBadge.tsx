@@ -57,7 +57,9 @@ export default function SealBadge({ metadata, size = 'lg' }: { readonly metadata
             {/* Seal Container */}
             <button
                 type="button"
-                className="seal-container relative cursor-pointer bg-transparent border-none p-0"
+                aria-label="Inspect ARMAGEDDON certification metadata seal"
+                aria-expanded={isHovered}
+                className="seal-container relative cursor-pointer bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--aerospace)]"
                 onClick={() => setIsHovered(!isHovered)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => {

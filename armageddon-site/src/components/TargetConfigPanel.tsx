@@ -88,6 +88,7 @@ export default function TargetConfigPanel() {
                         </div>
                         <Link
                             href="/onboarding"
+                            aria-label="Edit target configuration"
                             className="mono-small tracking-widest text-[var(--aerospace)] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
                         >
                             EDIT →
