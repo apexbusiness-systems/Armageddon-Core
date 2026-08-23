@@ -86,6 +86,16 @@ const JSON_LD = JSON.stringify({
             name: 'APEX Business Systems Ltd.',
             url: 'https://armageddontest.icu',
             logo: 'https://armageddontest.icu/icon.png',
+            sameAs: [
+                'https://github.com/apexbusiness-systems',
+                'https://twitter.com/ApexBusinessSys',
+                'https://linkedin.com/company/apex-business-systems'
+            ],
+            contactPoint: {
+                '@type': 'ContactPoint',
+                contactType: 'security support',
+                url: 'https://armageddontest.icu/support',
+            },
         },
         {
             '@type': 'WebSite',
@@ -99,11 +109,19 @@ const JSON_LD = JSON.stringify({
             '@id': 'https://armageddontest.icu/#app',
             name: 'ARMAGEDDON Test Suite',
             applicationCategory: 'SecurityApplication',
+            applicationSubCategory: 'Adversarial AI Security Certification',
             operatingSystem: 'Web',
             url: 'https://armageddontest.icu',
             image: 'https://armageddontest.icu/og-image.png',
             description:
                 'Sandboxed adversarial certification for AI and software systems. 13 concurrent adversarial batteries — prompt injection, goal hijack, tool misuse, memory poisoning, supply chain — producing signed, evidence-based certification artifacts.',
+            featureList: [
+                '13 Concurrent Adversarial Attack Batteries',
+                'PAIR Adaptive Jailbreak Engine',
+                'RAG Memory Poisoning & Vector DB Defense',
+                'Cryptographically Signed PDF & JSON Attestation Artifacts',
+                'Sub-0.01% Escape Threshold Verification'
+            ],
             offers: {
                 '@type': 'Offer',
                 price: '0',
@@ -112,6 +130,36 @@ const JSON_LD = JSON.stringify({
                 url: 'https://armageddontest.icu/pricing',
             },
             publisher: { '@id': 'https://armageddontest.icu/#org' },
+        },
+        {
+            '@type': 'FAQPage',
+            '@id': 'https://armageddontest.icu/#faq',
+            mainEntity: [
+                {
+                    '@type': 'Question',
+                    name: 'What is adversarial AI testing and why is it required?',
+                    acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'Adversarial AI testing systematically evaluates LLMs, AI agents, and neural networks against hostile attacks such as prompt injection, goal hijacking, and memory poisoning to ensure fail-closed security before production deployment.',
+                    },
+                },
+                {
+                    '@type': 'Question',
+                    name: 'How does ARMAGEDDON execute adversarial certification?',
+                    acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'ARMAGEDDON deploys 13 concurrent attack batteries inside a locked sandbox, utilizing algorithms like PAIR to dynamically probe vulnerabilities and generate verifiable, cryptographically signed certification seals.',
+                    },
+                },
+                {
+                    '@type': 'Question',
+                    name: 'What deliverables are produced after an ARMAGEDDON test run?',
+                    acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: 'Every completed test run generates a machine-readable telemetry report (armageddon-report.json), an engineering markdown audit (armageddon-report.md), and a signed certification certificate (certificate.pdf).',
+                    },
+                },
+            ],
         },
     ],
 });
