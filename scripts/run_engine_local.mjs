@@ -1,25 +1,9 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { fork } from 'node:child_process';
+import { loadAtscEnv } from './load_env.mjs';
 
-const envFilePath = process.env.ATSC_ENV_PATH || 'C:/Users/sinyo/Desktop/ENV/ATSC-env.md';
-const env = { ...process.env };
-if (fs.existsSync(envFilePath)) {
-    const content = fs.readFileSync(envFilePath, 'utf8');
-    for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eqIdx = trimmed.indexOf('=');
-        if (eqIdx === -1) continue;
-        let key = trimmed.slice(0, eqIdx).trim().replace(/\\_/g, '_').replace(/\\/g, '');
-        let val = trimmed.slice(eqIdx + 1).trim();
-        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-            val = val.slice(1, -1);
-        }
-        val = val.replace(/\\_/g, '_').replace(/\\/g, '');
-        env[key] = val;
-    }
-}
+const fileEnv = loadAtscEnv();
+const env = { ...process.env, ...fileEnv };
 
 env.SIM_MODE = 'true';
 env.SANDBOX_TENANT = 'armageddon-sandbox';

@@ -1,24 +1,12 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { loadAtscEnv } from './load_env.mjs';
 
 function getCredentials() {
-    let email = process.env.TEST_USER_EMAIL || process.env.USERNAME;
-    let password = process.env.TEST_USER_PASSWORD || process.env.PASSWORD;
-    const envFilePath = process.env.ATSC_ENV_PATH || 'C:/Users/sinyo/Desktop/ENV/ATSC-env.md';
-    if ((!email || !password) && fs.existsSync(envFilePath)) {
-        const content = fs.readFileSync(envFilePath, 'utf8');
-        for (const line of content.split('\n')) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('#')) continue;
-            const eqIdx = trimmed.indexOf('=');
-            if (eqIdx === -1) continue;
-            let key = trimmed.slice(0, eqIdx).trim().replace(/\\/g, '');
-            let val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '').replace(/\\/g, '');
-            if (key === 'USERNAME' && !email) email = val;
-            if (key === 'PASSWORD' && !password) password = val;
-        }
-    }
+    const fileEnv = loadAtscEnv();
+    const email = process.env.TEST_USER_EMAIL || process.env.USERNAME || fileEnv.USERNAME;
+    const password = process.env.TEST_USER_PASSWORD || process.env.PASSWORD || fileEnv.PASSWORD;
     if (!email || !password) {
         throw new Error('Missing credentials: set TEST_USER_EMAIL and TEST_USER_PASSWORD or provide ATSC_ENV_PATH.');
     }
@@ -147,7 +135,9 @@ async function runE2E() {
     console.log('[E2E] Validation completed with 100% success!');
 }
 
-runE2E().catch(err => {
+try {
+    await runE2E();
+} catch (err) {
     console.error('[E2E] Error:', err);
     process.exit(1);
-});
+}
