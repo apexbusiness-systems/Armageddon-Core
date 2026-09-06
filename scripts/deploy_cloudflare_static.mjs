@@ -174,6 +174,12 @@ async function deployWorker({ accountId, workerName, token, completionJwt, worke
       { type: 'secret_text', name: 'SUPABASE_SERVICE_ROLE_KEY', text: supabaseServiceRoleKey },
       // Tell the worker which zone it is serving so canonical headers/redirects are correct.
       { type: 'plain_text', name: 'CANONICAL_HOST', text: canonicalHost },
+      ...(process.env.ADMIN_EMAIL ? [{ type: 'plain_text', name: 'ADMIN_EMAIL', text: process.env.ADMIN_EMAIL.trim() }] : []),
+      ...(process.env.TEMPORAL_ADDRESS ? [{ type: 'plain_text', name: 'TEMPORAL_ADDRESS', text: process.env.TEMPORAL_ADDRESS.trim() }] : []),
+      ...(process.env.TEMPORAL_NAMESPACE ? [{ type: 'plain_text', name: 'TEMPORAL_NAMESPACE', text: process.env.TEMPORAL_NAMESPACE.trim() }] : []),
+      ...(process.env.TEMPORAL_TASK_QUEUE ? [{ type: 'plain_text', name: 'TEMPORAL_TASK_QUEUE', text: process.env.TEMPORAL_TASK_QUEUE.trim() }] : []),
+      ...(process.env.TEMPORAL_API_KEY ? [{ type: 'secret_text', name: 'TEMPORAL_API_KEY', text: process.env.TEMPORAL_API_KEY.trim() }] : []),
+      ...(process.env.ARMAGEDDON_EXEC_WAKE_URL ? [{ type: 'plain_text', name: 'ARMAGEDDON_EXEC_WAKE_URL', text: process.env.ARMAGEDDON_EXEC_WAKE_URL.trim() }] : []),
     ],
     assets: {
       jwt: completionJwt,
