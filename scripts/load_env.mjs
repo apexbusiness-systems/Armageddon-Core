@@ -30,8 +30,8 @@ export function loadAtscEnv(customPath) {
             rawVal = rawVal.slice(1, -1);
         }
 
-        const key = rawKey.replaceAll('\\_', '_').replaceAll('\\', '');
-        const val = rawVal.replaceAll('\\_', '_').replaceAll('\\', '');
+        const key = rawKey.replaceAll(String.raw`\_`, '_');
+        const val = rawVal.replaceAll(String.raw`\_`, '_');
 
         result[key] = val;
     }
