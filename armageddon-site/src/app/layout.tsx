@@ -68,7 +68,7 @@ export const metadata: Metadata = {
         // Kept in lockstep with SUPPORTED_LOCALES (i18n-dictionaries.test.ts).
         alternateLocale: ['fr_FR', 'de_DE', 'it_IT', 'es_ES', 'zh_CN', 'pt_PT'],
     },
-    robots: { index: false, follow: false },
+    robots: { index: true, follow: true },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

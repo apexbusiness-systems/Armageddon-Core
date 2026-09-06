@@ -19,14 +19,19 @@
   // Plain-text vars (secrets stay in dashboard; never commit secret values here)
   // Secret: ANTHROPIC_API_KEY — set via: npx wrangler secret put ANTHROPIC_API_KEY
   "vars": {
-        "NEXT_PUBLIC_ARMAGEDDON_API_BASE": "https://armageddon-exec-api.onrender.com",
+    "NEXT_PUBLIC_ARMAGEDDON_API_BASE": "https://armageddontest.icu",
     "NEXT_PUBLIC_SUPABASE_URL": "https://qhjqselqpkfqjfpuxykb.supabase.co",
     "TEMPORAL_ADDRESS": "armageddon-prod.smvtx.tmprl.cloud:7233",
     "TEMPORAL_NAMESPACE": "armageddon-prod.smvtx",
     "TEMPORAL_TASK_QUEUE": "armageddon-certification",
     "MAX_MSGS_PER_MIN": "5",
     "MAX_MSGS_PER_HOUR": "30",
-    "MAX_INPUT_CHARS": "2000"
+    "MAX_INPUT_CHARS": "2000",
+    "NEXT_PUBLIC_STRIPE_LINK_PRO_MONTHLY": "https://buy.stripe.com/bJefZg2TKfa9e2382lc7u00",
+    "NEXT_PUBLIC_STRIPE_LINK_TEAM_MONTHLY": "https://buy.stripe.com/4gM00icuk6DDaPRfuNc7u01",
+    "NEXT_PUBLIC_STRIPE_LINK_VERIFIED_REVIEW": "https://buy.stripe.com/28EcN4dyo2nnf67bexc7u02",
+    "NEXT_PUBLIC_STRIPE_LINK_CERTIFIED_GATE": "https://buy.stripe.com/14AcN43XO9PP5vx0zTc7u03",
+    "NEXT_PUBLIC_STRIPE_LINK_ENTERPRISE_DEPOSIT": "https://buy.stripe.com/28EdR8cukfa9e23eqJc7u04"
   },
   "observability": {
     "enabled": true

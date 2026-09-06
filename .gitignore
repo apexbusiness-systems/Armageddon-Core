@@ -23,8 +23,10 @@ attestation-demo-evidence.json
 # TypeScript incremental build cache (generated)
 *.tsbuildinfo
 
-# Test run outputs
+# Test run outputs and scratch
 results/
+test-results/
+scratch/
 
 # Plaintext credential dumps that don't match the .env* pattern above.
 # ATSC-env.md (2026-07-16) holds live Cloudflare/Supabase/Temporal/GitHub
