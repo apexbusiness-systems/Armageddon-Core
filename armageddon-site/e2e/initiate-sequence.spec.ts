@@ -16,10 +16,13 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
-const ADMIN_EMAIL = 'armageddon.test.suite.cert@gmail.com';
-const ADMIN_PASSWORD = 'Apex143!';
+// Credentials come from the environment only — never commit them.
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
 
 test.describe('Initiate Sequence — free-tier console flow', () => {
+    test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E admin credentials not configured');
+
     test.beforeEach(async ({ page }) => {
         await page.goto(`${BASE}/`);
 
