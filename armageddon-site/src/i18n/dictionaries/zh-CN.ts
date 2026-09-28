@@ -72,6 +72,7 @@ const zhCN: Dictionary = {
         guidanceBestForTeams: '最适合团队',
         guidanceReleaseGates: '最适合发布关卡',
         checkoutPendingNote: '结账将在引导流程中打开。在配置安全链接之前不会收取任何费用。',
+        checkoutFulfilmentNote: '付款后，您的工作区将在 1 个工作日内完成升级，并通过电子邮件确认。',
         enterpriseLinkLabel: '需要定制企业方案吗？申请范围审查',
         plans: {
             'self-serve': {

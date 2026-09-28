@@ -72,6 +72,7 @@ const fr: Dictionary = {
         guidanceBestForTeams: 'Ideal pour les equipes',
         guidanceReleaseGates: 'Ideal pour les portes de mise en production',
         checkoutPendingNote: "Le paiement s'ouvre lors de l'onboarding. Aucun paiement n'est collecte avant la configuration d'un lien securise.",
+        checkoutFulfilmentNote: 'Après paiement, votre espace de travail est mis à niveau sous 1 jour ouvré et confirmé par e-mail.',
         enterpriseLinkLabel: "Besoin d'un programme entreprise sur mesure ? Demandez une revue de perimetre",
         plans: {
             'self-serve': {

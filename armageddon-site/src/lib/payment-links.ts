@@ -59,3 +59,45 @@ export function getCheckoutTarget(plan: PlanId): CheckoutTarget {
 export function hasConfiguredPaymentLink(plan: PlanId): boolean {
     return isValidStripePaymentLink(STRIPE_LINKS[plan]);
 }
+
+/** Buyer context attached to a Stripe checkout so the payment maps to an account. */
+export interface CheckoutContext {
+    readonly orgId?: string;
+    readonly email?: string;
+}
+
+// Same UUID rule the edge Worker enforces on organizationId (intake-handler.ts
+// parseRunInput). A UUID is also a valid Stripe client_reference_id
+// (alphanumerics, dashes, underscores; max 200 chars).
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Mirrors the Worker's isValidEmail (single @, dotted domain) plus a no-
+// whitespace rule. Stripe ignores an invalid prefilled_email, so a rejected
+// address only loses a convenience prefill, never checkout.
+function isPlausibleEmail(email: string): boolean {
+    if (email.length > 254 || /\s/.test(email)) return false;
+    const at = email.indexOf('@');
+    if (at < 1 || at !== email.lastIndexOf('@')) return false;
+    const domain = email.slice(at + 1);
+    const dot = domain.lastIndexOf('.');
+    return dot > 0 && dot < domain.length - 1;
+}
+
+/**
+ * Attach buyer context to a Stripe Payment Link: `client_reference_id` (the
+ * org UUID, echoed on checkout.session.completed for fulfilment) and
+ * `prefilled_email`. Invalid values are dropped; existing query params are
+ * preserved; in-app fallback routes and non-Stripe targets are returned
+ * unchanged. Pure — no network, no globals.
+ */
+export function withCheckoutContext(href: string, context: CheckoutContext): string {
+    if (!isValidStripePaymentLink(href)) return href;
+    const url = new URL(href);
+    if (context.orgId && UUID_PATTERN.test(context.orgId)) {
+        url.searchParams.set('client_reference_id', context.orgId);
+    }
+    if (context.email && isPlausibleEmail(context.email)) {
+        url.searchParams.set('prefilled_email', context.email);
+    }
+    return url.toString();
+}

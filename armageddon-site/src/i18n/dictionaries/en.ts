@@ -72,6 +72,7 @@ const en: Dictionary = {
         guidanceBestForTeams: 'Best for teams',
         guidanceReleaseGates: 'Best for release gates',
         checkoutPendingNote: 'Checkout opens in onboarding. Payment is not collected until a secure link is configured.',
+        checkoutFulfilmentNote: 'After payment, your workspace is upgraded within 1 business day and confirmed by email.',
         enterpriseLinkLabel: 'Need a scoped enterprise program? Request a scope review',
         plans: {
             'self-serve': {

@@ -72,6 +72,7 @@ const es: Dictionary = {
         guidanceBestForTeams: 'Ideal para equipos',
         guidanceReleaseGates: 'Ideal para puertas de lanzamiento',
         checkoutPendingNote: 'El pago se abre durante el onboarding. No se cobra ningun pago hasta que se configure un enlace seguro.',
+        checkoutFulfilmentNote: 'Tras el pago, su espacio de trabajo se actualiza en un plazo de 1 día hábil y se confirma por correo electrónico.',
         enterpriseLinkLabel: 'Necesita un programa empresarial a medida? Solicite una revision de alcance',
         plans: {
             'self-serve': {
