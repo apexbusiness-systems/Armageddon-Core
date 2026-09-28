@@ -84,6 +84,8 @@ interface ThreatCell {
 
 interface DestructionConsoleProps {
     standalone?: boolean;
+    /** Homepage only: visible H1 + value proposition + CTAs above step 1. */
+    marketingHero?: boolean;
     onStatusChange?: (status: Status) => void;
     status?: Status;
 }
@@ -539,6 +541,7 @@ const ThreatMatrix = React.memo(function ThreatMatrix({ threatMap }: { threatMap
 
 export default function DestructionConsole({
     standalone = false,
+    marketingHero = false,
     onStatusChange,
     status = 'idle'
 }: Readonly<DestructionConsoleProps>) {
@@ -931,7 +934,7 @@ export default function DestructionConsole({
                     initial={false} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 >
-                    <h1 className="sr-only">ARMAGEDDON Test Suite — Adversarial AI Security Certification</h1>
+                    {!marketingHero && <h1 className="sr-only">ARMAGEDDON Test Suite — Adversarial AI Security Certification</h1>}
                     <div className="flex justify-center mb-4 relative z-20">
                         {/*
                           * LCP hero. Served as a multi-format <picture> (AVIF→WebP→PNG)
@@ -955,7 +958,29 @@ export default function DestructionConsole({
                         </picture>
                     </div>
 
-                    <div className="mt-[calc(2rem+2cm)] mb-6 relative">
+                    {marketingHero && (
+                        // Static, server-rendered copy (no post-hydration insert → no CLS).
+                        <div className="mt-6 mx-auto max-w-3xl px-2">
+                            <h1 className="display-medium text-signal leading-tight">{dictionary.pricing.headline}</h1>
+                            <p className="mt-4 text-signal/80 text-base leading-relaxed">{t.heroSubline}</p>
+                            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                                <a
+                                    href="#console-step-1"
+                                    className="btn-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                >
+                                    {t.heroStartFreeCta}
+                                </a>
+                                <a
+                                    href="/pricing"
+                                    className="btn-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                >
+                                    {t.heroSeePricingCta}
+                                </a>
+                            </div>
+                        </div>
+                    )}
+
+                    <div id="console-step-1" tabIndex={-1} className="mt-[calc(2rem+2cm)] mb-6 relative scroll-mt-24 focus:outline-none">
                         <TargetConfigPanel />
                         <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">STEP 2 — BATTERY CONFIGURATION</h3>
                         {!canCustomize && (

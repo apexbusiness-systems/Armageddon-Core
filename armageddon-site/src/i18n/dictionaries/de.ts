@@ -252,6 +252,9 @@ const de: Dictionary = {
             artifactCertificateDesc: 'Signiertes Verifizierungszertifikat',
         },
         console: {
+            heroSubline: 'Adversarial-Tests für KI-Agenten – signierte, überprüfbare Nachweise dafür, wie Ihr System standhält.',
+            heroStartFreeCta: 'Kostenlosen Probelauf starten',
+            heroSeePricingCta: 'Preise ansehen',
             batteryConfigLabel: 'Batteriekonfiguration',
             lockedLabel: 'Gesperrt',
             customBatterySelection: 'Benutzerdefinierte Batterieauswahl',

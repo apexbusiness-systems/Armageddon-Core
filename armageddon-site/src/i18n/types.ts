@@ -201,6 +201,9 @@ export interface HomeDictionary {
         readonly artifactCertificateDesc: string;
     };
     readonly console: {
+        readonly heroSubline: string;
+        readonly heroStartFreeCta: string;
+        readonly heroSeePricingCta: string;
         readonly batteryConfigLabel: string;
         readonly lockedLabel: string;
         readonly customBatterySelection: string;

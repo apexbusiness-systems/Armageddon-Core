@@ -252,6 +252,9 @@ const it: Dictionary = {
             artifactCertificateDesc: 'Certificato di verifica firmato',
         },
         console: {
+            heroSubline: 'Test avversariali per agenti IA: prove firmate e verificabili di come regge il tuo sistema.',
+            heroStartFreeCta: 'Avvia una prova gratuita',
+            heroSeePricingCta: 'Vedi i prezzi',
             batteryConfigLabel: 'Configurazione Batterie',
             lockedLabel: 'Bloccato',
             customBatterySelection: 'Selezione Batteria Personalizzata',

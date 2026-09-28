@@ -252,6 +252,9 @@ const en: Dictionary = {
             artifactCertificateDesc: 'Signed verification certificate',
         },
         console: {
+            heroSubline: 'Adversarial testing for AI agents — signed, verifiable evidence of how your system holds up.',
+            heroStartFreeCta: 'Start free dry run',
+            heroSeePricingCta: 'See pricing',
             batteryConfigLabel: 'Battery Configuration',
             lockedLabel: 'Locked',
             customBatterySelection: 'Custom Battery Selection',

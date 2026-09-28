@@ -47,7 +47,7 @@ export default function Home() {
     return (
         <main className="relative bg-[var(--void)] min-h-screen">
             <div className="relative">
-                <DestructionConsole standalone onStatusChange={setSimStatus} status={simStatus} />
+                <DestructionConsole standalone marketingHero onStatusChange={setSimStatus} status={simStatus} />
             </div>
             <div className="section-divider" />
             <BatteryGrid />
