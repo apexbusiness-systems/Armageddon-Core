@@ -1,7 +1,7 @@
 # Canonical UI Contract — Public Marketing Surfaces
 
 **Status**: Canonical<br>
-**Last reviewed**: 2026-06-26<br>
+**Last reviewed**: 2026-09-28<br>
 **Enforced by**: `armageddon-site/tests/unit/canonical-ui-freeze.test.ts` (runs in CI via `npm run test -w armageddon-site`)<br>
 **Review gate**: [`.github/CODEOWNERS`](../.github/CODEOWNERS)
 
@@ -38,7 +38,10 @@ to make CI pass — that is the exact failure mode this contract prevents.
 - Button uniformity comes from font sizing, **not** taller buttons — no
   `min-h-[…]` height pinning on the CTA. Long labels shrink text, not buttons.
 - The onboarding/payment disclaimer line is always reserved (toggled with
-  `invisible`) so all six cards stay vertically aligned.
+  `invisible`) so all six cards stay vertically aligned. Since 2026-09-28 it shows
+  the pending-payment note under an in-app fallback CTA, the "upgraded within 1
+  business day, confirmed by email" fulfilment note under a Stripe CTA (except
+  Enterprise, a scoping deposit), and is invisible otherwise.
 
 ### Pricing card CSS (`globals.css`)
 - `.pricing-card` paints above the `.fire-glow` fixed mask via `z-index: 2`.
@@ -49,7 +52,13 @@ to make CI pass — that is the exact failure mode this contract prevents.
 ### Pricing data + checkout routing
 - Exactly six plans, published order: `self-serve`, `pro`, `team`, `verified`,
   `certified`, `enterprise`.
-- The enterprise tier routes to `/intake?tier=enterprise` (scope review).
+- The enterprise tier's **fallback** route is `/intake?tier=enterprise` (scope
+  review), and the page-footer "custom enterprise program" link always goes there.
+  When `NEXT_PUBLIC_STRIPE_LINK_ENTERPRISE_DEPOSIT` is configured (it is in
+  `wrangler.jsonc`, and live since at least 2026-09-28), the Enterprise *card* CTA
+  goes to that Stripe deposit link instead — same precedence as every paid plan
+  (`getCheckoutTarget`). Whether the card should stay on the deposit link or return
+  to scope review is an owner decision.
 
 ## North star — Industrial Physical Controls
 

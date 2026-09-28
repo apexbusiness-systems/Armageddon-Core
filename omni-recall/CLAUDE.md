@@ -1,7 +1,7 @@
 # ARMAGEDDON AGENT GUARDRAILS — CLAUDE.md
 
 **Canonical version**: 2026-07-22
-**Last reviewed**: 2026-07-22
+**Last reviewed**: 2026-09-28
 **Authority**: This file is the frozen canonical state reference. It supersedes conversational memory. All agents and contributors must read this before modifying any file listed here.
 
 ---
@@ -133,6 +133,19 @@ Until 2026-07-22, `targetModel` was never set on any OmniPort execute/live-fire 
 
 **Invariant 11 — Administrative overrides require exact matching.**
 The `ADMIN_EMAIL` verification logic (e.g., in `/api/run` or `intake-handler.ts`) MUST use exact, case-sensitive equality (`===`). The use of `.includes()`, `indexOf()`, or open regex for identity/authorization checks is strictly prohibited to prevent arbitrary domain registration bypasses.
+
+---
+
+### CI/CD, build and checkout — deploy and revenue safety (added 2026-09-28)
+
+**Invariant 16 — Pull requests never deploy to production.**
+The `deploy` job in `.github/workflows/deploy-cloudflare.yml` runs only on `push` to `main` or `workflow_dispatch`. Never let `pull_request` through that condition, and never `needs:` a job defined in another workflow file: cross-workflow `needs` is invalid and made every run of that workflow fail at parse time from 2026-07-22 to 2026-09-28 (production was deployed manually in that window). Regression shield: `tests/unit/deploy-workflow-gate.test.ts`.
+
+**Invariant 17 — Public build config comes from `wrangler.jsonc` `vars`; CI production builds enforce the revenue gate.**
+Next inlines `NEXT_PUBLIC_*` at build time; `wrangler.jsonc` `vars` only reach the Worker at runtime. `scripts/build_cloudflare_static.mjs` (via `scripts/lib/public-build-env.mjs`) fills unset `NEXT_PUBLIC_*` from `wrangler.jsonc` `vars` (explicit env wins) and, when `CI=true`, fails the build if any paid-plan Stripe Payment Link is missing or invalid, or if the exported pricing page carries fewer than 5 distinct `buy.stripe.com` links. The Payment Link validity rule exists once, in `armageddon-site/src/lib/stripe-payment-link.mjs` (shared by `payment-links.ts` and the build script) — never re-implement it. Signed-in buyers' checkout links carry `client_reference_id` (org UUID) and `prefilled_email` via `withCheckoutContext`; never attach a non-UUID reference. Regression shields: `tests/unit/public-build-env.test.ts`, `tests/unit/lib/payment-links-checkout-context.test.ts`, `tests/unit/pricing-checkout-context.test.tsx`.
+
+**Invariant 18 — No credentials in tracked files.**
+Playwright specs read `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` from the environment and skip when unset (key names documented in `armageddon-site/.env.example`). A real password was committed in two specs until 2026-09-28 and remains in git history: rotation is the fix, not deletion. Regression shield: `tests/unit/no-committed-credentials.test.ts`.
 
 ---
 

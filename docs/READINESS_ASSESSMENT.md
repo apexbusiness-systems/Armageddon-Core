@@ -7,6 +7,8 @@
 
 > **Annotation (2026-06-24)**: Much of the "What's Missing" section below has been resolved since this document was written. The Cloudflare static edge is deployed and live at `armageddontest.icu`. The ATLAS support-chat endpoint, privacy policy, attestation receipts (Ed25519+Merkle), 14 certification batteries (B1–B14), and full `/api/run`, `/api/intake`, `/api/support-chat`, `/api/attestation/pubkey`, and gatekeeper endpoints are all implemented. See `PRODUCTION_STATUS.md` and `feature_registry.md` for current release posture.
 
+> **Annotation (2026-09-28)**: Stripe checkout now exists as Stripe Payment Links (five paid plans, inlined at build time from `wrangler.jsonc`, enforced by a CI revenue gate; checkout carries the buyer's org UUID). Stripe **webhooks and automated entitlement are still not implemented** — paid upgrades are fulfilled manually (`OPS_RUNBOOKS.md` 6.2). See `docs/audits/REVENUE_RESCUE_2026-09-28.md`.
+
 ---
 
 ## Question 1: Can I run live testing NOW?

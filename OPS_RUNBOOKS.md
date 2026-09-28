@@ -2,8 +2,8 @@
 
 > **CLASSIFICATION**: INTERNAL EYES ONLY
 > **SEVERITY**: CRITICAL
-> **VERSION**: 2.3.0 ("URL migration + RATE_LIMIT_KV status" update)
-> **LAST REVIEWED**: 2026-06-25
+> **VERSION**: 2.4.0 ("revenue gate + manual fulfilment + credential rotation" update)
+> **LAST REVIEWED**: 2026-09-28
 
 ---
 
@@ -79,6 +79,16 @@ docker exec armageddon-worker-moat printenv | findstr SIM_MODE
 2. Update `.env.moat` locally.
 3. Execute `.\scripts\deploy_moat.ps1` to rotate the running containers.
 4. Verify `checkRunEligibility` passes.
+
+**Post-incident scope (added 2026-09-28):** when any secret has been shared outside a
+secret manager (chat, docs, a committed file), treat the whole set as compromised and
+rotate all of it: GitHub PATs, Cloudflare API/agent tokens, Supabase service-role + anon
+keys (JWT secret rotation), Supabase access token, Temporal API key, Render API key,
+Anthropic key, and every account password involved (enable 2FA). Update each consumer:
+GitHub Actions secrets, `wrangler secret put`, Render env vars, local env files. Deleting
+a committed value does not un-leak it — rotation is the fix; a history purge is optional
+and only after rotation. E2E specs read `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` from the
+environment (never commit them).
 
 ---
 
@@ -177,6 +187,33 @@ Re-deploy the Worker after setting the secret.
 2. If a single IP dominates, consider temporarily blocking it at the Cloudflare WAF level.
 3. Do NOT weaken injection patterns in `INJECTION_PATTERNS` to reduce log noise — investigate root cause.
 4. Invariants are documented in `CLAUDE.md`. Do not modify them without a signed-off security review.
+
+---
+
+## 💳 SEV-2: REVENUE & CHECKOUT
+
+### 6.1 REVENUE_GATE_FAILED (CI Cloudflare build exits 1)
+
+**Trigger**: `[cf-build] Revenue gate: …` in the deploy job log.
+**Impact**: Production deploy blocked (intended — the build would have shipped paid CTAs that cannot reach checkout).
+**Resolution**:
+
+1. Read the message: it names the missing/invalid `NEXT_PUBLIC_STRIPE_LINK_*` key(s), or reports the distinct `buy.stripe.com` count in `out/pricing.html`.
+2. Fix the value in `armageddon-site/wrangler.jsonc` `vars` (an `https://buy.stripe.com/...` Payment Link with a path). If CI sets that key explicitly, the CI value wins — fix it there.
+3. Reproduce locally: `cd armageddon-site && CI=true node ../scripts/build_cloudflare_static.mjs`.
+4. **Never** disable or bypass the gate (CLAUDE.md Invariant 17).
+
+### 6.2 MANUAL_PAID_FULFILMENT (until a Stripe webhook exists)
+
+**Trigger**: a completed Stripe payment (Payments / Subscriptions in the Stripe Dashboard).
+**SLA**: stated on `/pricing` as "within 1 business day" (owner to confirm).
+**Procedure**:
+
+1. Open the Checkout Session. `client_reference_id` is the buyer's organization UUID (present only when they were signed in; otherwise match by email and confirm with the buyer).
+2. Map the purchase to a tier: Verified Review → `verified`; Certified Gate → `certified`. **Pro and Team have no `organization_tier` value yet** — do not invent one; record the payment and follow the owner's mapping decision.
+3. Set `organizations.current_tier` and `organizations.stripe_customer_id` (the Stripe `cus_…` id) for that UUID via the Supabase SQL editor.
+4. Email the buyer confirming the upgrade.
+5. On cancellation/refund, set the tier back to `free_dry`.
 
 ---
 

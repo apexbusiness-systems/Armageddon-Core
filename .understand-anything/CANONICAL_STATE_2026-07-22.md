@@ -1,8 +1,11 @@
 ---
 date: 2026-07-22
 baseline_commit: f3a6835b62d34de3d3d5e3605657743b714a3518
-status: verified-against-repository
+status: superseded
+superseded_by: CANONICAL_STATE_2026-09-28.md
 ---
+
+> **Superseded 2026-09-28** by `CANONICAL_STATE_2026-09-28.md`. Kept as the historical 2026-07-22 baseline.
 
 # Armageddon-Core — Canonical State Snapshot (2026-07-22 baseline)
 
