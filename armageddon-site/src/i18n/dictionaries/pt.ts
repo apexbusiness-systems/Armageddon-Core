@@ -72,6 +72,7 @@ const pt: Dictionary = {
         guidanceBestForTeams: 'Melhor para equipes',
         guidanceReleaseGates: 'Melhor para portas de lancamento',
         checkoutPendingNote: 'O checkout abre durante o onboarding. Nenhum pagamento e coletado at o configurar um link seguro.',
+        checkoutFulfilmentNote: 'Após o pagamento, seu workspace é atualizado em até 1 dia útil e confirmado por e-mail.',
         enterpriseLinkLabel: 'Precisa de um programa empresarial personalizado? Solicite uma revisao de escopo',
         plans: {
             'self-serve': {

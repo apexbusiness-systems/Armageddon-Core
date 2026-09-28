@@ -72,6 +72,7 @@ const de: Dictionary = {
         guidanceBestForTeams: 'Am besten fur Teams',
         guidanceReleaseGates: 'Am besten fur Release-Gates',
         checkoutPendingNote: 'Der Checkout offnet sich im Onboarding. Es wird keine Zahlung erfasst, bis ein sicherer Link konfiguriert ist.',
+        checkoutFulfilmentNote: 'Nach der Zahlung wird Ihr Workspace innerhalb von 1 Werktag freigeschaltet und per E-Mail bestätigt.',
         enterpriseLinkLabel: 'Benotigen Sie ein individuelles Unternehmensprogramm? Fordern Sie eine Scope-Prufung an',
         plans: {
             'self-serve': {

@@ -1,13 +1,44 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { PLANS, PLAN_ORDER } from '@/lib/pricing';
-import { getCheckoutTarget } from '@/lib/payment-links';
+import { PLANS, PLAN_ORDER, type PlanId } from '@/lib/pricing';
+import { getCheckoutTarget, withCheckoutContext, type CheckoutContext, type CheckoutTarget } from '@/lib/payment-links';
+import { resolveActiveOrg } from '@/lib/active-org';
 import { useT } from '@/i18n/useT';
+import type { PricingDictionary } from '@/i18n/types';
+
+// Honest line under each CTA: payment not yet collectable (in-app fallback) vs.
+// the manual workspace-upgrade promise after a real Stripe checkout. Enterprise
+// is a scoped-program deposit, not a workspace upgrade, so it gets no upgrade
+// promise. null = no note (the line stays reserved for card alignment).
+function checkoutNote(planId: PlanId, target: CheckoutTarget, t: PricingDictionary): string | null {
+    if (target.paymentPending) return t.checkoutPendingNote;
+    if (target.external && planId !== 'enterprise') return t.checkoutFulfilmentNote;
+    return null;
+}
 
 export default function PricingPageClient() {
     const { dictionary } = useT();
     const t = dictionary.pricing;
+    // Signed-in buyers get their org UUID + email attached to Stripe checkout so
+    // the payment maps to their workspace. Resolved after mount: the static HTML
+    // always carries the plain Payment Links, which work for anonymous buyers.
+    const [checkoutContext, setCheckoutContext] = useState<CheckoutContext>({});
+
+    useEffect(() => {
+        let cancelled = false;
+        resolveActiveOrg()
+            .then((org) => {
+                if (!cancelled && org.ok) setCheckoutContext({ orgId: org.organizationId, email: org.email });
+            })
+            .catch(() => {
+                // Offline or backend unavailable: keep the plain Payment Links.
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     return (
         <main className="relative min-h-screen bg-[var(--void)] text-[var(--signal)] px-4 py-20">
@@ -27,6 +58,7 @@ export default function PricingPageClient() {
                         const plan = PLANS[planId];
                         const planCopy = t.plans[planId];
                         const target = getCheckoutTarget(planId);
+                        const note = checkoutNote(planId, target, t);
 
                         return (
                             <div
@@ -62,7 +94,7 @@ export default function PricingPageClient() {
 
                                 {target.external ? (
                                     <a
-                                        href={target.href}
+                                        href={withCheckoutContext(target.href, checkoutContext)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="btn-primary w-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
@@ -78,8 +110,8 @@ export default function PricingPageClient() {
                                     </Link>
                                 )}
 
-                                <p className={`mt-3 mono-small text-signal/50 text-center text-[10px] ${target.paymentPending ? '' : 'invisible'}`}>
-                                    {t.checkoutPendingNote}
+                                <p className={`mt-3 mono-small text-signal/50 text-center text-[10px] ${note ? '' : 'invisible'}`}>
+                                    {note ?? t.checkoutPendingNote}
                                 </p>
                             </div>
                         );

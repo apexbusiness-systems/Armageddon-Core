@@ -8,6 +8,7 @@ import { endSupabaseSession } from '@/lib/client-auth-actions';
 import { getRequiredSupabase } from '@/lib/browser-supabase';
 import { useAuth } from '@/lib/useAuth';
 import { apiFetch, isApiConfigured } from '@/lib/runtime-api';
+import { resolveActiveOrg } from '@/lib/active-org';
 import { DRAFT_KEY, canStartRunForTarget, readSavedCodebaseTarget, type CodebaseTarget, type OnboardingDraft, type TargetReadinessCode } from '@/lib/codebase-target';
 import LockdownModal from './paywall/LockdownModal';
 import AuthHeader from './AuthHeader';
@@ -163,32 +164,6 @@ async function startWorkflowApi(orgId: string, level: number, batteries: string[
     });
     const data = (await res.json()) as RunResponse;
     return { ok: res.ok, status: res.status, data };
-}
-
-type OrgResolution =
-    | { ok: true; organizationId: string; accessToken: string }
-    | { ok: false; reason: 'unauthenticated' | 'no-org' | 'org-error' };
-
-// Resolve the authenticated user's real organization. Never falls back to a
-// demo or user id — those are not valid organizationId values for a real run.
-async function resolveActiveOrg(): Promise<OrgResolution> {
-    const sb = getSupabase();
-    const session = (await sb?.auth.getSession())?.data.session;
-    if (!session?.access_token) {
-        return { ok: false, reason: 'unauthenticated' };
-    }
-    const res = await apiFetch('/api/me/organizations', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (!res.ok) {
-        return { ok: false, reason: res.status === 404 ? 'no-org' : 'org-error' };
-    }
-    const data = (await res.json()) as { active?: { organization_id?: string } };
-    const organizationId = data.active?.organization_id;
-    if (!organizationId) {
-        return { ok: false, reason: 'no-org' };
-    }
-    return { ok: true, organizationId, accessToken: session.access_token };
 }
 
 // Resolves why a run cannot start yet (target readiness + outstanding

@@ -76,6 +76,7 @@ export interface PricingDictionary {
     readonly guidanceBestForTeams: string;
     readonly guidanceReleaseGates: string;
     readonly checkoutPendingNote: string;
+    readonly checkoutFulfilmentNote: string;
     readonly enterpriseLinkLabel: string;
     readonly plans: {
         readonly [planId in
