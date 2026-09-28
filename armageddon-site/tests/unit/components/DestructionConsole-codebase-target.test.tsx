@@ -7,13 +7,22 @@ import DestructionConsole from '@/components/DestructionConsole';
 import { I18nProvider } from '@/i18n/I18nProvider';
 
 
-vi.mock('framer-motion', () => ({
-    motion: new Proxy({}, { get: (_target, tag: string) => {
-        const Tag = tag as keyof JSX.IntrinsicElements;
-        return ({ children, whileHover: _whileHover, whileTap: _whileTap, animate: _animate, initial: _initial, exit: _exit, transition: _transition, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <Tag {...props}>{children}</Tag>;
-    } }),
-    AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-}));
+// Components are cached per tag: like the real `motion.div`, the type must be
+// stable across renders, or every re-render would remount (and detach) the DOM.
+vi.mock('framer-motion', () => {
+    const cache = new Map<string, React.ElementType>();
+    return {
+        motion: new Proxy({}, { get: (_target, tag: string) => {
+            const cached = cache.get(tag);
+            if (cached) return cached;
+            const Tag = tag as keyof JSX.IntrinsicElements;
+            const Component = ({ children, whileHover: _whileHover, whileTap: _whileTap, animate: _animate, initial: _initial, exit: _exit, transition: _transition, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <Tag {...props}>{children}</Tag>;
+            cache.set(tag, Component);
+            return Component;
+        } }),
+        AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+    };
+});
 const getSessionMock = vi.fn();
 const supabaseClientMock = {
     auth: { getSession: getSessionMock },

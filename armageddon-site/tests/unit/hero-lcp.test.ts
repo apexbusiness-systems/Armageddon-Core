@@ -28,6 +28,12 @@ describe('hero LCP asset contract', () => {
         expect(consoleComponent).toContain('loading="eager"');
     });
 
+    it('links a small tab icon instead of the 483 KB 512px PNG', () => {
+        // Same artwork; the 512px PNG stays for the PWA manifest and JSON-LD logo.
+        expect(layout).toContain("{ url: '/icons/icon-192.png', type: 'image/png', sizes: '192x192' }");
+        expect(layout).not.toContain("{ url: '/icon.png', type: 'image/png'");
+    });
+
     it('does not gate the LCP hero behind an opacity fade-in (delays LCP until hydration)', () => {
         // The hero block must render immediately. An initial opacity:0 entrance
         // animation makes the browser record LCP only after JS hydrates and the
