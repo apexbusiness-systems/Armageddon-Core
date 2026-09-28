@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+// Credentials come from the environment only — never commit them.
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
+
+test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E admin credentials not configured');
+
 test('Admin creates policy without approval prompt', async ({ page }) => {
     await page.goto('http://localhost:3000');
     
@@ -27,8 +33,8 @@ test('Admin creates policy without approval prompt', async ({ page }) => {
     await loginBtn.click();
     
     // Fill credentials in AuthModal
-    await page.locator('input#auth-email').fill('armageddon.test.suite.cert@gmail.com');
-    await page.locator('input#auth-password').fill('Apex143!');
+    await page.locator('input#auth-email').fill(ADMIN_EMAIL);
+    await page.locator('input#auth-password').fill(ADMIN_PASSWORD);
     await page.locator('button[type="submit"]').first().click();
     
     // Wait for the UI to update to logged-in state (tier badge, LOGOUT button, etc.)
