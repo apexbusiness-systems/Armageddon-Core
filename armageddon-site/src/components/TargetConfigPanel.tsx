@@ -58,17 +58,19 @@ export default function TargetConfigPanel() {
         };
     }, []);
 
-    // Avoid a hydration flash: render nothing until the client read completes.
-    if (!hydrated) return null;
-
-    const configured = target !== null;
+    // Until the client read completes, the static HTML carries the unconfigured
+    // panel invisibly (and hidden from assistive tech) so its box is reserved.
+    // Returning null here made hydration insert the whole block and push every
+    // section below it down (measured homepage CLS 0.25). No flash either way.
+    const configured = hydrated && target !== null;
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mx-auto w-full max-w-2xl mb-8 text-left"
+            className={`mx-auto w-full max-w-2xl mb-8 text-left${hydrated ? '' : ' invisible'}`}
+            aria-hidden={hydrated ? undefined : true}
         >
             <h3 className="mono-data text-signal/70 text-sm mb-3 tracking-wider text-center">
                 STEP 1 — TARGET CONFIGURATION
