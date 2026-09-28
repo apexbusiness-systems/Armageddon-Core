@@ -252,6 +252,9 @@ const zhCN: Dictionary = {
             artifactCertificateDesc: '已签名的验证证书',
         },
         console: {
+            heroSubline: '面向 AI 智能体的对抗性测试——以签名、可验证的证据证明您的系统能否经受考验。',
+            heroStartFreeCta: '开始免费试运行',
+            heroSeePricingCta: '查看价格',
             batteryConfigLabel: '测试集配置',
             lockedLabel: '已锁定',
             customBatterySelection: '自定义测试集选择',

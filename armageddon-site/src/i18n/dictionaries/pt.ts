@@ -252,6 +252,9 @@ const pt: Dictionary = {
             artifactCertificateDesc: 'Certificado de verificacao assinado',
         },
         console: {
+            heroSubline: 'Testes adversariais para agentes de IA — evidências assinadas e verificáveis de como seu sistema resiste.',
+            heroStartFreeCta: 'Iniciar teste gratuito',
+            heroSeePricingCta: 'Ver preços',
             batteryConfigLabel: 'Configuracao de Baterias',
             lockedLabel: 'Bloqueado',
             customBatterySelection: 'Selecao de Bateria Personalizada',
