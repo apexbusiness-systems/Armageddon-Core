@@ -16,11 +16,20 @@
  * export build and always restore it afterwards (success or failure).
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { rename } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+    applyPublicBuildEnv,
+    assertExportedStripeLinks,
+    assertRevenueLinks,
+    countDistinctStripeLinks,
+    readPublicVars,
+    resolveExportedPricingHtml,
+    shouldEnforceRevenueGate,
+} from './lib/public-build-env.mjs';
 
 const require = createRequire(import.meta.url);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -41,11 +50,38 @@ async function moveIfExists(from, to) {
     return false;
 }
 
+// Public build config: wrangler.jsonc `vars` is the single source of truth for
+// NEXT_PUBLIC_* values, which Next inlines at BUILD time (the Worker only sees
+// them at runtime). Explicit env values keep priority.
+const buildEnv = { ...process.env, CLOUDFLARE_STATIC_EXPORT: 'true' };
+const filledFromWrangler = applyPublicBuildEnv(
+    readPublicVars(readFileSync(path.join(siteDir, 'wrangler.jsonc'), 'utf8')),
+    buildEnv,
+);
+console.log(`[cf-build] Public build config from wrangler.jsonc vars: ${filledFromWrangler.join(', ') || '(none; all already set)'}`);
+const enforceRevenueGate = shouldEnforceRevenueGate(buildEnv);
+
+/** Revenue gate, part 2: the exported pricing page must carry every paid Payment Link. */
+function checkExportedPricing() {
+    const pricingPath = resolveExportedPricingHtml(path.join(siteDir, 'out'));
+    const html = pricingPath ? readFileSync(pricingPath, 'utf8') : null;
+    if (enforceRevenueGate) {
+        const count = assertExportedStripeLinks(html);
+        console.log(`[cf-build] Revenue gate passed: ${count} distinct Stripe Payment Links in exported pricing page`);
+    } else {
+        const count = html === null ? 0 : countDistinctStripeLinks(html);
+        console.log(`[cf-build] Exported pricing page carries ${count} distinct Stripe Payment Link(s) (gate enforced on CI only)`);
+    }
+}
+
 // Top-level await (this is an ES module): the `finally` block always restores
 // the api segment before the process exits, and `process.exitCode` is used
 // instead of `process.exit()` so the restore is never skipped on failure.
 let stashed = false;
 try {
+    // Revenue gate, part 1: refuse to build a production export whose paid CTAs
+    // would silently fall back to `payment=pending` (fails before any build work).
+    if (enforceRevenueGate) assertRevenueLinks(buildEnv);
     stashed = await moveIfExists(apiDir, stashDir);
     if (stashed) {
         console.log('[cf-build] Excluded src/app/api from static export (dynamic routes run on the worker/Temporal backend)');
@@ -53,8 +89,9 @@ try {
     execFileSync(process.execPath, [nextCli, 'build'], {
         cwd: siteDir,
         stdio: 'inherit',
-        env: { ...process.env, CLOUDFLARE_STATIC_EXPORT: 'true' },
+        env: buildEnv,
     });
+    checkExportedPricing();
 } catch (err) {
     console.error('[cf-build] Static export build failed');
     console.error(err.message ?? err);

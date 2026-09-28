@@ -10,6 +10,7 @@
  */
 
 import type { PlanId } from './pricing';
+import { isValidStripePaymentLink } from './stripe-payment-link.mjs';
 
 const STRIPE_LINKS: Readonly<Record<PlanId, string | undefined>> = {
     'self-serve': undefined,
@@ -28,27 +29,6 @@ const FALLBACK_ROUTES: Readonly<Record<PlanId, string>> = {
     certified: '/onboarding?tier=certified&payment=pending',
     enterprise: '/intake?tier=enterprise',
 };
-
-/**
- * A Payment Link is only honoured when it is an https Stripe URL with a real
- * path — this explicitly rejects `https://stripe.com` and any non-Stripe host.
- */
-function isValidStripePaymentLink(value: string | undefined): value is string {
-    if (!value) return false;
-    let url: URL;
-    try {
-        url = new URL(value);
-    } catch {
-        return false;
-    }
-    if (url.protocol !== 'https:') return false;
-    const host = url.hostname.toLowerCase();
-    const isStripeHost = host === 'buy.stripe.com' || host === 'stripe.com' || host.endsWith('.stripe.com');
-    if (!isStripeHost) return false;
-    // Reject the bare homepage — a real Payment Link always has a path.
-    if (url.pathname === '' || url.pathname === '/') return false;
-    return true;
-}
 
 export interface CheckoutTarget {
     readonly href: string;
