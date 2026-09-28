@@ -24,7 +24,8 @@
 
 The product ships as **two coordinated surfaces**:
 
-1. **Public control plane** (`armageddon-site/`) — a Next.js app deployed as a static export to Cloudflare Workers Assets (`armageddon-site/wrangler.jsonc`). It serves marketing, pricing, onboarding, and an authenticated `/console` workspace. The only dynamic backend reachable at the edge is the Cloudflare Worker in `armageddon-site/src/intake-handler.ts` (`/api/run`, `/api/gatekeeper`, `/api/me/organizations`, `/api/attestation/pubkey`, `/api/omniport/*`, support chat). Every action degrades honestly when a live backend isn't configured for a given deployment — it never fabricates a run, verdict, or certificate.
+1. **Public control plane** (`armageddon-site/`) — a Next.js app deployed as a static export to Cloudflare Workers Assets (`armageddon-site/wrangler.jsonc`). It serves marketing, pricing, onboarding, and an authenticated `/console` workspace. The only dynamic backend reachable at the edge is the Cloudflare Worker in `armageddon-site/src/intake-handler.ts` (`/api/run`, `/api/gatekeeper`, `/api/me/organizations`, `/api/attestation/pubkey`, `/api/leaderboard`, `/api/omniport/*`, support chat). Every action degrades honestly when a live backend isn't configured for a given deployment — it never fabricates a run, verdict, or certificate.
+   Paid plans check out through Stripe Payment Links. Their public URLs live in `wrangler.jsonc` `vars` and are inlined into the static export at build time; CI production builds fail if any paid link is missing (CLAUDE.md Invariant 17). Signed-in buyers' checkout carries their organization UUID (`client_reference_id`). Upgrading a paid workspace (`organizations.current_tier`) is currently a **manual** fulfilment step — there is no Stripe webhook yet.
 2. **Execution engine** (`packages/core/`) — a Node.js Temporal worker + API server that actually drains pending runs and executes adversarial batteries, optionally bridging into a Python engine. It can run locally via the Docker "Moat" (`docker-compose.moat.yml`) or against Temporal Cloud from a hosted process (`packages/core/src/api-server.ts`).
 
 - **Tamper-Evident Receipts**: Every certification report is Ed25519-signed with a SHA-256 Merkle audit tree (RFC 6962). Third parties verify offline with the shipped `verify.mjs` — zero dependencies. The public verification key is served from `/api/attestation/pubkey` on the edge Worker (`handleAttestationPubkey` in `intake-handler.ts`).
@@ -103,7 +104,8 @@ In case of containment breach:
 ├── scripts/                # [OPS] Moat/Cloudflare deploy, kill, verify, doc/level-integrity gates
 │   ├── deploy_moat.ps1     # Local Moat deployment automator
 │   ├── kill_moat.ps1       # Emergency suppression
-│   └── build_cloudflare_static.mjs # Canonical static-export build (excludes src/app/api)
+│   ├── build_cloudflare_static.mjs # Canonical static-export build (excludes src/app/api)
+│   └── lib/public-build-env.mjs    # wrangler.jsonc → NEXT_PUBLIC_* build env + revenue gate
 ├── docs/                   # Documentation hub — start at docs/README.md
 ├── omni-recall/            # Durable agent memory / session audit trail
 └── docker-compose.moat.yml # Local Moat orchestration
@@ -112,17 +114,20 @@ In case of containment breach:
 
 ## ✅ CI QUALITY GATES (ROOT)
 
-Repository-root validation uses npm command entrypoints defined in `package.json` (re-verified green 2026-07-22 — 476 tests passed across `packages/core` and `armageddon-site`, plus a full onboarding→console user-shoes browser validation):
+Repository-root validation uses npm command entrypoints defined in `package.json` (re-verified green 2026-09-28 — 554 tests passed: 226 in `packages/core`, 328 in `armageddon-site`):
 
 ```bash
 npm ci
+npm run docs:check
 npm run lint
 npm run typecheck
 npm run test
 npm run build
 ```
 
-These orchestrate deterministic workspace checks for `packages/shared`, `armageddon-core` (`packages/core`), and `armageddon-site` through root `package.json` scripts. Do not document Bun/Yarn/pnpm commands unless the package-manager contract changes in `package.json`. The public Cloudflare static export is built separately via `node scripts/build_cloudflare_static.mjs` (see `docs/CLOUDFLARE_DEPLOYMENT.md`) — it is not part of the root `npm run build`.
+These orchestrate deterministic workspace checks for `packages/shared`, `armageddon-core` (`packages/core`), and `armageddon-site` through root `package.json` scripts. Do not document Bun/Yarn/pnpm commands unless the package-manager contract changes in `package.json`. The public Cloudflare static export is built separately via `node scripts/build_cloudflare_static.mjs` (see `docs/CLOUDFLARE_DEPLOYMENT.md`) — it is not part of the root `npm run build`. On CI (`CI=true`) that build also enforces the Stripe revenue gate.
+
+**Deploy trigger:** `.github/workflows/deploy-cloudflare.yml` deploys production only on a push to `main` (i.e. a merge) or a manual `workflow_dispatch`. Pull requests never deploy (CLAUDE.md Invariant 16).
 
 ## 📚 DOCUMENTATION HUB
 

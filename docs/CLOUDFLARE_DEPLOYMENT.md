@@ -1,10 +1,10 @@
 # Cloudflare Static Edge Deployment
 
-**Docs version**: 2026.07.04<br>
-**Last reviewed**: 2026-07-04<br>
+**Docs version**: 2026.09.28<br>
+**Last reviewed**: 2026-09-28<br>
 **Deployment surface**: Static Cloudflare edge assets for `armageddon-site`
 
-Armageddon's production-safe execution path remains the local Docker Moat. Cloudflare is used only for the static containment-interface edge surface; Temporal, the Python bridge, service-role operations, and test batteries remain local/Moat-backed.
+Cloudflare serves the static site plus the edge Worker (`src/intake-handler.ts`). Batteries never execute on Cloudflare: production execution runs in `armageddon-exec-api` (Render, `packages/core/Dockerfile.api`) against Temporal Cloud (live-verified 2026-07-22, see `PRODUCTION_STATUS.md`); the local Docker Moat remains the air-gapped Level 8 path.
 
 ## Build
 
@@ -21,17 +21,29 @@ This sets `CLOUDFLARE_STATIC_EXPORT=true`, causing `armageddon-site/next.config.
 `NEXT_PUBLIC_*` values are inlined by Next.js **at build time** — setting them as
 Cloudflare Worker/Pages runtime vars or secrets has **no effect on an
 already-built bundle**. The following must be present in the environment when
-`next build` runs (the `deploy-cloudflare.yml` workflow sets them on the build
-step):
+`next build` runs. Since 2026-09-28, `scripts/build_cloudflare_static.mjs`
+fills every **unset** `NEXT_PUBLIC_*` key from `armageddon-site/wrangler.jsonc`
+`vars` before building (explicit env values — e.g. those set by
+`deploy-cloudflare.yml` — always win; an empty string counts as unset). That makes
+`wrangler.jsonc` the single source of truth for public build config:
 
 | Variable | Value | Why |
 | --- | --- | --- |
 | `NEXT_PUBLIC_ARMAGEDDON_API_BASE` | `https://armageddontest.icu` | Same-origin backend base URL. **If missing, `isApiConfigured()` is `false` and the console silently locks every backed action** — custom batteries show "requires verified tier", runs cannot start, and the attestation badge reads `Evidence signing key unavailable`, regardless of any Worker secret (including `ADMIN_EMAIL`). |
 | `NEXT_PUBLIC_SITE_URL` | `https://armageddontest.icu` | Canonical site URL. |
-| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from secrets | Browser-side Supabase auth. |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from secrets (URL also in `wrangler.jsonc`) | Browser-side Supabase auth. |
+| `NEXT_PUBLIC_STRIPE_LINK_PRO_MONTHLY`, `…_TEAM_MONTHLY`, `…_VERIFIED_REVIEW`, `…_CERTIFIED_GATE`, `…_ENTERPRISE_DEPOSIT` | `wrangler.jsonc` `vars` (public Payment Link URLs) | Without them every paid CTA falls back to `/onboarding?…&payment=pending` and no checkout is possible. |
 
-> The value in `wrangler.jsonc` `vars` is a **Worker runtime** value only; it does
-> not reach the client build. `validate:production-env` warns (non-fatally) when
+**Revenue gate (CLAUDE.md Invariant 17).** When `CI=true`, the build fails
+(a) before building if any of the five Payment Links is missing or not a valid
+Stripe link (`src/lib/stripe-payment-link.mjs`), and (b) after building if
+`out/pricing.html` carries fewer than 5 distinct `buy.stripe.com` links. Local
+builds only log the count. Fix a failure by correcting the link in
+`wrangler.jsonc` `vars` — never by disabling the gate. See `OPS_RUNBOOKS.md` 6.1.
+
+> Outside `build_cloudflare_static.mjs` (e.g. a plain `next build`), `wrangler.jsonc`
+> `vars` are **Worker runtime** values only and do not reach the client bundle.
+> `validate:production-env` warns (non-fatally) when
 > `NEXT_PUBLIC_ARMAGEDDON_API_BASE` is absent.
 
 The gatekeeper admin-override and tier checks additionally require the **Worker**
@@ -57,6 +69,7 @@ shell as a nonexistent path**, not a 404 and not JSON.
 | `/api/gatekeeper` | Yes — `handleGatekeeper` |
 | `/api/run` | Yes — `handleRun` (creates a `pending` row; does **not** call Temporal itself — see below) |
 | `/api/support-chat` | Yes — `handleSupportChat` (ATLAS) |
+| `/api/leaderboard` | Yes — `handleLeaderboard` (anonymized; renders the static `SAMPLE` board unless the query succeeds) |
 | `/api/attestation/pubkey` | **Yes — since PR #184 (2026-07-06)** — `handleAttestationPubkey` in `intake-handler.ts` (CLAUDE.md Invariant 13). WebCrypto Ed25519 derivation, formula-identical to `packages/shared/src/attestation-key.ts`; fail-closed 503 when `ARMAGEDDON_ATTESTATION_SEED` is missing/malformed. (Before 2026-07-06 this route was NOT served: it returned the SPA shell, confirmed live 2026-07-04. The Next.js route at `armageddon-site/src/app/api/attestation/pubkey/route.ts` remains unreachable on the static export — the Worker is the production surface.) |
 | `/api/omniport/execute`, `/api/omniport/live-fire`, `/api/omniport/control`, `/api/omniport/waiver`, `/api/omniport/telemetry` | **No.** Same as above — the Next.js route files under `armageddon-site/src/app/api/omniport/` are static-export-only and never served here. |
 
@@ -69,8 +82,8 @@ not committed to this repository and is UNVERIFIED.** `docker-compose.yml`
 a committed Render Blueprint (`render.yaml`, added 2026-07-05, running
 `packages/core/Dockerfile.api`) now exists and defines a candidate production
 target for `api-server.ts` — the "no committed cloud config" claim below is
-stale. Whether that Render service is actually deployed and reachable in
-production remains UNVERIFIED from repository state alone. Do not assume these
+stale. That Render service (`armageddon-exec-api`) was live-verified end-to-end on
+2026-07-22 (`PRODUCTION_STATUS.md`); its current state needs a fresh check. Do not assume these
 routes are reachable at `https://armageddontest.icu` in production without
 fresh operator evidence (see `PRODUCTION_STATUS.md`).
 
@@ -95,6 +108,15 @@ node scripts/deploy_cloudflare_static.mjs
 ```
 
 The deploy script uploads the generated `armageddon-site/out` assets to Cloudflare Workers Static Assets through the Cloudflare API and enables the `workers.dev` route for verification.
+
+### CI deploy trigger (CLAUDE.md Invariant 16)
+
+`.github/workflows/deploy-cloudflare.yml` runs `npm run deploy:cloudflare` only on
+a push to `main` (a merge) or a manual `workflow_dispatch`. Pull requests run the
+workflow but the `deploy` job is skipped; PR build verification lives in `ci.yml`.
+Between 2026-07-22 and 2026-09-28 this workflow was invalid (a `needs:` pointing at
+a job in `ci.yml`) and failed on every run; production in that window was deployed
+manually with `scripts/run_deploy_cf.mjs`.
 
 ## Required evidence before release approval
 

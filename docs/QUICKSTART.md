@@ -1,7 +1,7 @@
 # Armageddon Quick Start
 
-**Docs version**: 2026.05.15<br>
-**Last reviewed**: 2026-05-15<br>
+**Docs version**: 2026.09.28<br>
+**Last reviewed**: 2026-09-28<br>
 **Primary package manager**: npm<br>
 **Verified against**: root `package.json`, `packages/core/package.json`, `armageddon-site/package.json`
 
@@ -19,13 +19,28 @@ Use this guide for local development and first-run validation. Run commands from
 
 ```bash
 npm ci
+npm run docs:check
 npm run lint
 npm run typecheck
 npm run test
 npm run build
 ```
 
-Expected result: all workspace checks complete without TypeScript, ESLint, test, or build failures.
+Expected result: all workspace checks complete without TypeScript, ESLint, test, or build failures (these mirror `.github/workflows/ci.yml`).
+
+### Production artifact (Cloudflare static export)
+
+```bash
+cd armageddon-site
+node ../scripts/build_cloudflare_static.mjs          # local: logs the Stripe link count
+CI=true node ../scripts/build_cloudflare_static.mjs  # CI mode: enforces the revenue gate
+```
+
+Public `NEXT_PUBLIC_*` values (API base, Supabase URL, the five Stripe Payment Links) are filled from `armageddon-site/wrangler.jsonc` `vars` when not already set. See `docs/CLOUDFLARE_DEPLOYMENT.md`.
+
+### Playwright E2E (optional, not run in CI)
+
+Admin-credential specs skip unless `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` are exported in your shell (key names are in `armageddon-site/.env.example`; never commit values).
 
 ## Run the site locally
 
@@ -76,6 +91,7 @@ PowerShell operators can use the deployment wrapper documented in `DEPLOYMENT.md
 | `/api/run` fails to enqueue | Temporal is unavailable | Check worker logs and Temporal port `7233` | Start Docker Moat stack and worker. |
 | Auth button does nothing | Supabase public env vars missing | Browser console logs Supabase initialization warning | Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. |
 | Rate-limit check fails during build | Service role credentials not available in local build | Build logs mention missing Supabase credentials | Expected for static/local builds unless testing server-side quota paths. |
+| Paid pricing CTAs show `payment=pending` locally | `next dev` / plain `next build` do not read `wrangler.jsonc` `vars` | `grep -c buy.stripe.com` on the built pricing page | Expected in dev. Use the static export build above, or export the `NEXT_PUBLIC_STRIPE_LINK_*` values. |
 | Shared package imports fail | `packages/shared` not built | Check `packages/shared/dist/` | Run `npm ci` or `npm run build:shared`. |
 
 ## Canonical follow-up docs

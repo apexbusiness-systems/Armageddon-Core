@@ -22,6 +22,14 @@
 > only the "edge Worker dispatches directly" half is stale. See
 > `PRODUCTION_STATUS.md` 2026-07-22 entry for the verification evidence.
 
+> **NOTE — 2026-09-28:** `.github/workflows/deploy-cloudflare.yml` was invalid
+> from 2026-07-22 to 2026-09-28 (a cross-workflow `needs:`) and failed on every run,
+> so no CI deploy could "pick up" wiring in that window; production was deployed
+> manually. Fixed on branch `claude/intelligent-shannon-2zmczs`: after merge, a push
+> to `main` deploys (pull requests never do) and the `:84` line reference above is
+> stale — the API base is set in the "Build and deploy Cloudflare production edge"
+> step. See `docs/CLOUDFLARE_DEPLOYMENT.md` → CI deploy trigger.
+
 # Runbook — Deploy the ARMAGEDDON Execution Engine (Node API/dispatcher + Temporal worker)
 
 **Purpose:** make certification runs actually execute instead of hanging at `EXECUTING 0/13`.

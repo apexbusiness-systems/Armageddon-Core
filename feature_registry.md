@@ -1,10 +1,35 @@
 # Feature Registry — ARMAGEDDON Test Suite
 
-**Docs version**: 2026.07.26<br>
-**Last updated**: 2026-07-26<br>
+**Docs version**: 2026.09.28<br>
+**Last updated**: 2026-09-28<br>
 **Scope**: Armageddon Level 7 certification engine surfaces verified against `packages/core/src/temporal/activities.ts`, `packages/core/src/temporal/workflows.ts`, `packages/core/src/core/attestation.ts`, and `packages/shared/src/gate.ts`. Also covers Cloudflare edge surfaces in `armageddon-site/src/intake-handler.ts`, the standalone API runtime in `packages/core/src/api-server.ts`, site pages and Playwright E2E suites under `armageddon-site/`.
 
-## Domain: Release Gate & E2E Testing Suite (NEW — PRs #213–#215, 2026-07-26)
+## Domain: Revenue Path & Deploy Safety (NEW — Revenue Rescue P1, 2026-09-28)
+
+- **Feature:** Build-time public config + CI revenue gate
+  - **Location:** `scripts/build_cloudflare_static.mjs`; `scripts/lib/public-build-env.mjs`; `armageddon-site/src/lib/stripe-payment-link.mjs`; `armageddon-site/tests/unit/public-build-env.test.ts`
+  - **Scope:** Fills unset `NEXT_PUBLIC_*` (incl. the five Stripe Payment Links) from `wrangler.jsonc` `vars` at build time; on CI, fails the build when a paid link is missing/invalid or the exported pricing page has < 5 distinct links. Single shared Payment Link validity rule. (CLAUDE.md Invariant 17)
+  - **Status:** Implemented; CI-mode static export verified at 5 links.
+
+- **Feature:** Checkout attribution
+  - **Location:** `armageddon-site/src/lib/payment-links.ts` (`withCheckoutContext`); `armageddon-site/src/lib/active-org.ts`; `armageddon-site/src/app/pricing/PricingPageClient.tsx`
+  - **Scope:** Signed-in buyers' Stripe links carry `client_reference_id` (org UUID) and `prefilled_email`; honest fulfilment note (7 locales). Fulfilment itself is manual (`OPS_RUNBOOKS.md` 6.2); no webhook yet.
+  - **Status:** Implemented.
+
+- **Feature:** Production deploy gate
+  - **Location:** `.github/workflows/deploy-cloudflare.yml`; `armageddon-site/tests/unit/deploy-workflow-gate.test.ts`
+  - **Scope:** Production deploys only on push to `main` or `workflow_dispatch`; PRs never deploy. Removed an invalid cross-workflow `needs:` that had failed every run since 2026-07-22. (Invariant 16)
+  - **Status:** Implemented.
+
+- **Feature:** Homepage value proposition
+  - **Location:** `armageddon-site/src/components/DestructionConsole.tsx` (`marketingHero`); `armageddon-site/src/app/page.tsx`; `armageddon-site/src/components/TargetConfigPanel.tsx`
+  - **Scope:** Visible single H1 + subline + "Start free dry run" / "See pricing" CTAs; tier-lock overlay scoped to Step 2 so free Step 1 stays usable; hydration layout shift removed (local CLS 0.249 → 0.000).
+  - **Status:** Implemented.
+
+- **Feature:** Funnel events (`pricing_viewed`, `checkout_clicked`, `signup_completed`, `dry_run_started`)
+  - **Status:** Not implemented — no client-callable event pipeline exists; blocked pending owner approval to add one.
+
+## Domain: Release Gate & E2E Testing Suite (PRs #213–#215, 2026-07-26)
 
 - **Feature:** Playwright E2E Verification Suite
   - **Location:** `armageddon-site/playwright.config.ts`; `armageddon-site/e2e/` (`stripe-revenue-gate.spec.ts`, `initiate-sequence.spec.ts`, `atlas-support.spec.ts`, `oauth-login.spec.ts`, `docs-link-regression.spec.ts`)
@@ -13,8 +38,8 @@
 
 - **Feature:** Search Engine Indexing Protection (armageddontest.icu)
   - **Location:** `armageddon-site/public/robots.txt`; `armageddon-site/public/_headers`; `armageddon-site/tests/unit/seo-discoverability.test.ts`
-  - **Scope:** Strict indexing shield on test environment. `robots.txt` sets `Disallow: /`; `_headers` sets `X-Robots-Tag: noindex, nofollow, noarchive`.
-  - **Status:** Implemented (PR #215).
+  - **Scope:** Originally (PR #215) a full indexing block (`Disallow: /`, `X-Robots-Tag: noindex`). **Superseded by `13aaa1d` (2026-09-06):** indexing is enabled — `robots.txt` allows public pages and disallows `/console`, `/onboarding`, `/auth/`; `layout.tsx` sets `robots: { index: true, follow: true }`. Verified in repo and live on 2026-09-28.
+  - **Status:** Superseded (indexing enabled).
 
 - **Feature:** Automated Stripe Provisioning Tool
   - **Location:** `scripts/provision-stripe.mjs`

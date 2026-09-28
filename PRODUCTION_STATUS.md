@@ -1,7 +1,7 @@
 # Armageddon Production Release Posture
 
 > **DOCS VERSION**: 2026.07.26<br>
-> **LAST REVIEWED**: 2026-07-26<br>
+> **LAST REVIEWED**: 2026-09-28<br>
 > **STATUS SCOPE**: Repository-verified production readiness, cross-checked against LIVE Render + Cloudflare deployment state where marked "live-verified"<br>
 > **OPERATOR**: Proprietary Moat
 
@@ -17,10 +17,10 @@ This status file reports what can be proven from the repository checkout. Public
 | Shared package | Defined | `packages/shared/package.json` exposes `build`, `typecheck`, and `lint`. |
 | Temporal worker/core | Defined | `packages/core/package.json` exposes `worker`, `build`, `typecheck`, `lint`, and non-e2e `test`. |
 | Next.js site | Defined | `armageddon-site/package.json` exposes `dev`, `build`, `start`, `test`, `lint`, `typecheck`, `build:cloudflare`, and `deploy:cloudflare`. |
-| Playwright E2E Test Suite | Defined | `armageddon-site/playwright.config.ts` and `armageddon-site/e2e/` (Stripe Revenue Gate, Initiate Sequence, ATLAS support, OAuth login, Docs link regression). |
-| Search Indexing Hardening | Defined | `armageddon-site/public/robots.txt` (`Disallow: /`), `public/_headers` (`X-Robots-Tag: noindex, nofollow, noarchive`), and `tests/unit/seo-discoverability.test.ts`. |
+| Playwright E2E Test Suite | Defined, not run in CI | `armageddon-site/playwright.config.ts` and `armageddon-site/e2e/` (Stripe Revenue Gate, Initiate Sequence, ATLAS support, OAuth login, Docs link regression). No workflow runs Playwright; the enforced revenue check is the CI build gate (below). Admin-credential specs skip unless `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set. |
+| Search indexing | Enabled (verified in repo + live 2026-09-28) | `armageddon-site/public/robots.txt` allows public pages, disallows `/console`, `/onboarding`, `/auth/`; `layout.tsx` sets `robots: { index: true, follow: true }`. The PR #215 full block was reverted by `13aaa1d` (2026-09-06). |
 | Local Moat orchestration | Defined | `docker-compose.moat.yml` and `scripts/deploy_moat.*` remain the local execution path. |
-| Static Cloudflare edge | Defined | `armageddon-site/wrangler.jsonc`, `scripts/deploy_cloudflare_static.mjs`, and `docs/CLOUDFLARE_DEPLOYMENT.md` define static asset deployment. |
+| Static Cloudflare edge | Defined; CI deploy restored 2026-09-28 (on merge to `main` only) | `armageddon-site/wrangler.jsonc`, `scripts/build_cloudflare_static.mjs` (inlines public `vars`, CI revenue gate: ≥ 5 Stripe links), `scripts/deploy_cloudflare_static.mjs`, `.github/workflows/deploy-cloudflare.yml`, `docs/CLOUDFLARE_DEPLOYMENT.md`. The workflow was invalid 2026-07-22 → 2026-09-28; production in that window was deployed manually. |
 | ATLAS support-chat edge endpoint | Defined, KV bound | `armageddon-site/src/intake-handler.ts` → `handleSupportChat`. `armageddon-site/wrangler.jsonc` carries a real `RATE_LIMIT_KV` namespace id (not the `REPLACE_WITH_KV_NAMESPACE_ID` placeholder) as of 2026-07-05. Requires `ANTHROPIC_API_KEY` secret. See `docs/CLOUDFLARE_DEPLOYMENT.md` and `CLAUDE.md`. See OPS runbook 5.2. |
 | Support chat / privacy pages | Defined | `armageddon-site/src/app/support/page.tsx` and `armageddon-site/src/app/privacy/page.tsx` shipped in PR #143. |
 | Render deployment | **Live-verified 2026-07-22** | `render.yaml` (root) defines `armageddon-exec-api`, a free-tier web service running `packages/core/Dockerfile.api` (api-server + Temporal worker), auto-deploying from `main`. Confirmed directly via the Render API: latest deploy for commit `e833cd5` has `status:live`; `GET https://armageddon-exec-api.onrender.com/api/omniport/health` returns `temporalConnected:true, supabaseConnected:true`. |
@@ -93,6 +93,7 @@ docker compose -f docker-compose.moat.yml --env-file .env.moat up -d --build
 
 | Date | Decision | Evidence |
 | --- | --- | --- |
+| 2026-09-28 | **Revenue rescue P1:** (a) `deploy-cloudflare.yml` was invalid (cross-workflow `needs`) and failed every run from 2026-07-22 to 2026-09-28 — production in that window was deployed manually from a local env file; fixed, and pull requests can no longer deploy (Invariant 16). (b) CI static exports shipped paid CTAs on `payment=pending` because Stripe links were runtime-only; build now inlines them from `wrangler.jsonc` and a CI revenue gate fails builds with < 5 links (Invariant 17). (c) Checkout links carry org UUID + email for signed-in buyers. (d) Committed E2E password removed (Invariant 18; rotation is an owner action). (e) Homepage: visible value proposition + CTAs; CLS 0.249 → 0.000 (local measurement). Automated Stripe fulfilment (webhook → `current_tier`) is NOT implemented: paid upgrades are manual. | `docs/audits/REVENUE_RESCUE_2026-09-28.md` |
 | 2026-07-26 | **Phase 1 Access Hardening (armageddontest.icu):** Protected test environment search engine exposure by locking `robots.txt` (`Disallow: /`) and setting `_headers` response header (`X-Robots-Tag: noindex, nofollow, noarchive`). Verified via updated `seo-discoverability.test.ts`. | PR #215 (`5379a55`); `armageddon-site/public/robots.txt`; `armageddon-site/public/_headers`. |
 | 2026-07-26 | **APEX-CCASP-v1 Remediation (Playwright E2E Suite & Stripe Gate):** Shipped comprehensive E2E test suite covering live Stripe checkout routing (`stripe-revenue-gate.spec.ts`), Initiate Sequence honest gating (`initiate-sequence.spec.ts`), ATLAS support chat (`atlas-support.spec.ts`), OAuth login (`oauth-login.spec.ts`), and docs link regression (`docs-link-regression.spec.ts`). Shipped automated Stripe provisioning tool `scripts/provision-stripe.mjs`. | PR #214 (`19531af`); `armageddon-site/e2e/`; `scripts/provision-stripe.mjs`. |
 | 2026-07-26 | **ARMAGEDDON-CORE Release Gate Audit v1:** Fixed Docker build bundle limits, decoupled workflow bundle from `@armageddon/shared` barrel, enforced level-integrity regex matching, and resolved SonarQube code smells and security hotspots in core activities. | PR #213 (`6b03c06`); `packages/core/Dockerfile.api`; `packages/core/src/api-server.ts`. |

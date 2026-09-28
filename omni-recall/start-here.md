@@ -1,6 +1,6 @@
 ---
 version: 1.5.0
-last_audited: 2026-07-26
+last_audited: 2026-09-28
 status: verified
 ---
 
@@ -16,6 +16,8 @@ If a future run needs the user's durable memory, this directory is the default e
 4. `do-not-do.md`
 5. `default-use-rule.md`
 
+Current repo-state snapshot (what the repo is right now): `.understand-anything/CANONICAL_STATE_2026-09-28.md`.
+
 ## Usage Rule
 
 Use Omni-Recall by default for continuity, correction memory, and durable operating preferences unless the user explicitly supersedes it.
@@ -30,6 +32,12 @@ The system should:
 - remain honest about missing access or incomplete backfill
 
 ## Last Verified Session
+
+- Audit date: 2026-09-28 — Revenue Rescue P1 (see `2026-09-28-revenue-rescue-p1.md` and `docs/audits/REVENUE_RESCUE_2026-09-28.md`)
+- Key facts: deploy workflow was invalid 2026-07-22 → 2026-09-28 (production deployed manually); fixed and PRs can no longer deploy. CI builds now inline Stripe links from `wrangler.jsonc` behind a revenue gate. Checkout carries org UUID. Committed E2E password removed (rotation pending, owner). Homepage value proposition visible; CLS 0.249 → 0.000. Stripe fulfilment remains manual; funnel events blocked pending approval.
+- Durable correction: verify a finding against the live site before treating it as live-true.
+
+## Previous Verified Session (2026-07-26 — CCASP remediation)
 
 - Audit date: 2026-07-26 — CCASP Remediation (Release Gate Audit v1 + Playwright E2E Suite + Phase 1 Access Hardening — see `2026-07-26-ccasp-remediation-and-access-hardening.md`)
 - Key facts:
