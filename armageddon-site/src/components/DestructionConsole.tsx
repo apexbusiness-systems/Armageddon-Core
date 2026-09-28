@@ -980,48 +980,52 @@ export default function DestructionConsole({
                         </div>
                     )}
 
-                    <div id="console-step-1" tabIndex={-1} className="mt-[calc(2rem+2cm)] mb-6 relative scroll-mt-24 focus:outline-none">
+                    <div id="console-step-1" tabIndex={-1} className="mt-[calc(2rem+2cm)] mb-6 scroll-mt-24 focus:outline-none">
                         <TargetConfigPanel />
-                        <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">STEP 2 — BATTERY CONFIGURATION</h3>
-                        {!canCustomize && (
-                            <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
-                                {/* Meaningful copy sits on a solid high-contrast panel — never
-                                    behind the blur — and the CTA is a real, focusable link.
-                                    Honest copy: distinguish "no backend on this deployment"
-                                    from a genuine tier gate, so the lock is never misread. */}
-                                {backendConnected ? (
-                                    <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
-                                        <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3 uppercase">{t.lockedLabel}</p>
-                                        <p className="mono-data text-signal text-sm">{t.customBatterySelection}</p>
-                                        <p className="mono-small text-signal/80 mt-1">{t.requiresVerifiedTier}</p>
-                                        <a
-                                            href="/pricing?upgrade=verified"
-                                            className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
-                                        >
-                                            {t.viewPricing}
-                                        </a>
-                                    </div>
-                                ) : (
-                                    <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--destructive)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
-                                        <p className="mono-small tracking-[0.3em] text-[var(--destructive)] mb-3 uppercase">{t.backendNotConnectedLabel}</p>
-                                        <p className="mono-data text-signal text-sm">{t.noLiveBackendDesc}</p>
-                                        <p className="mono-small text-signal/80 mt-1">{t.configStateNotice}</p>
-                                        <a
-                                            href="/pricing"
-                                            className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
-                                        >
-                                            {t.requestAccess}
-                                        </a>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        <BatterySelector
-                            selectedBatteries={selectedBatteries}
-                            canCustomize={canCustomize}
-                            isRunning={isRunning}
-                            toggleBattery={toggleBattery}
-                        />
+                        {/* Step 2 only: the tier lock overlay (absolute inset-0) must never cover
+                            Step 1 — target setup is free and is where "Start free dry run" lands. */}
+                        <div className="relative">
+                            <h3 className="mono-data text-signal/70 text-sm mb-4 tracking-wider">STEP 2 — BATTERY CONFIGURATION</h3>
+                            {!canCustomize && (
+                                <div className="absolute inset-0 z-10 bg-void/70 backdrop-blur-sm flex items-center justify-center">
+                                    {/* Meaningful copy sits on a solid high-contrast panel — never
+                                        behind the blur — and the CTA is a real, focusable link.
+                                        Honest copy: distinguish "no backend on this deployment"
+                                        from a genuine tier gate, so the lock is never misread. */}
+                                    {backendConnected ? (
+                                        <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--aerospace)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
+                                            <p className="mono-small tracking-[0.3em] text-[var(--aerospace)] mb-3 uppercase">{t.lockedLabel}</p>
+                                            <p className="mono-data text-signal text-sm">{t.customBatterySelection}</p>
+                                            <p className="mono-small text-signal/80 mt-1">{t.requiresVerifiedTier}</p>
+                                            <a
+                                                href="/pricing?upgrade=verified"
+                                                className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                            >
+                                                {t.viewPricing}
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-5 mx-4 max-w-xs bg-black/90 border border-[var(--destructive)]/60 rounded-sm shadow-[0_0_24px_rgba(255,80,0,0.15)]">
+                                            <p className="mono-small tracking-[0.3em] text-[var(--destructive)] mb-3 uppercase">{t.backendNotConnectedLabel}</p>
+                                            <p className="mono-data text-signal text-sm">{t.noLiveBackendDesc}</p>
+                                            <p className="mono-small text-signal/80 mt-1">{t.configStateNotice}</p>
+                                            <a
+                                                href="/pricing"
+                                                className="btn-secondary inline-block mt-4 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--aerospace)]"
+                                            >
+                                                {t.requestAccess}
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <BatterySelector
+                                selectedBatteries={selectedBatteries}
+                                canCustomize={canCustomize}
+                                isRunning={isRunning}
+                                toggleBattery={toggleBattery}
+                            />
+                        </div>
                     </div>
 
                     <div className="mt-8">

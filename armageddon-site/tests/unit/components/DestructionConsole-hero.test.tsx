@@ -66,6 +66,16 @@ describe('DestructionConsole marketing hero', () => {
         expect(screen.getByRole('link', { name: en.home.console.heroSeePricingCta })).toHaveAttribute('href', '/pricing');
     });
 
+    it('never places the Step 2 tier-lock overlay over Step 1 (free target setup)', async () => {
+        const { container } = render(<I18nProvider><DestructionConsole standalone marketingHero /></I18nProvider>);
+        const configureTarget = await screen.findByRole('link', { name: 'Configure target' });
+        const overlay = container.querySelector('.absolute.inset-0.backdrop-blur-sm');
+        expect(overlay).not.toBeNull();
+        // The overlay covers its positioned parent; Step 1 must sit outside it.
+        expect(overlay?.parentElement?.contains(configureTarget)).toBe(false);
+        expect(document.getElementById('console-step-1')?.contains(configureTarget)).toBe(true);
+    });
+
     it('keeps the accessible-only H1 and no hero on the workspace console', () => {
         render(<I18nProvider><DestructionConsole standalone /></I18nProvider>);
         const headings = screen.getAllByRole('heading', { level: 1 });
