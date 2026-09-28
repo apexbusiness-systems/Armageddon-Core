@@ -28,9 +28,14 @@ env:
 
 jobs:
   deploy:
-    needs: [cloudflare-local-build]
     name: Build & Deploy to Cloudflare Workers
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Production deploys ONLY from main (push) or an explicit manual dispatch.
+    # Pull requests must never deploy to production — the pull_request trigger
+    # is kept solely so each PR run visibly records this job as "skipped".
+    # (A former `needs: [cloudflare-local-build]` referenced a job that lives in
+    # ci.yml; cross-workflow `needs` is invalid and failed every run of this
+    # workflow at parse time. PR build verification stays in ci.yml.)
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
